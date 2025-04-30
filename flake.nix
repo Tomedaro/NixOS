@@ -53,16 +53,16 @@
       terminal = "kitty"; # kitty, alacritty, wezterm
       terminalFileManager = "yazi"; # yazi or lf
       sddmTheme = "purple_leaves"; # astronaut, black_hole, purple_leaves, jake_the_dog, hyprland_kath
-      wallpaper = "Train.jpg"; # see modules/themes/wallpapers
+      wallpaper = "cyberpunk.jpg"; # see modules/themes/wallpapers
 
       # System configuration
-      videoDriver = "nvidia"; # CHOOSE YOUR GPU DRIVERS (nvidia or amdgpu or intel) THIS IS IMPORTANT
+      videoDriver = "intel"; # CHOOSE YOUR GPU DRIVERS (nvidia or amdgpu or intel) THIS IS IMPORTANT
       hostname = "NixOS"; # CHOOSE A HOSTNAME HERE
       locale = "en_GB.UTF-8"; # CHOOSE YOUR LOCALE
-      timezone = "Europe/London"; # CHOOSE YOUR TIMEZONE
-      kbdLayout = "gb"; # CHOOSE YOUR KEYBOARD LAYOUT
-      kbdVariant = "extd"; # CHOOSE YOUR KEYBOARD VARIANT (Can leave empty)
-      consoleKeymap = "uk"; # CHOOSE YOUR CONSOLE KEYMAP (Affects the tty?)
+      timezone = "Europe/Paris"; # CHOOSE YOUR TIMEZONE
+      kbdLayout = "us"; # CHOOSE YOUR KEYBOARD LAYOUT
+      kbdVariant = "colemak_dh"; # CHOOSE YOUR KEYBOARD VARIANT (Can leave empty)
+      consoleKeymap = "colemak_dh"; # CHOOSE YOUR CONSOLE KEYMAP (Affects the tty?)
     };
 
     systems = [
