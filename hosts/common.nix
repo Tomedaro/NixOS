@@ -18,6 +18,11 @@
     inputs.nix-index-database.nixosModules.nix-index
   ];
 
+  swapDevices = [
+    # add a swap file (e.g., 8gb) - adjust size as needed (in mib)
+    { device = "/swapfile"; size = 8192; }
+  ];
+
   programs.nix-index-database.comma.enable = true;
 
   users.users.${username} = {
@@ -59,6 +64,13 @@
       # Packages that don't require configuration. If you're looking to configure a program see the /modules dir
       home.packages = with pkgs; [
         # Applications
+        google-chrome
+        anki-bin
+        obsidian
+        steam
+        protonup-qt
+        anki-sync-server
+        telegram-desktop
         #kate
 
         # Terminal
@@ -100,22 +112,45 @@
       efi.efiSysMountPoint = "/boot";
       timeout = null; # Display bootloader indefinitely until user selects OS
       grub = {
-        enable = true;
-        device = "nodev";
-        efiSupport = true;
-        useOSProber = true;
-        gfxmodeEfi = "2715x1527"; # for 4k: 3840x2160
-        gfxmodeBios = "2715x1527"; # for 4k: 3840x2160
+       enable = true;
+       device = "nodev";
+       efiSupport = true;
+       useOSProber = false; # <-- Set to false
+       extraEntries = ''
+         menuentry "Arch Linux" {
+           search --no-floppy --fs-uuid --set=root 0b608695-3b2f-4dd6-a56a-c5ce7dc8a7cd
+           echo 'Loading Arch' # <-- Fixed quote
+           linux (hd0,gpt1)/vmlinuz-linux root=UUID=0b608695-3b2f-4dd6-a56a-c5ce7dc8a7cd rw quiet loglevel=3
+           initrd (hd0,gpt1)/initramfs-linux.img
+         }
+       '';
+       gfxmodeEfi = "1920x1080";
+       gfxmodeBios = "1920x1080";
+              # In your configuration.nix, inside boot.loader.grub = { ... };
         theme = pkgs.stdenv.mkDerivation {
-          pname = "distro-grub-themes";
-          version = "3.1";
+          pname = "minegrub-world-sel-theme"; # Correct name
+          version = "git";
+
           src = pkgs.fetchFromGitHub {
-            owner = "AdisonCavani";
-            repo = "distro-grub-themes";
-            rev = "v3.1";
-            hash = "sha256-ZcoGbbOMDDwjLhsvs77C7G7vINQnprdfI37a9ccrmPs=";
+            owner = "Lxtharia";
+            repo = "minegrub-world-sel-theme";
+            # The specific commit hash you want to use
+            rev = "5c2f5c3fb9ba9f7a633881943240f376c754553f";
+
+            # Step 1: Use this placeholder. Run nixos-rebuild switch. It will fail.
+            hash = "sha256-gMaQkkI8e45AR/fbVE/rpJftwXUINuR2mrce1zpge70=";
+            # Step 2: Copy the 'got: sha256-...' hash from the error message.
+            # Step 3: Replace hash = ""; with the correct hash, e.g.:
+            # hash = "sha256-YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY=";
           };
-          installPhase = "cp -r customize/nixos $out";
+
+          # This installPhase copies files from the theme's subdirectory in the source repo
+          installPhase = ''
+            mkdir -p $out
+            cp -r ./minegrub-world-selection/* $out/
+            # Optional: If theme needs assets, also copy them (check theme docs/files)
+            # if [ -d ./assets ]; then cp -r ./assets/* $out/; fi
+          '';
         };
       };
     };
@@ -151,7 +186,7 @@
 
   xdg.portal = {
     enable = true;
-    extraPortals = with pkgs; [xdg-desktop-portal-gtk];
+    extraPortals = with pkgs; [ xdg-desktop-portal-gtk xdg-desktop-portal-hyprland ];
   };
 
   # Enable dconf for home-manager
@@ -206,7 +241,13 @@
     alsa.enable = true;
     alsa.support32Bit = true;
     pulse.enable = true;
-    wireplumber.enable = true;
+    wireplumber = {
+      enable = true;
+    configPackages = [
+  (pkgs.writeTextDir "share/wireplumber/wireplumber.conf.d/11-bluetooth-policy.conf" ''
+    bluetooth.autoswich-to-headset-profile = false'')
+      ];
+    };
   };
 
   services.xserver.enable = true; # Enable the X11 windowing system.
@@ -283,11 +324,6 @@
   };
   */
 
-  # Open ports in the firewall.
-  # networking.firewall.allowedTCPPorts = [ ... ];
-  # networking.firewall.allowedUDPPorts = [ ... ];
-  # Or disable the firewall altogether.
-  # networking.firewall.enable = false;
 
   programs = {
     nh = {

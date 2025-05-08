@@ -458,7 +458,6 @@ fi
 
 # Format partitions
 echo -e "\n${GREEN}Formatting partitions...${NC}"
-mkfs.fat -F32 "/dev/$part_boot"
 if [ "$filesystem" = "ext4" ]; then
   mkfs.ext4 -F "$root_device"
 elif [ "$filesystem" = "btrfs" ]; then

@@ -35,14 +35,35 @@
     ../../modules/programs/media/discord
     ../../modules/programs/media/spicetify
     ../../modules/programs/media/thunderbird
-    # ../../modules/programs/media/obs-studio
+    ../../modules/programs/media/obs-studio
     ../../modules/programs/media/mpv
     ../../modules/programs/misc/tlp
     ../../modules/programs/misc/thunar
+    ../../modules/programs/anki
+    ../../modules/services/syncthing/default.nix
+
+
     # ../../modules/programs/misc/nix-ld
     ../../modules/programs/misc/virt-manager
-    # ../../modules/programs/misc/lact # gpu power and fan control (WIP)
+    ../../modules/programs/misc/lact # gpu power and fan control (WIP)
   ];
+  
+
+   # Open ports in the firewall.
+  networking.firewall = {
+    enable = true;
+    allowedTCPPortRanges = [
+      {from = 1714; to = 1764;}
+    ];
+    allowedUDPPortRanges =  [
+      {from = 1714; to = 1764;}
+    ];
+    allowedTCPPorts = [ 27701 ];
+  };
+  programs.kdeconnect.enable = true;
+
+
+
 
   # Home-manager config
   home-manager.sharedModules = [

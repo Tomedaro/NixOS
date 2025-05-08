@@ -8,30 +8,21 @@
     [ (modulesPath + "/installer/scan/not-detected.nix")
     ];
 
-  boot.initrd.availableKernelModules = [ "xhci_pci" "ahci" "uas" "usbhid" "usb_storage" "sd_mod" ];
+  boot.initrd.availableKernelModules = [ "xhci_pci" "thunderbolt" "nvme" "usb_storage" "sd_mod" "rtsx_pci_sdmmc" ];
   boot.initrd.kernelModules = [ ];
   boot.kernelModules = [ "kvm-intel" ];
   boot.extraModulePackages = [ ];
 
   fileSystems."/" =
-    { device = "/dev/disk/by-uuid/103db727-090c-4ed9-8d39-c13210ccd81e";
-      fsType = "btrfs";
+    { device = "/dev/disk/by-uuid/f6e66af9-6e34-4a5d-a770-04774d02acd6";
+      fsType = "ext4";
     };
 
-  boot.initrd.luks.devices."luks-root".device = "/dev/disk/by-uuid/ff2b191a-a1df-42db-9318-50c512df7c57";
-
   fileSystems."/boot" =
-    { device = "/dev/disk/by-uuid/C97E-F035";
+    { device = "/dev/disk/by-uuid/9CF8-A52C";
       fsType = "vfat";
       options = [ "fmask=0022" "dmask=0022" ];
     };
-
-  fileSystems."/home" =
-    { device = "/dev/disk/by-uuid/ae70ee0a-61ec-4f51-8230-8250500028e5";
-      fsType = "btrfs";
-    };
-
-  boot.initrd.luks.devices."luks-home".device = "/dev/disk/by-uuid/c7b137a5-1f97-4bcf-b631-ef4c4afdee7c";
 
   swapDevices = [ ];
 
@@ -40,7 +31,8 @@
   # still possible to use this option, but it's recommended to use it in conjunction
   # with explicit per-interface declarations with `networking.interfaces.<interface>.useDHCP`.
   networking.useDHCP = lib.mkDefault true;
-  # networking.interfaces.enp0s31f6.useDHCP = lib.mkDefault true;
+  # networking.interfaces.enp0s13f0u1.useDHCP = lib.mkDefault true;
+  # networking.interfaces.wlp0s20f3.useDHCP = lib.mkDefault true;
 
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
   hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;

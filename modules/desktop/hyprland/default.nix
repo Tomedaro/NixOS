@@ -4,12 +4,12 @@
   browser,
   terminal,
   terminalFileManager,
-  kbdLayout,
-  kbdVariant,
+  #kbdLayout,
+  #kbdVariant,
   ...
 }: {
   imports = [
-    ../../themes/Catppuccin # Catppuccin GTK and QT themes
+    ../../themes/Dracula # Catppuccin GTK and QT themes
     ./programs/waybar
     ./programs/wlogout
     ./programs/rofi
@@ -46,6 +46,70 @@
 
   home-manager.sharedModules = let
     inherit (lib) getExe getExe';
+
+
+    # --- Define Your Keyboard Device Names ---
+    laptopKbdName = "at-translated-set-2-keyboard";
+    urchinKbdName = "urchin-keyboard"; # Your split keyboard
+
+    # --- Define the Keyboard Switch Script ---
+    # This creates an executable script and makes its path available
+    keyboardSwitchScript = pkgs.writeShellScriptBin "keyboardswitch-tool" ''
+      #!/usr/bin/env sh
+
+      # --- Log file for debugging ---
+      LOG_FILE="/tmp/keyboardswitch_debug.log"
+      # Overwrite log on each start for individual test runs; for continuous logging, use '>>'
+      echo "--- Script started at $(date) for target device: '$1' ---" > "$LOG_FILE"
+      # For verbose command tracing in the script, uncomment next line. Output goes to Hyprland's log/journal.
+      # Or use 'set -x >> "$LOG_FILE" 2>&1' to redirect trace to your log file.
+      # set -x 
+
+      echo "Executing user: $(whoami)" >> "$LOG_FILE"
+      echo "PATH: $PATH" >> "$LOG_FILE"
+      # --- End initial logging ---
+
+      targetKbdDeviceName="$1"
+
+      if [ -z "$targetKbdDeviceName" ]; then
+          echo "Error: No keyboard device name provided to script." >> "$LOG_FILE"
+          notify-send -u critical -a "System" -r 91190 -t 3000 "Keyboard Script Error:" "No target device name supplied."
+          exit 1
+      fi
+
+      echo "Attempting to switch layout for specific device: '$targetKbdDeviceName'" >> "$LOG_FILE"
+      hyprctl switchxkblayout "$targetKbdDeviceName" next
+      switch_status=$? # Capture exit status of the hyprctl command
+      echo "hyprctl switchxkblayout for '$targetKbdDeviceName' exit status: $switch_status" >> "$LOG_FILE"
+
+      if [ $switch_status -ne 0 ]; then
+          echo "Error: hyprctl switchxkblayout command failed for '$targetKbdDeviceName'." >> "$LOG_FILE"
+          notify-send -u critical -a "System" -r 91190 -t 3000 "Keyboard Script Error:" "Failed to switch layout for '$targetKbdDeviceName'."
+          # Depending on desired behavior, you might exit or still try to report the current (likely unchanged) layout
+      fi
+
+      # sleep 0.05 # Optional short delay if state update seems slow, usually not needed
+
+      echo "Getting new layout for '$targetKbdDeviceName'..." >> "$LOG_FILE"
+      # Query the active_keymap for the specifically targeted keyboard
+      newLayout=$(hyprctl -j devices | jq -r --arg KBD_NAME "$targetKbdDeviceName" '.keyboards[] | select(.name == $KBD_NAME) | .active_keymap')
+      echo "Queried new layout for '$targetKbdDeviceName': '$newLayout'" >> "$LOG_FILE"
+
+      if [ -n "$newLayout" ]; then
+          prettyKbdName=$(echo "$targetKbdDeviceName" | sed -e 's/-/ /g' -e 's/_/ /g' -e 's/\b\(.\)/\u\1/g')
+          notify-send -a "System" -r 91190 -t 1200 -i "$HOME/.config/hypr/icons/keyboard.svg" "''${newLayout}" # <<<< CORRECTED LINE
+      else
+          # This case might occur if the keyboard name was wrong or it disappeared, 
+          # or if jq failed to parse for some reason. The layout might have switched.
+          notify-send -u warning -a "System" -r 91190 -t 3000 "Keyboard Script:" "Layout for '$targetKbdDeviceName' switched (probably). Could not verify new layout."
+      fi
+
+      echo "--- Script finished for device: '$1' ---" >> "$LOG_FILE"
+    '';
+
+
+
+
   in [
     ({...}: {
       home.packages = with pkgs; [
@@ -65,6 +129,7 @@
         wl-clipboard
         xdotool
         yad
+        jq
       ];
 
       xdg.configFile."hypr/icons" = {
@@ -82,6 +147,7 @@
           enable = true;
           variables = ["--all"];
         };
+
         settings = {
           "$mainMod" = "SUPER";
           "$term" = "${getExe pkgs.${terminal}}";
@@ -127,22 +193,54 @@
             "${./scripts/batterynotify.sh}" # battery notification
             "polkit-agent-helper-1"
           ];
+
+
           input = {
-            kb_layout = "${kbdLayout},ru";
-            kb_variant = "${kbdVariant},";
-            repeat_delay = 300; # or 212
+            # Set a very basic global default. Your per-device configs will override this.
+            kb_layout = "us";
+            kb_variant = "colemak_dh";
+            kb_options = "caps:backspace"; # Your global ergonomic option
+
+            # Your other global input settings from your snippet:
+            repeat_delay = 300;
             repeat_rate = 30;
+            follow_mouse = 1; # Good choice for per-device layout stability
+            sensitivity = 0.3;
+            force_no_accel = false; # (Interprets to: allow acceleration)
 
-            follow_mouse = 1;
-
-            touchpad.natural_scroll = false;
-
-            tablet.output = "current";
-
-            sensitivity = 0; # -1.0 - 1.0, 0 means no modification.
-            force_no_accel = true;
+            touchpad = {
+              natural_scroll = false;
+            };
+            tablet = {
+              output = "current";
+            };
+            numlock_by_default = true;
           };
-          general = {
+
+          # --- Per-Device Keyboard Configurations ---
+          # This is a list of attribute sets for Hyprland's 'device' sections
+          device = [
+            {
+              name = laptopKbdName; # "at-translated-set-2-keyboard"
+              kb_layout = "us,ua,us"; # Your desired layouts for the laptop
+              kb_variant = "colemak_dh,,"; # Variants for laptop layouts
+              # Add any other laptop-specific settings here if needed
+              # e.g., 'kb_rules = "evdev";'
+            }
+            {
+              name = urchinKbdName; # "urchin-keyboard"
+              # Customize these for your split ortholinear keyboard:
+              kb_layout = "us,ua,us"; # Example: Colemak DH (ortho), Ukrainian, US QWERTY
+              kb_variant = "colemak_dh,,"; # If you have an ortho-specific variant for colemak_dh, use it here.
+                                           # E.g., "colemak_dh_ortho,," if it exists. Otherwise, standard colemak_dh is fine.
+                                           # Ensure variant list has same number of entries as layout list.
+              # For ortholinear, you might also set:
+              # kb_model = "pc105"; # Or an ortho-specific model if available
+              # kb_rules = "evdev"; # Or custom rules
+            }
+          ];
+
+         general = {
             gaps_in = 4;
             gaps_out = 9;
             border_size = 2;
@@ -336,7 +434,6 @@
               # Keybinds help menu
               "$mainMod, question, exec, ${./scripts/keybinds.sh}"
               "$mainMod, slash, exec, ${./scripts/keybinds.sh}"
-              "$mainMod CTRL, K, exec, ${./scripts/keybinds.sh}"
 
               # Night Mode (lower value means warmer temp)
               "$mainMod, F9, exec, ${getExe pkgs.hyprsunset} --temperature 2500"
@@ -367,7 +464,8 @@
               "$mainMod, Z, exec, pkill -x rofi || ${./scripts/rofi.sh} emoji" # launch emoji picker
               # "$mainMod, tab, exec, pkill -x rofi || ${./scripts/rofi.sh} window" # switch between desktop applications
               # "$mainMod, R, exec, pkill -x rofi || ${./scripts/rofi.sh} file" # brrwse system files
-              "$mainMod ALT, K, exec, ${./scripts/keyboardswitch.sh}" # change keyboard layout
+              "$mainMod ALT, K, exec, sh ${keyboardSwitchScript}/bin/keyboardswitch-tool \"${laptopKbdName}\""
+              "$mainMod ALT, H, exec, sh ${keyboardSwitchScript}/bin/keyboardswitch-tool \"${urchinKbdName}\""
               "$mainMod SHIFT, N, exec, swaync-client -t -sw" # swayNC panel
               "$mainMod SHIFT, Q, exec, swaync-client -t -sw" # swayNC panel
               "$mainMod, G, exec, ${./scripts/rofi.sh} games" # game launcher
@@ -497,7 +595,7 @@
           workspace=8,monitor:desc:BNQ BenQ xl2420t 99D06760SL0,default:true
           workspace=9,monitor:desc:BNQ BenQ xl2420t 99D06760SL0
           workspace=10,monitor:desc:BNQ BenQ EL2870U PCK00489SL0
-        '';
+      '';
       };
     })
   ];
