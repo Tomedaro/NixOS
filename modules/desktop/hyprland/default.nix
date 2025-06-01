@@ -63,7 +63,7 @@
       echo "--- Script started at $(date) for target device: '$1' ---" > "$LOG_FILE"
       # For verbose command tracing in the script, uncomment next line. Output goes to Hyprland's log/journal.
       # Or use 'set -x >> "$LOG_FILE" 2>&1' to redirect trace to your log file.
-      # set -x 
+      # set -x
 
       echo "Executing user: $(whoami)" >> "$LOG_FILE"
       echo "PATH: $PATH" >> "$LOG_FILE"
@@ -99,7 +99,7 @@
           prettyKbdName=$(echo "$targetKbdDeviceName" | sed -e 's/-/ /g' -e 's/_/ /g' -e 's/\b\(.\)/\u\1/g')
           notify-send -a "System" -r 91190 -t 1200 -i "$HOME/.config/hypr/icons/keyboard.svg" "''${newLayout}" # <<<< CORRECTED LINE
       else
-          # This case might occur if the keyboard name was wrong or it disappeared, 
+          # This case might occur if the keyboard name was wrong or it disappeared,
           # or if jq failed to parse for some reason. The layout might have switched.
           notify-send -u warning -a "System" -r 91190 -t 3000 "Keyboard Script:" "Layout for '$targetKbdDeviceName' switched (probably). Could not verify new layout."
       fi
@@ -231,7 +231,7 @@
               name = urchinKbdName; # "urchin-keyboard"
               # Customize these for your split ortholinear keyboard:
               kb_layout = "us,ua,us"; # Example: Colemak DH (ortho), Ukrainian, US QWERTY
-              kb_variant = "colemak_dh,,"; # If you have an ortho-specific variant for colemak_dh, use it here.
+              kb_variant = "colemak_dh_ortho,,"; # If you have an ortho-specific variant for colemak_dh, use it here.
                                            # E.g., "colemak_dh_ortho,," if it exists. Otherwise, standard colemak_dh is fine.
                                            # Ensure variant list has same number of entries as layout list.
               # For ortholinear, you might also set:
@@ -436,7 +436,7 @@
               "$mainMod, slash, exec, ${./scripts/keybinds.sh}"
 
               # Night Mode (lower value means warmer temp)
-              "$mainMod, F9, exec, ${getExe pkgs.hyprsunset} --temperature 2500"
+              "$mainMod, F9, exec, ${getExe pkgs.hyprsunset} --temperature 3400"
               "$mainMod, F10, exec, pkill hyprsunset"
 
               # Window/Session actions
@@ -448,6 +448,7 @@
               "ALT, return, fullscreen" # toggle the window on focus to fullscreen
               "$mainMod ALT, L, exec, hyprlock" # lock screen
               "$mainMod, backspace, exec, wlogout -b 4" # logout menu
+              "$mainMod SHIFT, F, exec, ${./scripts/windowpin.sh}"
               "$CONTROL, ESCAPE, exec, pkill waybar || waybar" # toggle waybar
 
               "$mainMod, Return, exec, $term"

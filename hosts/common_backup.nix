@@ -65,11 +65,7 @@
       home.packages = with pkgs; [
         # Applications
         google-chrome
-        jamesdsp
-        bleachbit
-        qbittorrent
         anki-bin
-        firefox
         obsidian
         steam
         protonup-qt
@@ -78,8 +74,6 @@
         #kate
 
         # Terminal
-        fuzzel
-        cool-retro-term
         fzf
         fd
         git
@@ -190,18 +184,9 @@
     #sudo.wheelNeedsPassword = false;
   };
 
-  services.fstrim.enable = true;
-
   xdg.portal = {
     enable = true;
     extraPortals = with pkgs; [ xdg-desktop-portal-gtk xdg-desktop-portal-hyprland ];
-    config = pkgs.lib.mkForce {
-      hyprland = {
-       "org.freedesktop.impl.portal.ScreenCast" = "hyprland";
-       "org.freedesktop.impl.portal.Screenshot" = "hyprland";
-        "org.freedesktop.impl.portal.Settings" = "gtk";
-      };
-    };
   };
 
   # Enable dconf for home-manager
@@ -260,7 +245,7 @@
       enable = true;
     configPackages = [
   (pkgs.writeTextDir "share/wireplumber/wireplumber.conf.d/11-bluetooth-policy.conf" ''
-    bluetooth.autoswitch-to-headset-profile = false'')
+    bluetooth.autoswich-to-headset-profile = false'')
       ];
     };
   };
@@ -274,26 +259,10 @@
   programs.zsh.enable = true;
   users.defaultUserShell = pkgs.zsh;
 
-  fonts.packages = [
-    pkgs.nerd-fonts.jetbrains-mono  # <--- Changed back to lowercase and hyphenated
-    pkgs.nerd-fonts.fira-code      # <--- Changed back to lowercase and hyphenated
-
-    pkgs.noto-fonts
-    pkgs.noto-fonts-cjk-sans
-    pkgs.noto-fonts-emoji
-
-    # pkgs.liberation_ttf # If you added this
+  fonts.packages = with pkgs.nerd-fonts; [
+    jetbrains-mono
+    fira-code
   ];
-
-  # Your fonts.fontconfig.defaultFonts should also use the correct *font family names*
-  # which are often different from the package attribute names.
-  # The family names for Nerd Fonts are usually like "JetBrainsMono Nerd Font" or "FiraCode Nerd Font".
-  fonts.fontconfig.defaultFonts = {
-    serif = [ "Noto Serif" "Liberation Serif" ];
-    sansSerif = [ "Noto Sans" "Liberation Sans" ];
-    monospace = [ "JetBrainsMono Nerd Font" "FiraCode Nerd Font" "Noto Sans Mono" ];
-    emoji = [ "Noto Color Emoji" ];
-  };
 
   nixpkgs = {
     overlays = builtins.attrValues outputs.overlays;
@@ -316,11 +285,7 @@
   };
 
   environment.systemPackages = with pkgs; [
-    inputs.bzmenu.packages.${pkgs.system}.default
-    inputs.yt-x.packages."${system}".default
-    inputs.zen-browser.packages."${system}".default
     killall
-    feh
     lm_sensors
     jq
     bibata-cursors
@@ -349,8 +314,7 @@
   /*
      services.openssh = {
     enable = true;
-settings = {
-
+    settings = {
       PasswordAuthentication = true;
       AllowUsers = null; # Allows all users by default. Can be [ "user1" "user2" ]
       UseDns = true;
@@ -399,7 +363,6 @@ settings = {
       warn-dirty = false;
       keep-outputs = true;
       keep-derivations = true;
-      download-buffer-size = 67108864;
     };
     optimise.automatic = true;
     package = pkgs.nixVersions.latest;

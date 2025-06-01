@@ -13,7 +13,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nixvim = {
-      url = "github:Tomedaro/nixvim";
+      url = "github:Sly-Harvey/nixvim";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     spicetify-nix = {
@@ -35,14 +35,6 @@
     };
     nvchad4nix = {
       url = "github:nix-community/nix4nvchad";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    yt-x = {
-      url = "github:Benexl/yt-x";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    bzmenu = {
-      url = "github:e-tho/bzmenu";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -95,7 +87,6 @@
         specialArgs = {inherit self inputs outputs;} // settings; # Pass args
         modules = [
             ./hosts/Default/configuration.nix
-            ./hosts/common.nix
             # Ensure hardware-configuration.nix is imported inside configuration.nix
             # or add it here: ./hosts/Default/hardware-configuration.nix
         ];

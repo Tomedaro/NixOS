@@ -40,33 +40,25 @@
     ../../modules/programs/misc/tlp
     ../../modules/programs/misc/thunar
     ../../modules/programs/anki
+    ../../modules/services/syncthing/default.nix
 
 
     # ../../modules/programs/misc/nix-ld
     ../../modules/programs/misc/virt-manager
     ../../modules/programs/misc/lact # gpu power and fan control (WIP)
   ];
-
-    # TEMPORARY TEST - ADD THIS BLOCK
-  xdg.portal.config = pkgs.lib.mkForce { # mkForce ensures this definition wins
-    # Using "TestDesktop" to ensure it's from this exact block
-    TestDesktop = { 
-      "org.freedesktop.impl.portal.Settings" = "gtk";
-      "org.freedesktop.impl.portal.Test" = "gtk"; 
-    };
-  };
   
 
    # Open ports in the firewall.
   networking.firewall = {
-    enable = false;
+    enable = true;
     allowedTCPPortRanges = [
       {from = 1714; to = 1764;}
     ];
     allowedUDPPortRanges =  [
       {from = 1714; to = 1764;}
     ];
-    allowedTCPPorts = [ 27701 21027 22000 ];
+    allowedTCPPorts = [ 27701 ];
   };
   programs.kdeconnect.enable = true;
 
@@ -84,7 +76,6 @@
         github-desktop
       ];
     })
-    ../../modules/services/syncthing
   ];
 
   # Define system packages here
