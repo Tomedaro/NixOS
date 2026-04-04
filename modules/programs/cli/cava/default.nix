@@ -1,9 +1,5 @@
-<<<<<<< HEAD
-{...}: {
-=======
 { ... }:
 {
->>>>>>> upstream/master
   home-manager.sharedModules = [
     (_: {
       programs.cava = {

@@ -1,11 +1,4 @@
 # Generated via dconf2nix: https://github.com/gvolpe/dconf2nix
-<<<<<<< HEAD
-{...}: {
-  home-manager.sharedModules = [
-    ({lib, ...}:
-      with lib.hm.gvariant; {
-        dconf.settings = {
-=======
 { host, ... }:
 
 let
@@ -27,7 +20,6 @@ in
             ];
           };
 
->>>>>>> upstream/master
           "org/gnome/2048" = {
             window-height = 600;
             window-maximized = false;
@@ -35,9 +27,6 @@ in
           };
 
           "org/gnome/Console" = {
-<<<<<<< HEAD
-            last-window-size = mkTuple [1362 743];
-=======
             last-window-size = mkTuple [
               1362
               743
@@ -47,7 +36,6 @@ in
           "org/gnome/Extensions" = {
             window-height = 1028;
             window-maximized = false;
->>>>>>> upstream/master
           };
 
           "org/gnome/Geary" = {
@@ -64,18 +52,6 @@ in
           };
 
           "org/gnome/control-center" = {
-<<<<<<< HEAD
-            last-panel = "info-overview";
-            window-state = mkTuple [1660 882 false];
-          };
-
-          "org/gnome/desktop/app-folders" = {
-            folder-children = ["Utilities" "YaST" "Pardus"];
-          };
-
-          "org/gnome/desktop/app-folders/folders/Pardus" = {
-            categories = ["X-Pardus-Apps"];
-=======
             last-panel = "mouse";
             window-state = mkTuple [
               1717
@@ -98,16 +74,11 @@ in
 
           "org/gnome/desktop/app-folders/folders/Pardus" = {
             categories = [ "X-Pardus-Apps" ];
->>>>>>> upstream/master
             name = "X-Pardus-Apps.directory";
             translate = true;
           };
 
           "org/gnome/desktop/app-folders/folders/Utilities" = {
-<<<<<<< HEAD
-            apps = ["gnome-abrt.desktop" "gnome-system-log.desktop" "nm-connection-editor.desktop" "org.gnome.baobab.desktop" "org.gnome.Connections.desktop" "org.gnome.DejaDup.desktop" "org.gnome.Dictionary.desktop" "org.gnome.DiskUtility.desktop" "org.gnome.Evince.desktop" "org.gnome.FileRoller.desktop" "org.gnome.fonts.desktop" "org.gnome.Loupe.desktop" "org.gnome.seahorse.Application.desktop" "org.gnome.tweaks.desktop" "org.gnome.Usage.desktop" "vinagre.desktop"];
-            categories = ["X-GNOME-Utilities"];
-=======
             apps = [
               "gnome-abrt.desktop"
               "gnome-system-log.desktop"
@@ -127,17 +98,12 @@ in
               "vinagre.desktop"
             ];
             categories = [ "X-GNOME-Utilities" ];
->>>>>>> upstream/master
             name = "X-GNOME-Utilities.directory";
             translate = true;
           };
 
           "org/gnome/desktop/app-folders/folders/YaST" = {
-<<<<<<< HEAD
-            categories = ["X-SuSE-YaST"];
-=======
             categories = [ "X-SuSE-YaST" ];
->>>>>>> upstream/master
             name = "suse-yast.directory";
             translate = true;
           };
@@ -145,19 +111,12 @@ in
           "org/gnome/desktop/background" = {
             color-shading-type = "solid";
             picture-options = "zoom";
-<<<<<<< HEAD
-            picture-uri = "file:///run/current-system/sw/share/backgrounds/gnome/blobs-l.svg";
-            picture-uri-dark = "file:///run/current-system/sw/share/backgrounds/gnome/blobs-d.svg";
-=======
             picture-uri = "file://${../../themes/wallpapers/${defaultWallpaper}}";
             picture-uri-dark = "file://${../../themes/wallpapers/${defaultWallpaper}}";
->>>>>>> upstream/master
             primary-color = "#241f31";
             secondary-color = "#000000";
           };
 
-<<<<<<< HEAD
-=======
           "org/gnome/desktop/break-reminders/eyesight" = {
             play-sound = true;
           };
@@ -168,20 +127,12 @@ in
             play-sound = true;
           };
 
->>>>>>> upstream/master
           "org/gnome/desktop/calendar" = {
             show-weekdate = false;
           };
 
           "org/gnome/desktop/input-sources" = {
             show-all-sources = false;
-<<<<<<< HEAD
-            sources = [(mkTuple ["xkb" "gb"])];
-            xkb-options = ["terminate:ctrl_alt_bksp"];
-          };
-
-          "org/gnome/desktop/interface" = {
-=======
             sources = [
               (mkTuple [
                 "xkb"
@@ -196,7 +147,6 @@ in
 
           "org/gnome/desktop/interface" = {
             accent-color = "blue";
->>>>>>> upstream/master
             clock-show-date = true;
             clock-show-seconds = true;
             clock-show-weekday = true;
@@ -207,14 +157,6 @@ in
             enable-hot-corners = false;
             font-antialiasing = "grayscale";
             font-hinting = "slight";
-<<<<<<< HEAD
-            gtk-theme = "Catppuccin-Macchiato-Compact-Pink-Dark";
-            icon-theme = "Yaru-magenta-dark";
-          };
-
-          "org/gnome/desktop/notifications" = {
-            application-children = ["org-gnome-tweaks"];
-=======
             gtk-theme = "catppuccin-mocha-mauve-compact";
             icon-theme = "Papirus-Dark";
             # show-battery-percentage = true;
@@ -229,17 +171,12 @@ in
 
           "org/gnome/desktop/notifications/application/gnome-power-panel" = {
             application-id = "gnome-power-panel.desktop";
->>>>>>> upstream/master
           };
 
           "org/gnome/desktop/notifications/application/org-gnome-tweaks" = {
             application-id = "org.gnome.tweaks.desktop";
           };
 
-<<<<<<< HEAD
-          "org/gnome/desktop/peripherals/mouse" = {
-            natural-scroll = false;
-=======
           "org/gnome/desktop/peripherals/keyboard" = {
             delay = mkUint32 223;
             repeat-interval = mkUint32 21;
@@ -249,7 +186,6 @@ in
             accel-profile = "flat";
             natural-scroll = false;
             speed = 0.33603238866396756;
->>>>>>> upstream/master
           };
 
           "org/gnome/desktop/peripherals/tablets/056a:037a" = {
@@ -265,10 +201,7 @@ in
             disable-microphone = false;
             old-files-age = mkUint32 3;
             recent-files-max-age = -1;
-<<<<<<< HEAD
-=======
             remember-recent-files = true;
->>>>>>> upstream/master
             remove-old-temp-files = true;
             remove-old-trash-files = true;
           };
@@ -283,15 +216,11 @@ in
           };
 
           "org/gnome/desktop/search-providers" = {
-<<<<<<< HEAD
-            sort-order = ["org.gnome.Contacts.desktop" "org.gnome.Documents.desktop" "org.gnome.Nautilus.desktop"];
-=======
             sort-order = [
               "org.gnome.Contacts.desktop"
               "org.gnome.Documents.desktop"
               "org.gnome.Nautilus.desktop"
             ];
->>>>>>> upstream/master
           };
 
           "org/gnome/desktop/session" = {
@@ -299,22 +228,6 @@ in
           };
 
           "org/gnome/desktop/wm/keybindings" = {
-<<<<<<< HEAD
-            maximize = ["<Super>Up"];
-            move-to-monitor-down = ["<Super><Shift>Down"];
-            move-to-monitor-left = ["<Super><Shift>Left"];
-            move-to-monitor-right = ["<Super><Shift>Right"];
-            move-to-monitor-up = ["<Super><Shift>Up"];
-            switch-applications = ["<Super>Tab" "<Alt>Tab"];
-            switch-applications-backward = ["<Shift><Super>Tab" "<Shift><Alt>Tab"];
-            switch-group = ["<Super>Above_Tab" "<Alt>Above_Tab"];
-            switch-group-backward = ["<Shift><Super>Above_Tab" "<Shift><Alt>Above_Tab"];
-            switch-to-workspace-1 = ["<Super>Home"];
-            switch-to-workspace-last = ["<Super>End"];
-            switch-to-workspace-left = ["<Super>Page_Up" "<Super><Alt>Left" "<Control><Alt>Left"];
-            switch-to-workspace-right = ["<Super>Page_Down" "<Super><Alt>Right" "<Control><Alt>Right"];
-            unmaximize = ["<Super>Down" "<Alt>F5"];
-=======
             close = [
               "<Super>q"
               "<Alt>F4"
@@ -382,23 +295,15 @@ in
               "<Super>Down"
               "<Alt>F5"
             ];
->>>>>>> upstream/master
           };
 
           "org/gnome/desktop/wm/preferences" = {
             auto-raise = false;
-<<<<<<< HEAD
-            button-layout = "close,minimize,maximize:appmenu";
-=======
             button-layout = "appmenu:minimize,maximize,close";
->>>>>>> upstream/master
             focus-mode = "sloppy";
             mouse-button-modifier = "<Super>";
             num-workspaces = 10;
             resize-with-right-button = false;
-<<<<<<< HEAD
-            workspace-names = ["Workspace 1" "Workspace 2" "Workspace 3" "Workspace 4" "Workspace 5" "Workspace 6" "Workspace 7" "Workspace 8" "Workspace 9" "Workspace 10"];
-=======
             workspace-names = [
               "Workspace 1"
               "Workspace 2"
@@ -411,16 +316,12 @@ in
               "Workspace 9"
               "Workspace 10"
             ];
->>>>>>> upstream/master
           };
 
           "org/gnome/evolution-data-server" = {
             migrated = true;
           };
 
-<<<<<<< HEAD
-          "org/gnome/gnome-system-monitor" = {
-=======
           "org/gnome/file-roller/dialogs/extract" = {
             height = 800;
             recreate-folders = true;
@@ -461,14 +362,10 @@ in
 
           "org/gnome/gnome-system-monitor" = {
             current-tab = "disks";
->>>>>>> upstream/master
             maximized = false;
             network-total-in-bits = false;
             show-dependencies = false;
             show-whose-processes = "user";
-<<<<<<< HEAD
-            window-state = mkTuple [700 500 103 103];
-=======
             window-height = 720;
             window-state = mkTuple [
               700
@@ -477,7 +374,6 @@ in
               103
             ];
             window-width = 800;
->>>>>>> upstream/master
           };
 
           "org/gnome/gnome-system-monitor/disktreenew" = {
@@ -485,10 +381,6 @@ in
             col-6-width = 0;
           };
 
-<<<<<<< HEAD
-          "org/gnome/mutter" = {
-            attach-modal-dialogs = false;
-=======
           "org/gnome/gnome-system-monitor/proctree" = {
             col-26-visible = false;
             col-26-width = 0;
@@ -497,22 +389,12 @@ in
           "org/gnome/mutter" = {
             attach-modal-dialogs = false;
             dynamic-workspaces = false;
->>>>>>> upstream/master
             edge-tiling = false;
             overlay-key = "Super_L";
             workspaces-only-on-primary = false;
           };
 
           "org/gnome/mutter/keybindings" = {
-<<<<<<< HEAD
-            cancel-input-capture = ["<Super><Shift>Escape"];
-            toggle-tiled-left = ["<Super>Left"];
-            toggle-tiled-right = ["<Super>Right"];
-          };
-
-          "org/gnome/mutter/wayland/keybindings" = {
-            restore-shortcuts = ["<Super>Escape"];
-=======
             cancel-input-capture = [ "<Super><Shift>Escape" ];
             toggle-tiled-left = [ "<Super>Left" ];
             toggle-tiled-right = [ "<Super>Right" ];
@@ -520,7 +402,6 @@ in
 
           "org/gnome/mutter/wayland/keybindings" = {
             restore-shortcuts = [ "<Super>Escape" ];
->>>>>>> upstream/master
           };
 
           "org/gnome/nautilus/preferences" = {
@@ -530,9 +411,6 @@ in
           };
 
           "org/gnome/nautilus/window-state" = {
-<<<<<<< HEAD
-            initial-size = mkTuple [890 550];
-=======
             initial-size = mkTuple [
               890
               550
@@ -552,7 +430,6 @@ in
           "org/gnome/nm-applet/eap/fa7bd633-bf76-414d-b642-c78118eb23b9" = {
             ignore-ca-cert = false;
             ignore-phase2-ca-cert = false;
->>>>>>> upstream/master
           };
 
           "org/gnome/portal/filechooser/org/gnome/Settings" = {
@@ -568,9 +445,6 @@ in
           };
 
           "org/gnome/settings-daemon/plugins/media-keys" = {
-<<<<<<< HEAD
-            rotate-video-lock-static = ["<Super>o" "XF86RotationLockToggle"];
-=======
             control-center = [ "<Super>i" ];
             rotate-video-lock-static = [
               "<Super>o"
@@ -578,7 +452,6 @@ in
             ];
             screensaver = [ "<Alt><Super>l" ];
             www = [ "<Super>f" ];
->>>>>>> upstream/master
           };
 
           "org/gnome/settings-daemon/plugins/power" = {
@@ -587,11 +460,6 @@ in
           };
 
           "org/gnome/shell" = {
-<<<<<<< HEAD
-            disabled-extensions = ["native-window-placement@gnome-shell-extensions.gcampax.github.com" "window-list@gnome-shell-extensions.gcampax.github.com" "windowsNavigator@gnome-shell-extensions.gcampax.github.com"];
-            enabled-extensions = ["apps-menu@gnome-shell-extensions.gcampax.github.com" "launch-new-instance@gnome-shell-extensions.gcampax.github.com" "places-menu@gnome-shell-extensions.gcampax.github.com" "drive-menu@gnome-shell-extensions.gcampax.github.com" "user-theme@gnome-shell-extensions.gcampax.github.com" "workspace-indicator@gnome-shell-extensions.gcampax.github.com"];
-            favorite-apps = ["org.gnome.Settings.desktop" "org.gnome.Nautilus.desktop" "gnome-system-monitor.desktop" "firefox.desktop" "Alacritty.desktop" "org.gnome.Console.desktop"];
-=======
             disable-user-extensions = false;
             disabled-extensions = [
               "native-window-placement@gnome-shell-extensions.gcampax.github.com"
@@ -626,17 +494,10 @@ in
               "Alacritty.desktop"
               "org.gnome.Console.desktop"
             ];
->>>>>>> upstream/master
             last-selected-power-profile = "performance";
             welcome-dialog-last-shown-version = "45.4";
           };
 
-<<<<<<< HEAD
-          "org/gnome/shell/extensions/burn-my-windows" = {
-            active-profile = "/home/${username}/.config/burn-my-windows/profiles/1710415584884218.conf";
-            last-extension-version = 39;
-            last-prefs-version = 39;
-=======
           "org/gnome/shell/app-switcher" = {
             current-workspace-only = false;
           };
@@ -702,16 +563,11 @@ in
             active-profile = "/home/${username}/.config/burn-my-windows/profiles/1758940449409036.conf";
             last-extension-version = 39;
             last-prefs-version = 46;
->>>>>>> upstream/master
             prefs-open-count = 20;
             show-support-dialog = false;
           };
 
           "org/gnome/shell/extensions/dash-to-panel" = {
-<<<<<<< HEAD
-            available-monitors = [0 1];
-            primary-monitor = 0;
-=======
             animate-appicon-hover = false;
             appicon-margin = 4;
             appicon-style = "NORMAL";
@@ -753,7 +609,6 @@ in
 
           "org/gnome/shell/extensions/gtile" = {
             auto-close = true;
->>>>>>> upstream/master
           };
 
           "org/gnome/shell/extensions/just-perfection" = {
@@ -763,10 +618,7 @@ in
             dash = true;
             dash-icon-size = 0;
             double-super-to-appgrid = true;
-<<<<<<< HEAD
-=======
             max-displayed-search-results = 0;
->>>>>>> upstream/master
             osd = true;
             panel = true;
             panel-in-overview = true;
@@ -774,11 +626,8 @@ in
             search = true;
             show-apps-button = true;
             startup-status = 1;
-<<<<<<< HEAD
-=======
             support-notifier-showed-version = 34;
             support-notifier-type = 0;
->>>>>>> upstream/master
             theme = false;
             window-demands-attention-focus = false;
             window-picker-icon = true;
@@ -791,10 +640,7 @@ in
           };
 
           "org/gnome/shell/extensions/paperwm" = {
-<<<<<<< HEAD
-=======
             last-used-display-server = "Wayland";
->>>>>>> upstream/master
             restore-attach-modal-dialogs = "";
             restore-edge-tiling = "";
             restore-keybinds = ''
@@ -804,9 +650,6 @@ in
           };
 
           "org/gnome/shell/extensions/paperwm/workspaces" = {
-<<<<<<< HEAD
-            list = ["4439950c-0f91-4b4c-bed8-30f5de9a2d70" "40a3ada7-de60-4e16-8078-0980d9eadb05" "b6e86314-3935-4f74-8abe-2cf33e4550ac" "a3e6a893-0a5f-4261-b61b-b7b10b42ce90" "7e03bfff-5d3b-4aae-806e-819c0d638617" "0fcc37bf-6bfa-43bd-baf4-0b59fc226f9c" "cdff165b-99e6-41fe-8da5-330f9cc3cf1f" "9acde03c-4a96-4ef9-92c0-9f54d833038a" "fa8260c0-ab85-47b9-92e2-05f7b3ecd804" "7caee72d-0963-4764-8939-541f9ba731df"];
-=======
             list = [
               "4439950c-0f91-4b4c-bed8-30f5de9a2d70"
               "40a3ada7-de60-4e16-8078-0980d9eadb05"
@@ -819,7 +662,6 @@ in
               "fa8260c0-ab85-47b9-92e2-05f7b3ecd804"
               "7caee72d-0963-4764-8939-541f9ba731df"
             ];
->>>>>>> upstream/master
           };
 
           "org/gnome/shell/extensions/paperwm/workspaces/0fcc37bf-6bfa-43bd-baf4-0b59fc226f9c" = {
@@ -862,16 +704,6 @@ in
             index = 8;
           };
 
-<<<<<<< HEAD
-          "org/gnome/shell/keybindings" = {
-            focus-active-notification = ["<Super>n"];
-            shift-overview-down = ["<Super><Alt>Down"];
-            shift-overview-up = ["<Super><Alt>Up"];
-          };
-
-          "org/gnome/shell/world-clocks" = {
-            locations = [];
-=======
           "org/gnome/shell/extensions/vitals" = {
             alphabetize = true;
             fixed-widths = true;
@@ -911,7 +743,6 @@ in
 
           "org/gnome/shell/world-clocks" = {
             locations = [ ];
->>>>>>> upstream/master
           };
 
           "org/gnome/tweaks" = {
@@ -930,14 +761,10 @@ in
             sort-order = "ascending";
             type-format = "category";
             view-type = "list";
-<<<<<<< HEAD
-            window-size = mkTuple [859 372];
-=======
             window-size = mkTuple [
               859
               372
             ];
->>>>>>> upstream/master
           };
 
           "org/gtk/settings/file-chooser" = {
@@ -951,13 +778,6 @@ in
             sort-directories-first = false;
             sort-order = "ascending";
             type-format = "category";
-<<<<<<< HEAD
-            window-position = mkTuple [103 103];
-            window-size = mkTuple [1231 902];
-          };
-        };
-      })
-=======
             window-position = mkTuple [
               103
               103
@@ -981,6 +801,5 @@ in
         };
       }
     )
->>>>>>> upstream/master
   ];
 }

@@ -1,9 +1,5 @@
-<<<<<<< HEAD
-{pkgs, ...}: {
-=======
 { pkgs, ... }:
 {
->>>>>>> upstream/master
   home-manager.sharedModules = [
     (_: {
       home.packages = with pkgs; [
@@ -29,11 +25,7 @@
         autoUpdate = false;
         autoUpdateNotification = false;
         useQuickCss = true;
-<<<<<<< HEAD
-        themeLinks = [];
-=======
         themeLinks = [ ];
->>>>>>> upstream/master
         enabledThemes = [
           "catppuccin-mocha.css"
         ];

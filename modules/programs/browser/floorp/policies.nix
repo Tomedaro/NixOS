@@ -1,9 +1,5 @@
-<<<<<<< HEAD
-{lib, ...}: {
-=======
 { lib, ... }:
 {
->>>>>>> upstream/master
   AllowFileSelectionDialogs = true;
   AppAutoUpdate = false;
   AutofillAddressEnabled = false;
@@ -59,11 +55,7 @@
     Enabled = true;
   };
   PopupBlocking = {
-<<<<<<< HEAD
-    Allow = [];
-=======
     Allow = [ ];
->>>>>>> upstream/master
     Default = true;
   };
   Preferences = {
@@ -90,34 +82,23 @@
       installation_mode = "force_installed";
       install_url = "https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi";
     };
-<<<<<<< HEAD
-=======
     "firemonkey@eros.man" = {
       private_browsing = true;
       default_area = "navbar";
       installation_mode = "force_installed";
       install_url = "https://addons.mozilla.org/firefox/downloads/latest/firemonkey/latest.xpi";
     };
->>>>>>> upstream/master
     "extension@one-tab.com" = {
       private_browsing = false;
       default_area = "navbar";
       installation_mode = "force_installed";
       install_url = "https://addons.mozilla.org/firefox/downloads/latest/onetab/latest.xpi";
     };
-<<<<<<< HEAD
-    "firemonkey@eros.man" = {
-      private_browsing = true;
-      default_area = "navbar";
-      installation_mode = "force_installed";
-      install_url = "https://addons.mozilla.org/firefox/downloads/latest/firemonkey/latest.xpi";
-=======
     "{c4b582ec-4343-438c-bda2-2f691c16c262}" = {
       private_browsing = true;
       default_area = "navbar";
       installation_mode = "force_installed";
       install_url = "https://addons.mozilla.org/firefox/downloads/latest/600-sound-volume/latest.xpi";
->>>>>>> upstream/master
     };
     "addon@darkreader.org" = {
       private_browsing = true;
@@ -172,30 +153,6 @@
       # previewNewestDesign = true; # TODO: test
 
       # Catppuccin mocha theme
-<<<<<<< HEAD
-      /* theme = {
-        mode = 1;
-        brightness = 100;
-        contrast = 100;
-        grayscale = 0;
-        sepia = 0;
-        useFont = false;
-        fontFamily = "Open Sans";
-        textStroke = 0;
-        engine = "dynamicTheme";
-        stylesheet = "";
-        darkSchemeBackgroundColor = "#1e1e2e";
-        darkSchemeTextColor = "#cdd6f4";
-        lightSchemeBackgroundColor = "#eff1f5";
-        lightSchemeTextColor = "#4c4f69";
-        scrollbarColor = "";
-        selectionColor = "#585b70"; # For the light scheme: #acb0be
-        styleSystemControls = true;
-        lightColorScheme = "Default";
-        darkColorScheme = "Default";
-        immediateModify = false;
-      }; */
-=======
       /*
         theme = {
           mode = 1;
@@ -220,7 +177,6 @@
           immediateModify = false;
         };
       */
->>>>>>> upstream/master
 
       # enabledFor = [];
       # disabledFor = [];
@@ -236,10 +192,7 @@
         userFilters = lib.concatMapStrings (x: x + "\n") [
           "twitch.tv##+js(twitch-videoad)"
           "||1337x.vpnonly.site"
-<<<<<<< HEAD
-=======
           "||snowvan.xyz^"
->>>>>>> upstream/master
         ];
         userSettings = rec {
           uiTheme = "dark";
@@ -256,11 +209,7 @@
             "https://raw.githubusercontent.com/DandelionSprout/adfilt/master/ClearURLs for uBo/clear_urls_uboified.txt"
             "https://raw.githubusercontent.com/DandelionSprout/adfilt/master/Dandelion Sprout's Anti-Malware List.txt"
             "https://raw.githubusercontent.com/DandelionSprout/adfilt/master/LegitimateURLShortener.txt"
-<<<<<<< HEAD
-            "https://raw.githubusercontent.com/OsborneLabs/Columbia/master/Columbia.txt"
-=======
             # "https://raw.githubusercontent.com/OsborneLabs/Columbia/master/Columbia.txt"
->>>>>>> upstream/master
             "https://raw.githubusercontent.com/bogachenko/fuckfuckadblock/master/fuckfuckadblock.txt?_=rawlist"
             "https://raw.githubusercontent.com/iam-py-test/my_filters_001/main/antimalware.txt"
             "https://raw.githubusercontent.com/liamengland1/miscfilters/master/antipaywall.txt"
@@ -318,11 +267,7 @@
           "https://gitflic.ru/project/magnolia1234/bypass-paywalls-clean-filters/blob/raw?file=bpc-paywall-filter.txt"
           "https://raw.githubusercontent.com/DandelionSprout/adfilt/master/ClearURLs for uBo/clear_urls_uboified.txt"
           "https://raw.githubusercontent.com/iam-py-test/my_filters_001/main/antimalware.txt"
-<<<<<<< HEAD
-          "https://raw.githubusercontent.com/OsborneLabs/Columbia/master/Columbia.txt"
-=======
           # "https://raw.githubusercontent.com/OsborneLabs/Columbia/master/Columbia.txt"
->>>>>>> upstream/master
           "https://raw.githubusercontent.com/bogachenko/fuckfuckadblock/master/fuckfuckadblock.txt?_=rawlist"
           "user-filters"
         ];

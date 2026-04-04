@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-{pkgs, browser, ...}: {
-  fonts.packages = with pkgs.nerd-fonts; [jetbrains-mono];
-=======
 {
   pkgs,
   host,
@@ -11,7 +7,6 @@ let
   inherit (import ../../../../../hosts/${host}/variables.nix) browser;
 in
 {
->>>>>>> upstream/master
   home-manager.sharedModules = [
     (_: {
       services.dunst = {
@@ -49,13 +44,8 @@ in
             always_run_script = true;
             corner_radius = 10;
             follow = "mouse";
-<<<<<<< HEAD
-            font = "jetbrainsmono nerd font 10";
-            format = "<b>%s</b>\\n%b"; #format = "<span foreground='#f3f4f5'><b>%s %p</b></span>\n%b"
-=======
             font = "monospace";
             format = "<b>%s</b>\\n%b"; # format = "<span foreground='#f3f4f5'><b>%s %p</b></span>\n%b"
->>>>>>> upstream/master
             frame_width = 1;
             offset = "15x15";
             horizontal_padding = 10;
@@ -75,13 +65,9 @@ in
             browser = "${browser} --new-tab";
           };
 
-<<<<<<< HEAD
-          fullscreen_delay_everything = {fullscreen = "delay";};
-=======
           fullscreen_delay_everything = {
             fullscreen = "delay";
           };
->>>>>>> upstream/master
 
           urgency_critical = {
             background = "#1e1e2e";

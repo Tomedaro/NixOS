@@ -1,9 +1,5 @@
-<<<<<<< HEAD
-{...}: {
-=======
 { ... }:
 {
->>>>>>> upstream/master
   home-manager.sharedModules = [
     (_: {
       services.hypridle = {
@@ -18,20 +14,6 @@
           };
           listener = [
             {
-<<<<<<< HEAD
-              timeout = 3000; # 5 Minutes
-              on-timeout = "loginctl lock-session";
-            }
-            /* {
-              timeout = 360; # 6 Minutes
-              on-timeout = "hyprctl dispatch dpms off";
-              on-resume = "hyprctl dispatch dpms on";
-            } */
-            /* {
-              timeout = 600; # 10m
-              on-timeout = "systemctl suspend";
-            } */
-=======
               timeout = 600; # 10 Minutes
               on-timeout = "loginctl lock-session";
             }
@@ -48,7 +30,6 @@
                 on-timeout = "systemctl suspend";
               }
             */
->>>>>>> upstream/master
           ];
         };
       };

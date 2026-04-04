@@ -1,15 +1,5 @@
 {
   inputs,
-<<<<<<< HEAD
-  pkgs,
-  ...
-}: {
-  home-manager.sharedModules = [
-    (_: {
-      home.packages = with pkgs; [
-        inputs.nixvim.packages.${system}.full
-      ];
-=======
   host,
   pkgs,
   ...
@@ -41,7 +31,6 @@ in
           terminal = false; # Important: set to false since we're calling kitty directly
         };
       };
->>>>>>> upstream/master
     })
   ];
 }

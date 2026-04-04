@@ -1,9 +1,5 @@
-<<<<<<< HEAD
-{...}: {
-=======
 { ... }:
 {
->>>>>>> upstream/master
   home-manager.sharedModules = [
     (_: {
       programs.yazi = {
@@ -11,11 +7,7 @@
         enableBashIntegration = true;
         enableZshIntegration = true;
         settings = {
-<<<<<<< HEAD
-          manager = {
-=======
           mgr = {
->>>>>>> upstream/master
             show_hidden = true;
             show_symlink = true;
             sort_dir_first = true;
@@ -39,15 +31,6 @@
           };
         };
         keymap = {
-<<<<<<< HEAD
-          manager.prepend_keymap = [
-            {
-              on = ["e"];
-              run = "open";
-            }
-            {
-              on = ["d"];
-=======
           mgr.prepend_keymap = [
             {
               on = [ "e" ];
@@ -55,17 +38,12 @@
             }
             {
               on = [ "d" ];
->>>>>>> upstream/master
               run = "remove --force";
             }
           ];
         };
         theme = {
-<<<<<<< HEAD
-          manager = {
-=======
           mgr = {
->>>>>>> upstream/master
             border_symbol = " ";
           };
           status = {

@@ -1,12 +1,8 @@
-<<<<<<< HEAD
-{...}: {
-=======
 { host, ... }:
 let
   inherit (import ../../../../../hosts/${host}/variables.nix) hyprlockWallpaper;
 in
 {
->>>>>>> upstream/master
   home-manager.sharedModules = [
     (_: {
       programs.hyprlock = {
@@ -20,11 +16,7 @@ in
             {
               monitor = "";
               color = "rgb(36, 39, 58)";
-<<<<<<< HEAD
-              path = "${../../../../themes/wallpapers/dark-forest.jpg}";
-=======
               path = "${../../../../themes/wallpapers/${hyprlockWallpaper}}";
->>>>>>> upstream/master
 
               new_optimizations = true;
               blur_size = 3;
@@ -65,10 +57,6 @@ in
               # text = "cmd[update:1000] echo \"<b><big> $(date +\"%H:%M:%S\") </big></b>\"";
               text = "$TIME";
               font_size = 64;
-<<<<<<< HEAD
-              font_family = "JetBrains Mono Nerd Font 10";
-=======
->>>>>>> upstream/master
               color = "rgb(198, 160, 246)";
               position = "0, 16";
               valign = "center";
@@ -79,10 +67,6 @@ in
               text = "Hello <span text_transform=\"capitalize\" size=\"larger\">$USER!</span>";
               color = "rgb(198, 160, 246)";
               font_size = 20;
-<<<<<<< HEAD
-              font_family = "JetBrains Mono Nerd Font 10";
-=======
->>>>>>> upstream/master
               position = "0, 100";
               halign = "center";
               valign = "center";
@@ -92,27 +76,11 @@ in
               text = "Current Layout : $LAYOUT";
               color = "rgb(198, 160, 246)";
               font_size = 14;
-<<<<<<< HEAD
-              font_family = "JetBrains Mono Nerd Font 10";
-=======
->>>>>>> upstream/master
               position = "0, 20";
               halign = "center";
               valign = "bottom";
             }
             /*
-<<<<<<< HEAD
-               {
-              monitor = "";
-              text = "Enter your password to unlock.";
-              color = "rgb(198, 160, 246)";
-              font_size = 14;
-              font_family = "JetBrains Mono Nerd Font 10";
-              position = "0, 60";
-              halign = "center";
-              valign = "bottom";
-            }
-=======
                  {
                 monitor = "";
                 text = "Enter your password to unlock.";
@@ -122,7 +90,6 @@ in
                 halign = "center";
                 valign = "bottom";
               }
->>>>>>> upstream/master
             */
           ];
         };
