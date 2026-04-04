@@ -17,7 +17,7 @@
     spice-gtk
     spice-protocol
     spice-vdagent
-    win-virtio
+    virtio-win
     win-spice
   ];
 
@@ -25,14 +25,6 @@
   virtualisation = {
     libvirtd = {
       enable = true;
-      qemu = {
-        package = pkgs.qemu_kvm; # TODO: Test
-        swtpm.enable = true;
-        ovmf = {
-          enable = true;
-          packages = [pkgs.OVMFFull.fd];
-        };
-      };
     };
     spiceUSBRedirection.enable = true;
   };

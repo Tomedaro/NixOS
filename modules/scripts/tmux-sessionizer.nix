@@ -6,19 +6,33 @@
 pkgs.writeShellScriptBin "tmux-sessionizer" ''
   tmux="${pkgs.tmux}/bin/tmux"
   fzf="${pkgs.fzf}/bin/fzf"
+<<<<<<< HEAD
   if [[ $# -eq 1 ]]; then
       selected="$1"
   else
       selected=$(realpath $(${lib.getExe pkgs.fd} --min-depth 1 --max-depth 1 --type d . ~/ ~/git-clone/ /mnt/ /mnt/*/Projects/ /mnt/*/Media/ /mnt/*/Pimsleur/ /mnt/*/Languages/ | $fzf))
+=======
+
+  if [[ $# -eq 1 ]]; then
+      selected="$1"
+  else
+      # Quote the command to preserve spaces in paths
+      selected=$(realpath "$(${lib.getExe pkgs.fd} --min-depth 1 --max-depth 1 --type d . ~/ ~/Documents/ ~/git-clone/ /mnt/ /mnt/*/Projects/ /mnt/*/Media/ /mnt/*/Pimsleur/ /mnt/*/Languages/ | $fzf)")
+>>>>>>> upstream/master
   fi
 
   if [[ -z "$selected" ]]; then
       exit 0
   fi
 
+<<<<<<< HEAD
   # return project name with space replaced with -
   selected_name=$(echo "$selected" | sed "s/\s/-/g" | sed "s/.*\///")
   # selected_name=$(basename "$selected" | tr . _)
+=======
+  # Get the basename and replace spaces with hyphens for the session name
+  selected_name=$(basename "$selected" | tr ' ' '-')
+>>>>>>> upstream/master
 
   tmux_running=$(pgrep tmux)
 
@@ -32,5 +46,8 @@ pkgs.writeShellScriptBin "tmux-sessionizer" ''
   fi
 
   $tmux switch-client -t "$selected_name"
+<<<<<<< HEAD
   # $tmux attach-session -t "$selected_name"
+=======
+>>>>>>> upstream/master
 ''

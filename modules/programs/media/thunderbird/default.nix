@@ -1,4 +1,9 @@
+<<<<<<< HEAD
 {inputs, ...}: let
+=======
+{ inputs, ... }:
+let
+>>>>>>> upstream/master
   extensions = [
     # Theme
     "${inputs.thunderbird-catppuccin}/themes/mocha/mocha-mauve.xpi"
@@ -9,7 +14,12 @@
     # "https://addons.thunderbird.net/thunderbird/downloads/latest/grammar-and-spell-checker/addon-988138-latest.xpi"
     # "https://addons.thunderbird.net/thunderbird/downloads/latest/external-editor-revived/addon-988342-latest.xpi"
   ];
+<<<<<<< HEAD
 in {
+=======
+in
+{
+>>>>>>> upstream/master
   programs.thunderbird = {
     enable = true;
     policies = {

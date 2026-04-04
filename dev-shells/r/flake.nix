@@ -1,14 +1,29 @@
 {
   description = "A Nix-flake-based R development environment";
 
-  inputs.nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1.*.tar.gz";
+  inputs.nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1"; # unstable Nixpkgs
 
-  outputs = { self, nixpkgs }:
+  outputs =
+    { self, ... }@inputs:
+
     let
-      supportedSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
-      forEachSupportedSystem = f: nixpkgs.lib.genAttrs supportedSystems (system: f {
-        pkgs = import nixpkgs { inherit system; overlays = [ self.overlays.default ]; };
-      });
+      supportedSystems = [
+        "x86_64-linux"
+        "aarch64-linux"
+        "x86_64-darwin"
+        "aarch64-darwin"
+      ];
+      forEachSupportedSystem =
+        f:
+        inputs.nixpkgs.lib.genAttrs supportedSystems (
+          system:
+          f {
+            pkgs = import inputs.nixpkgs {
+              inherit system;
+              overlays = [ inputs.self.overlays.default ];
+            };
+          }
+        );
     in
     {
       overlays.default = final: prev: rec {
@@ -17,15 +32,17 @@
         };
       };
 
-      devShells = forEachSupportedSystem ({ pkgs }: {
-        default = pkgs.mkShell {
-          packages = with pkgs;
-            [
+      devShells = forEachSupportedSystem (
+        { pkgs }:
+        {
+          default = pkgs.mkShellNoCC {
+            packages = with pkgs; [
               rEnv
               pandoc
               texlive.combined.scheme-full
             ];
-        };
-      });
+          };
+        }
+      );
     };
 }

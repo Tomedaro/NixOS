@@ -1,7 +1,15 @@
+<<<<<<< HEAD
 {...}: {
   home-manager.sharedModules = [
     (_: {
       home.file.".config/swaylock/config".text = ''
+=======
+{ ... }:
+{
+  home-manager.sharedModules = [
+    (_: {
+      xdg.configFile."swaylock/config".text = ''
+>>>>>>> upstream/master
         color=24273a
         bs-hl-color=f4dbd6
         caps-lock-bs-hl-color=f4dbd6

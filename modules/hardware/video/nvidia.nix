@@ -3,15 +3,25 @@
   pkgs,
   config,
   ...
+<<<<<<< HEAD
 }: let
   nvidiaDriverChannel = config.boot.kernelPackages.nvidiaPackages.latest; # stable, latest, beta, etc.
 in {
   environment.sessionVariables = lib.optionalAttrs config.programs.hyprland.enable {
     NVD_BACKEND = "direct";
+=======
+}:
+let
+  nvidiaDriverChannel = config.boot.kernelPackages.nvidiaPackages.stable; # stable, latest, beta, etc.
+in
+{
+  environment.sessionVariables = lib.optionalAttrs config.programs.hyprland.enable {
+>>>>>>> upstream/master
     GBM_BACKEND = "nvidia-drm";
     WLR_NO_HARDWARE_CURSORS = "1";
     LIBVA_DRIVER_NAME = "nvidia";
     __GLX_VENDOR_LIBRARY_NAME = "nvidia";
+<<<<<<< HEAD
 
     __GL_GSYNC_ALLOWED = "1"; # GSync
   };
@@ -21,14 +31,37 @@ in {
   boot.kernelParams = lib.optionals (lib.elem "nvidia" config.services.xserver.videoDrivers) [
     "nvidia-drm.modeset=1"
     "nvidia_drm.fbdev=1"
+=======
+    # MOZ_DISABLE_RDD_SANDBOX = 1; # Potential security risk
+
+    __GL_GSYNC_ALLOWED = "1"; # GSync
+    __GL_VRR_ALLOWED = "1"; # VRR
+    __GL_MaxFramesAllowed = "1"; # Reduces input lag
+  };
+
+  # Load nvidia driver for Xorg and Wayland
+  services.xserver.videoDrivers = [ "nvidia" ]; # or "nvidiaLegacy470", etc.
+  boot.kernelParams = lib.optionals (lib.elem "nvidia" config.services.xserver.videoDrivers) [
+    "nvidia-drm.modeset=1"
+    "nvidia_drm.fbdev=1"
+
+    "nvidia.NVreg_RegistryDwords=RmEnableAggressiveVblank=1" # Experimental: reduce latency
+>>>>>>> upstream/master
   ];
   hardware = {
     nvidia = {
       open = false;
       # nvidiaPersistenced = true;
       nvidiaSettings = false;
+<<<<<<< HEAD
       powerManagement.enable = true; # This can cause sleep/suspend to fail.
       modesetting.enable = true;
+=======
+      powerManagement.enable = true; # Fixes sleep/suspend
+
+      modesetting.enable = true; # Modesetting is required.
+
+>>>>>>> upstream/master
       package = nvidiaDriverChannel;
     };
     graphics = {
@@ -44,7 +77,12 @@ in {
   };
   nixpkgs.config = {
     nvidia.acceptLicense = true;
+<<<<<<< HEAD
     allowUnfreePredicate = pkg:
+=======
+    allowUnfreePredicate =
+      pkg:
+>>>>>>> upstream/master
       builtins.elem (lib.getName pkg) [
         "cudatoolkit"
         "nvidia-persistenced"
@@ -52,8 +90,11 @@ in {
         "nvidia-x11"
       ];
   };
+<<<<<<< HEAD
   nix.settings = {
     substituters = ["https://cuda-maintainers.cachix.org"];
     trusted-public-keys = ["cuda-maintainers.cachix.org-1:0dq3bujKpuEPMCX6U4WylrUDZ9JyUG0VpVZa7CNfq5E="];
   };
+=======
+>>>>>>> upstream/master
 }

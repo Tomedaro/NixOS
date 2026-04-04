@@ -1,4 +1,9 @@
+<<<<<<< HEAD
 {pkgs, ...}: {
+=======
+{ pkgs, ... }:
+{
+>>>>>>> upstream/master
   home-manager.sharedModules = [
     (_: {
       programs.obs-studio = {

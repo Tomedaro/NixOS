@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # This module is untested since i don't own an amd gpu!
 {pkgs, ...}: {
   services.xserver = {
@@ -16,5 +17,17 @@
       # vulkan-validation-layers
     ];
     extraPackages32 = with pkgs; [driversi686Linux.amdvlk];
+=======
+{ pkgs, ... }:
+
+{
+  services.xserver = {
+    # enable = true;  # Already enabled in display manager
+    videoDrivers = [ "amdgpu" ];
+  };
+  environment.systemPackages = with pkgs; [ rocmPackages.amdsmi ];
+  hardware.amdgpu = {
+    opencl.enable = true;
+>>>>>>> upstream/master
   };
 }

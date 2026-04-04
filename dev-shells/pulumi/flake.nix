@@ -1,46 +1,61 @@
 {
   description = "A Nix-flake-based Pulumi development environment";
 
-  inputs.nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1.*.tar.gz";
+  inputs.nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1"; # unstable Nixpkgs
 
-  outputs = { self, nixpkgs }:
+  outputs =
+    { self, ... }@inputs:
+
     let
-      supportedSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
-      forEachSupportedSystem = f: nixpkgs.lib.genAttrs supportedSystems (system: f {
-        pkgs = import nixpkgs { inherit system; };
-      });
+      supportedSystems = [
+        "x86_64-linux"
+        "aarch64-linux"
+        "x86_64-darwin"
+        "aarch64-darwin"
+      ];
+      forEachSupportedSystem =
+        f:
+        inputs.nixpkgs.lib.genAttrs supportedSystems (
+          system:
+          f {
+            pkgs = import inputs.nixpkgs { inherit system; };
+          }
+        );
     in
     {
-      devShells = forEachSupportedSystem ({ pkgs }: {
-        default = pkgs.mkShell {
-          packages = with pkgs; [
-            # Pulumi plus:
-            # pulumi-watch
-            # pulumi-analyzer-* utilities
-            # pulumi-language-* utilities
-            # pulumi-resource-* utilities
-            pulumi-bin
+      devShells = forEachSupportedSystem (
+        { pkgs }:
+        {
+          default = pkgs.mkShellNoCC {
+            packages = with pkgs; [
+              # Pulumi plus:
+              # pulumi-watch
+              # pulumi-analyzer-* utilities
+              # pulumi-language-* utilities
+              # pulumi-resource-* utilities
+              pulumi-bin
 
-            # Python SDK
-            python311
+              # Python SDK
+              python311
 
-            # Go SDK
-            go_1_22
+              # Go SDK
+              go
 
-            # Node.js SDK
-            nodejs
+              # Node.js SDK
+              nodejs
 
-            # Java SDK
-            jdk
-            maven
+              # Java SDK
+              jdk
+              maven
 
-            # Kubernetes
-            kubectl
+              # Kubernetes
+              kubectl
 
-            # Miscellaneous utilities
-            jq
-          ];
-        };
-      });
+              # Miscellaneous utilities
+              jq
+            ];
+          };
+        }
+      );
     };
 }

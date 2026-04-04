@@ -1,14 +1,26 @@
+<<<<<<< HEAD
 {...}: {
+=======
+{ ... }:
+{
+>>>>>>> upstream/master
   environment.variables."DIRENV_WARN_TIMEOUT" = "60s";
   home-manager.sharedModules = [
     (_: {
       programs.direnv = {
         enable = true;
+<<<<<<< HEAD
         nix-direnv.enable = true;
         enableBashIntegration = true;
         enableZshIntegration = true;
         enableFishIntegration = true;
         enableNushellIntegration = true;
+=======
+        enableBashIntegration = true;
+        enableZshIntegration = true;
+        enableFishIntegration = false;
+        enableNushellIntegration = false;
+>>>>>>> upstream/master
       };
       # home.sessionVariables = {
       #   # DIRENV_DIR = "/tmp/direnv";

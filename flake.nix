@@ -2,8 +2,9 @@
   description = "A simple flake for an atomic system";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-24.11";
+    nixpkgs.url        = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-25.11"; # upstream: updated from 24.11
+
     home-manager = {
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -12,31 +13,42 @@
       url = "github:nix-community/nix-index-database";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # Editors
     nixvim = {
-      url = "github:Tomedaro/nixvim";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    spicetify-nix = {
-      url = "github:Gerg-L/spicetify-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    nur.url = "github:nix-community/NUR";
-    betterfox = {
-      url = "github:yokoffing/Betterfox";
-      flake = false;
-    };
-    thunderbird-catppuccin = {
-      url = "github:catppuccin/thunderbird";
-      flake = false;
-    };
-    zen-browser = {
-      url = "github:maximoffua/zen-browser.nix";
+      url = "github:Tomedaro/nixvim"; # Personal fork — keep yours
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nvchad4nix = {
       url = "github:nix-community/nix4nvchad";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # Browser
+    zen-browser = {
+      url = "github:0xc000022070/zen-browser-flake"; # upstream: updated URL
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        home-manager.follows = "home-manager";
+      };
+    };
+
+    # Theming / Media
+    spicetify-nix = {
+      url = "github:Gerg-L/spicetify-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    nur.url = "github:nix-community/NUR";
+    betterfox = {
+      url    = "github:yokoffing/Betterfox";
+      flake  = false;
+    };
+    thunderbird-catppuccin = {
+      url   = "github:catppuccin/thunderbird";
+      flake = false;
+    };
+
+    # Personal inputs
     yt-x = {
       url = "github:Benexl/yt-x";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -47,80 +59,53 @@
     };
   };
 
-  outputs = {
-    self,
-    nixpkgs,
-    ...
-  } @ inputs: let
-    inherit (self) outputs;
-    settings = {
-      # User configuration
-      username = "daniil"; # automatically set with install.sh and live-install.sh
-      editor = "nixvim"; # nixvim, vscode, nvchad, neovim, emacs (WIP)
-      browser = "zen"; # firefox, floorp, zen
-      terminal = "kitty"; # kitty, alacritty, wezterm
-      terminalFileManager = "yazi"; # yazi or lf
-      sddmTheme = "cyberpunk"; # astronaut, black_hole, purple_leaves, jake_the_dog, hyprland_kath
-      wallpaper = "cyberpunk.png"; # see modules/themes/wallpapers
+  outputs =
+    {
+      self,
+      nixpkgs,
+      ...
+    } @ inputs:
+    let
+      inherit (self) outputs;
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
+      forAllSystems = nixpkgs.lib.genAttrs systems;
 
-      # System configuration
-      videoDriver = "intel"; # CHOOSE YOUR GPU DRIVERS (nvidia or amdgpu or intel) THIS IS IMPORTANT
-      hostname = "NixOS"; # CHOOSE A HOSTNAME HERE
-      locale = "en_GB.UTF-8"; # CHOOSE YOUR LOCALE
-      timezone = "Europe/Paris"; # CHOOSE YOUR TIMEZONE
-      kbdLayout = "us"; # CHOOSE YOUR KEYBOARD LAYOUT
-      kbdVariant = "colemak_dh"; # CHOOSE YOUR KEYBOARD VARIANT (Can leave empty)
-      consoleKeymap = "colemak"; # CHOOSE YOUR CONSOLE KEYMAP (Affects the tty?)
+      mkHost = host:
+        nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = [
+            ./hosts/${host}/configuration.nix
+          ];
+          specialArgs = {
+            overlays = import ./overlays { inherit inputs host; };
+            inherit self inputs outputs host;
+          };
+        };
+    in
+    {
+      templates  = import ./dev-shells;
+      overlays   = import ./overlays { inherit inputs; };
+      formatter  = forAllSystems (system: nixpkgs.legacyPackages.${system}.alejandra);
+
+      nixosConfigurations = {
+        Default = mkHost "Default";
+      };
+
+      devShells = forAllSystems (system:
+        let
+          pkgs = import nixpkgs {
+            inherit system;
+            config.allowUnfree = true;
+            config.nvidia.acceptLicense = true;
+          };
+        in {
+          default = pkgs.mkShellNoCC {
+            packages = with pkgs; [ git nix figlet lolcat ];
+            NIX_CONFIG = "experimental-features = nix-command flakes";
+          };
+        });
     };
-
-    systems = [
-      "x86_64-linux"
-      "aarch64-linux"
-    ];
-    forAllSystems = nixpkgs.lib.genAttrs systems;
-
-  in { # Start of the returned attribute set for outputs
-    templates = import ./dev-shells;
-    overlays = import ./overlays {inherit inputs settings;};
-    formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.alejandra);
-
-    nixosConfigurations = {
-      # Use the hostname from your settings, or "Default" if you prefer
-      # Let's assume it's "NixOS" based on the previous error message
-      "Default" = nixpkgs.lib.nixosSystem {
-        # --- THE FIX ---
-        system = "x86_64-linux"; # Set your specific architecture here
-        # --- END FIX ---
-
-        specialArgs = {inherit self inputs outputs;} // settings; # Pass args
-        modules = [
-            ./hosts/Default/configuration.nix
-            ./hosts/common.nix
-            # Ensure hardware-configuration.nix is imported inside configuration.nix
-            # or add it here: ./hosts/Default/hardware-configuration.nix
-        ];
-      };
-    }; # End of nixosConfigurations
-
-    devShells = forAllSystems (system: let
-      # This part defining devShells looked okay
-      pkgs = import nixpkgs {
-        inherit system;
-        config.allowUnfree = true;
-        config.nvidia.acceptLicense = true;
-        # overlays = settings.overlays;
-      };
-    in {
-      default = pkgs.mkShellNoCC {
-        packages = with pkgs; [
-          git
-          nix
-          figlet
-          lolcat
-        ];
-        NIX_CONFIG = "experimental-features = nix-command flakes";
-      };
-    }); # End of devShells
-
-  }; # End of the returned attribute set for outputs
 }
