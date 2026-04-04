@@ -1,10 +1,10 @@
-{pkgs, ...}: let
-  # package = pkgs.lact;
-  package = pkgs.callPackage ../../../../pkgs/lact.nix {}; # TODO: remove when updated in nixpkgs
+{ pkgs, ... }:
+let
+  lact = pkgs.lact.overrideAttrs (_: { doCheck = false; });
 in {
   systemd = {
-    packages = [package];
-    services.lactd.wantedBy = ["multi-user.target"];
+    packages = [ lact ];
+    services.lactd.wantedBy = [ "multi-user.target" ];
   };
-  environment.systemPackages = [package];
+  environment.systemPackages = [ lact ];
 }

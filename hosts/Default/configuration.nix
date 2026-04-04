@@ -50,12 +50,12 @@
     # TEMPORARY TEST - ADD THIS BLOCK
   xdg.portal.config = pkgs.lib.mkForce { # mkForce ensures this definition wins
     # Using "TestDesktop" to ensure it's from this exact block
-    TestDesktop = { 
+    TestDesktop = {
       "org.freedesktop.impl.portal.Settings" = "gtk";
-      "org.freedesktop.impl.portal.Test" = "gtk"; 
+      "org.freedesktop.impl.portal.Test" = "gtk";
     };
   };
-  
+
 
    # Open ports in the firewall.
   networking.firewall = {
@@ -80,6 +80,7 @@
         # pokego # Overlayed
         # lact # Overlayed [LONG COMPILE]
         krita
+        vlc
         gimp
         github-desktop
       ];

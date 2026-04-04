@@ -57,7 +57,7 @@
       # User configuration
       username = "daniil"; # automatically set with install.sh and live-install.sh
       editor = "nixvim"; # nixvim, vscode, nvchad, neovim, emacs (WIP)
-      browser = "floorp"; # firefox, floorp, zen
+      browser = "zen"; # firefox, floorp, zen
       terminal = "kitty"; # kitty, alacritty, wezterm
       terminalFileManager = "yazi"; # yazi or lf
       sddmTheme = "cyberpunk"; # astronaut, black_hole, purple_leaves, jake_the_dog, hyprland_kath

@@ -39,7 +39,7 @@ in {
         mesa.drivers # Enables the use of mesa drivers
 
         nvidia-vaapi-driver # Not sure if this is needed
-        vaapiVdpau # Not sure if this is needed
+        libva-vdpau-driver # Not sure if this is needed
         libvdpau-va-gl # Not sure if this is needed
       ];
     };

@@ -1,33 +1,36 @@
 {pkgs, ...}: {
   nixpkgs.config.packageOverrides = pkgs: {
-    vaapiIntel = pkgs.vaapiIntel.override {enableHybridCodec = true;};
+    intel-vaapi-driver = pkgs.intel-vaapi-driver.override {enableHybridCodec = true;};
   };
 
+  boot.initrd.kernelModules = ["i915"];  # early KMS
   boot.kernelParams = [
     "intel_pstate=active"
-    "i915.enable_guc=2" # Enable GuC/HuC firmware loading
-    "i915.enable_psr=1" # Panel Self Refresh for power savings
-    "i915.enable_fbc=1" # Framebuffer compression
-    "i915.fastboot=1" # Skip unnecessary mode sets at boot
-    "mem_sleep_default=deep" # Allow deepest sleep states
-    "i915.enable_dc=2" # Display power saving
-    "nvme.noacpi=1" # Helps with NVME power consumption
+    "i915.enable_guc=3"    # GuC + HuC (was =2)
+    "i915.enable_psr=1"
+    "i915.enable_fbc=1"
+    "i915.fastboot=1"
+    "mem_sleep_default=deep"
+    "i915.enable_dc=2"
+    "nvme.noacpi=1"
   ];
 
-  # Load the driver
   services.xserver.videoDrivers = ["modesetting"];
 
-  # OpenGL
   hardware.graphics = {
+    enable = true;
     extraPackages = with pkgs; [
       intel-media-driver
-      vaapiIntel
-      vaapiVdpau
+      intel-vaapi-driver
+      libva-vdpau-driver
       libvdpau-va-gl
     ];
   };
 
-  # Thermal and Noise Management
+  environment.sessionVariables = {
+    LIBVA_DRIVER_NAME = "iHD";  # use intel-media-driver for Iris Xe
+  };
+
   services.thermald.enable = true;
   services.throttled.enable = true;
 }

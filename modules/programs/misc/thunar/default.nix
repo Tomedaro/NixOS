@@ -1,16 +1,17 @@
-{pkgs, ...}: {
+{ pkgs, ... }: {
   programs.thunar = {
     enable = true;
     plugins = with pkgs.xfce; [
-      thunar-archive-plugin # Archive management
-      thunar-volman # Volume management (automount removable devices)
-      thunar-media-tags-plugin # Tagging & renaming feature for media files
+      thunar-archive-plugin
+      thunar-volman
+      thunar-media-tags-plugin
     ];
   };
-  # Archive manager
-  programs.file-roller = {
-    enable = true;
-    package = pkgs.file-roller;
-  };
-  services.tumbler.enable = true; # Thumbnail support for images
+
+  programs.file-roller.enable = true;  # proper archive integration
+  programs.xfconf.enable = true;       # persist preferences
+  programs.dconf.enable = true;        # GTK settings on Hyprland
+
+  services.gvfs.enable = true;         # trash, MTP, SFTP, network mounts
+  services.tumbler.enable = true;      # thumbnails
 }

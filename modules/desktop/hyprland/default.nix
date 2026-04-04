@@ -9,7 +9,7 @@
   ...
 }: {
   imports = [
-    ../../themes/Dracula # Catppuccin GTK and QT themes
+    ../../themes/Catppuccin # Catppuccin GTK and QT themes
     ./programs/waybar
     ./programs/wlogout
     ./programs/rofi
@@ -247,7 +247,7 @@
             "col.active_border" = "rgba(ca9ee6ff) rgba(f2d5cfff) 45deg";
             "col.inactive_border" = "rgba(b4befecc) rgba(6c7086cc) 45deg";
             resize_on_border = true;
-            layout = "master"; # dwindle or master
+            layout = "dwindle"; # dwindle or master
             # allow_tearing = true; # Allow tearing for games (use immediate window rules for specific games or all titles)
           };
           decoration = {
@@ -309,11 +309,11 @@
               "specialWorkspace, 1, 3, md3_decel, slidevert"
             ];
           };
-          render = {
-            explicit_sync = 2; # 0 = off, 1 = on, 2 = auto based on gpu driver.
-            explicit_sync_kms = 2; # 0 = off, 1 = on, 2 = auto based on gpu driver.
-            direct_scanout = false; # Set to true for less Fullscreen game lag (may cause glitches).
-          };
+          #render = {
+          #  explicit_sync = 2; # 0 = off, 1 = on, 2 = auto based on gpu driver.
+          #  explicit_sync_kms = 2; # 0 = off, 1 = on, 2 = auto based on gpu driver.
+          #  direct_scanout = false; # Set to true for less Fullscreen game lag (may cause glitches).
+          #};
           misc = {
             disable_hyprland_logo = true;
             mouse_move_focuses_monitor = true;
@@ -323,10 +323,13 @@
             vrr = 1; # enable variable refresh rate (0=off, 1=on, 2=fullscreen only)
           };
           xwayland.force_zero_scaling = false;
-          gestures = {
-            workspace_swipe = true;
-            workspace_swipe_fingers = 3;
-          };
+          gesture = [
+            "3, horizontal, workspace"
+            "4, down, close"
+            "3, up, fullscreen"
+            "3, down, fullscreen"
+          ];
+
           dwindle = {
             pseudotile = true;
             preserve_split = true;
@@ -372,6 +375,7 @@
             "opacity 0.80 0.80,class:^(qt5ct)$"
             "opacity 0.80 0.80,class:^(qt6ct)$"
             "opacity 0.80 0.80,class:^(yad)$"
+            "opacity 0.80 0.80,class:^(anki-bin)$"
 
             "opacity 0.90 0.90,class:^(com.github.rafostar.Clapper)$" #Clapper-Gtk
             "opacity 0.80 0.80,class:^(com.github.tchx84.Flatseal)$" #Flatseal-Gtk
@@ -450,6 +454,11 @@
               "$mainMod, backspace, exec, wlogout -b 4" # logout menu
               "$mainMod SHIFT, F, exec, ${./scripts/windowpin.sh}"
               "$CONTROL, ESCAPE, exec, pkill waybar || waybar" # toggle waybar
+
+              # Rotate to Vertical (Portrait)
+              "$mainMod SHIFT, R, exec, hyprctl keyword monitor 'HDMI-A-1,2560x1440@144,1920x0,1,transform,1'"
+              # Rotate to Horizontal (Landscape)
+              "$mainMod SHIFT, T, exec, hyprctl keyword monitor 'HDMI-A-1,2560x1440@144,1920x0,1,transform,0'"
 
               "$mainMod, Return, exec, $term"
               "$mainMod, T, exec, $term"
@@ -579,6 +588,8 @@
           }
 
           # Easily plug in any monitor
+          monitor=eDP-1,1920x1080@60,0x0,1
+          monitor=HDMI-A-1,2560x1440@144,1920x0,1,bitdepth,10
           monitor=,preferred,auto,1
 
           # 1080p-HDR monitor on the left, 4K-HDR monitor in the middle and 1080p vertical monitor on the right.
@@ -596,6 +607,10 @@
           workspace=8,monitor:desc:BNQ BenQ xl2420t 99D06760SL0,default:true
           workspace=9,monitor:desc:BNQ BenQ xl2420t 99D06760SL0
           workspace=10,monitor:desc:BNQ BenQ EL2870U PCK00489SL0
+
+          # Switch off laptop screen when lid is closed
+          bindl=,switch:on:Lid Switch,exec,hyprctl keyword monitor "eDP-1, disable"
+          bindl=,switch:off:Lid Switch,exec,hyprctl keyword monitor "eDP-1, 1920x1080@60, 0x0, 1"
       '';
       };
     })

@@ -10,7 +10,7 @@
     extraPackages = with pkgs; [
       amdvlk
       libvdpau-va-gl
-      vaapiVdpau
+      libva-vdpau-driver
       # vulkan-loader
       # vulkan-extension-layer
       # vulkan-validation-layers
