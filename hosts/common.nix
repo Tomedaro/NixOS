@@ -25,6 +25,8 @@
 
   programs.nix-index-database.comma.enable = true;
 
+  users.groups.adbusers = {};
+
   users.users.${username} = {
     isNormalUser = true;
     extraGroups = [
@@ -36,6 +38,7 @@
       "libvirtd"
       "video"
       "audio"
+      "adbusers"
     ];
   };
 
@@ -69,6 +72,7 @@
         bleachbit
         qbittorrent
         anki-bin
+        zoom-us
         firefox
         obsidian
         steam
@@ -213,6 +217,7 @@
     enable = true;
     powerOnBoot = true;
     settings.General.Experimental = true;
+    settings.Policy.ReconnectAttempts = 0;
   };
 
   # Enable networking
@@ -232,7 +237,7 @@
       wayland.enable = true;
       enableHidpi = true;
       package = pkgs.kdePackages.sddm;
-      theme = "sddm-astronaut-theme";
+      theme = "sddm-sugar-dark-theme";
       settings.Theme.CursorTheme = "Bibata-Modern-Classic";
       extraPackages = with pkgs; [
         kdePackages.qtmultimedia
@@ -280,7 +285,7 @@
 
     pkgs.noto-fonts
     pkgs.noto-fonts-cjk-sans
-    pkgs.noto-fonts-emoji
+    pkgs.noto-fonts-color-emoji
 
     # pkgs.liberation_ttf # If you added this
   ];
@@ -319,9 +324,14 @@
     inputs.bzmenu.packages.${pkgs.system}.default
     inputs.yt-x.packages."${system}".default
     inputs.zen-browser.packages."${system}".default
+    qimgv
     killall
+    android-tools
     feh
+    foliate
+    sioyek
     lm_sensors
+    guvcview
     jq
     bibata-cursors
     sddm-astronaut # Overlayed
