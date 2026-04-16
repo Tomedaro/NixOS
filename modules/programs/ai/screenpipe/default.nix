@@ -1,55 +1,27 @@
 { config, pkgs, lib, ... }:
+
+let
+  screenpipeBin = "/home/daniil/.npm/_npx/e158bcd0e578b626/node_modules/@screenpipe/cli-linux-x64/bin/screenpipe";
+
+  runtimeLibs = lib.makeLibraryPath (with pkgs; [
+    libgbm wayland libxcb dbus openblas
+    stdenv.cc.cc.lib openssl xz libpulseaudio zlib pipewire
+  ]);
+
+  screenpipeStart = pkgs.writeShellScriptBin "screenpipe-start" ''
+    export LD_LIBRARY_PATH="${runtimeLibs}"
+    exec "${screenpipeBin}" record --disable-telemetry
+  '';
+
+in
 {
   environment.systemPackages = with pkgs; [
-    nodejs_22
-    ffmpeg
-    tesseract
-    libnotify
-    curl
+    nodejs_22 ffmpeg tesseract libnotify curl pipewire
+    screenpipeStart
   ];
-
-  # Ensure /bin/sh exists (screenpipe's npm package spawns "sh" by name)
-  environment.binsh = "${pkgs.bash}/bin/bash";
 
   xdg.portal = {
     enable = true;
-    extraPortals = [ pkgs.xdg-desktop-portal-wlr ];
-  };
-
-  systemd.user.services.screenpipe = {
-    description = "Screenpipe — local screen recorder and AI agent runtime";
-    after    = [ "graphical-session.target" ];
-    wants    = [ "graphical-session.target" ];
-    wantedBy = [ "graphical-session.target" ];
-
-    # This is the correct NixOS way to give a service PATH.
-    # It prepends all these packages' bin/ dirs before the service starts.
-    path = with pkgs; [
-      bash
-      coreutils
-      nodejs_22
-      ffmpeg
-      tesseract
-      libnotify
-      curl
-    ];
-
-    serviceConfig = {
-      ExecStart        = "${pkgs.nodejs_22}/bin/npx --yes screenpipe@latest record";
-      Restart          = "on-failure";
-      RestartSec       = "15s";
-      WorkingDirectory = "%h";
-      PassEnvironment  = [
-        "WAYLAND_DISPLAY"
-        "DISPLAY"
-        "XDG_RUNTIME_DIR"
-        "DBUS_SESSION_BUS_ADDRESS"
-      ];
-    };
-
-    environment = {
-      OPENAI_API_KEY  = "ollama";
-      OPENAI_BASE_URL = "http://localhost:11434/v1";
-    };
+    extraPortals = [ pkgs.xdg-desktop-portal-hyprland ];
   };
 }
