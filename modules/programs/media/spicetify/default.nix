@@ -23,9 +23,9 @@
         # configure spicetify :)
         programs.spicetify = {
           enable = true;
-          theme = spicePkgs.themes.catppuccin;
-          colorScheme = "mocha";
-          # windowManagerPatch = config.programs.hyprland.enable;
+          theme = spicePkgs.themes.dribbblish;
+          colorScheme = "gruvbox-material-dark";
+          windowManagerPatch = true;
           enabledExtensions = with spicePkgs.extensions; [
             adblock
             shuffle # shuffle+ (special characters are sanitized out of ext names)
@@ -36,13 +36,13 @@
             # fullAppDisplay
             # hidePodcasts
           ];
-          # enabledCustomApps = with spicePkgs.apps; [
+          enabledCustomApps = with spicePkgs.apps; [
           #   reddit
           #   lyricsPlus
-          #   marketplace
+          marketplace
           #   localFiles
           #   ncsVisualizer
-          # ];
+          ];
         };
       }
     )
