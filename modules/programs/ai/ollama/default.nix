@@ -5,7 +5,12 @@
     package = pkgs.ollama-cpu;        # CPU-only: no NVIDIA/AMD GPU on your machine
 
     # Preload model at service start — avoids cold-start delay when pipe fires
-    loadModels = [ "qwen3.5:4b" ];
+    loadModels = [
+      "qwen2.5vl:3b"
+      "gemma3:4b"
+    ];
+
+    services.open-webui.enable = true;
 
     environmentVariables = {
       OLLAMA_MAX_LOADED_MODELS = "1"; # only keep one model in RAM at a time
