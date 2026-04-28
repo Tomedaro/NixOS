@@ -1,6 +1,7 @@
 { pkgs, ... }:
 {
   services.gnome.gnome-keyring.enable = true;
+  security.pam.services.sddm.enableGnomeKeyring = true;
   security = {
     rtkit.enable = true;
     polkit.enable = true;

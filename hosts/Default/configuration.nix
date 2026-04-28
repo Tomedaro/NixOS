@@ -36,11 +36,10 @@ in
 
     # Desktop & Programs
     ../../modules/desktop/${vars.desktop}
-    ../../modules/programs/browser/${vars.browser}
+    #../../modules/programs/browser/${vars.browser}
     ../../modules/programs/terminal/${vars.terminal}
     ../../modules/programs/editor/${vars.editor}
     ../../modules/programs/cli/${vars.tuiFileManager}
-
     ../../modules/programs/cli/tmux
     ../../modules/programs/cli/direnv
     ../../modules/programs/cli/lazygit
@@ -54,38 +53,40 @@ in
     ../../modules/programs/misc/tlp
     ../../modules/programs/misc/thunar
     ../../modules/programs/misc/lact
-    ../../modules/programs/anki
     ../../modules/programs/misc/virt-manager
+    ../../modules/programs/anki
+
+    ../../modules/programs/ai
   ]
   ++ lib.optional (vars.games == true) ../../modules/core/games.nix;
 
-  # Networking
-  networking = {
-    hostName = vars.hostName;
-    firewall = {
-      enable = false;
-      allowedTCPPortRanges = [{ from = 1714; to = 1764; }];
-      allowedUDPPortRanges = [{ from = 1714; to = 1764; }];
-      allowedTCPPorts = [ 27701 21027 22000 ];
-    };
+  # Swap
+  swapDevices = [{ device = "/swapfile"; size = 8192; }];
+
+  # CPU scheduler
+  services.scx = {
+    enable = true;
+    package = pkgs.scx.rustscheds;
+    scheduler = "scx_lavd";
   };
 
-  programs.kdeconnect.enable = true;
+  # Drive automounting
+  services.devmon.enable = true;
+  services.gvfs.enable = true;
+  services.udisks2.enable = true;
 
-  # Home-manager personal packages
-  home-manager.sharedModules = [
-    (_: {
-      home.packages = with pkgs; [
-        krita
-        vlc
-        gimp
-        github-desktop
-      ];
-    })
-    ../../modules/services/syncthing
-  ];
+  # Firewall
+  networking.firewall = {
+    enable = lib.mkForce false;
+    allowedTCPPortRanges = [{ from = 1714; to = 1764; }];
+    allowedUDPPortRanges = [{ from = 1714; to = 1764; }];
+    allowedTCPPorts = [ 27701 21027 22000 ];
+  };
 
-  environment.systemPackages = with pkgs; [];
+  programs.kdeconnect = {
+      enable = true;
+      package = pkgs.valent;
+    };
 
   # DLNA media server
   services.minidlna = {

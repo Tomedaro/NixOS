@@ -1,20 +1,27 @@
-{ config, pkgs, lib, ... }:
+{ config, lib, pkgs, ... }:
+let
+  cfg = config.my.ai.ollama;
+in
 {
-  services.ollama = {
-    enable = true;
-    package = pkgs.ollama-cpu;        # CPU-only: no NVIDIA/AMD GPU on your machine
+  options.my.ai.ollama = {
+    enable = lib.mkEnableOption "local Ollama service";
+    package = lib.mkOption {
+      type = lib.types.package;
+      default = pkgs.ollama-cpu;
+      description = "Ollama package to use";
+    };
+    loadModels = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = "Models to preload";
+    };
+  };
 
-    # Preload model at service start — avoids cold-start delay when pipe fires
-    loadModels = [
-      "qwen2.5vl:3b"
-      "gemma3:4b"
-    ];
-
-    services.open-webui.enable = true;
-
-    environmentVariables = {
-      OLLAMA_MAX_LOADED_MODELS = "1"; # only keep one model in RAM at a time
-      OLLAMA_KEEP_ALIVE = "10m";      # unload after 10 min idle, free up ~4GB
+  config = lib.mkIf cfg.enable {
+    services.ollama = {
+      enable = true;
+      package = cfg.package;
+      loadModels = cfg.loadModels;
     };
   };
 }

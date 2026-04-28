@@ -17,37 +17,38 @@ let
     defaultWallpaper
     ;
 
-  # Script modules
-  autoclicker    = pkgs.callPackage ./scripts/autoclicker.nix { };
-  batterynotify  = pkgs.callPackage ./scripts/batterynotify.nix { };
-  clipmanager    = pkgs.callPackage ./scripts/clipmanager.nix { };
-  gamemode       = pkgs.callPackage ./scripts/gamemode.nix { };
+  # Import script modules
+  # autowaybar = pkgs.callPackage ./scripts/autowaybar.nix { };
+  autoclicker = pkgs.callPackage ./scripts/autoclicker.nix { };
+  batterynotify = pkgs.callPackage ./scripts/batterynotify.nix { };
+  clipmanager = pkgs.callPackage ./scripts/clipmanager.nix { };
+  gamemode = pkgs.callPackage ./scripts/gamemode.nix { };
   keyboardswitch = pkgs.callPackage ./scripts/keyboardswitch.nix { };
-  keybinds-yad   = pkgs.callPackage ./scripts/keybinds-yad.nix { };
-  rofimusic      = pkgs.callPackage ./scripts/rofimusic.nix { };
-  screen-record  = pkgs.callPackage ./scripts/screen-record.nix { };
-  screenshot     = pkgs.callPackage ./scripts/screenshot.nix { };
-  wallpaper      = pkgs.callPackage ./scripts/wallpaper.nix { inherit defaultWallpaper; };
-  zoom           = pkgs.callPackage ./scripts/zoom.nix { };
-
-  # Personal: per-device keyboard names
-  laptopKbdName = "at-translated-set-2-keyboard";
-  urchinKbdName = "urchin-keyboard";
+  keybinds-yad = pkgs.callPackage ./scripts/keybinds-yad.nix { };
+  # keybinds-rofi = pkgs.callPackage ./scripts/keybinds-yad.nix { };
+  # mediactrl = pkgs.callPackage ./scripts/mediactrl.nix { };
+  rofimusic = pkgs.callPackage ./scripts/rofimusic.nix { };
+  screen-record = pkgs.callPackage ./scripts/screen-record.nix { };
+  screenshot = pkgs.callPackage ./scripts/screenshot.nix { };
+  wallpaper = pkgs.callPackage ./scripts/wallpaper.nix { inherit defaultWallpaper; };
+  zoom = pkgs.callPackage ./scripts/zoom.nix { };
 in
 {
   imports = [
-    ../../themes/Catppuccin
+    ../../themes/Gruvbox # Catppuccin GTK and QT themes
     ./programs/wlogout
     ./programs/rofi
     ./programs/hypridle
     ./programs/hyprlock
   ]
-  ++ lib.optional  (bar == "hyprpanel") ./programs/hyprpanel
+  ++ lib.optional (bar == "hyprpanel") ./programs/hyprpanel
   ++ lib.optionals (bar == "noctalia") [
+    # ./programs/dunst
     ./programs/swaync
     ./programs/noctalia
   ]
   ++ lib.optionals (bar == "waybar") [
+    # ./programs/dunst
     ./programs/swaync
     ./programs/waybar/${waybarTheme}.nix
   ];
@@ -57,26 +58,26 @@ in
     swappy
     cliphist
     wl-clipboard
+    awww
   ];
 
   systemd.user.services.hyprpolkitagent = {
     description = "Hyprpolkitagent - Polkit authentication agent";
     wantedBy = [ "graphical-session.target" ];
-    wants    = [ "graphical-session.target" ];
-    after    = [ "graphical-session.target" ];
+    wants = [ "graphical-session.target" ];
+    after = [ "graphical-session.target" ];
     serviceConfig = {
-      Type          = "simple";
-      ExecStart     = "${pkgs.hyprpolkitagent}/libexec/hyprpolkitagent";
-      Restart       = "on-failure";
-      RestartSec    = 1;
+      Type = "simple";
+      ExecStart = "${pkgs.hyprpolkitagent}/libexec/hyprpolkitagent";
+      Restart = "on-failure";
+      RestartSec = 1;
       TimeoutStopSec = 10;
     };
   };
-
   services.displayManager.defaultSession = "hyprland";
 
   programs.hyprland = {
-    enable  = true;
+    enable = true;
     package = pkgs.hyprland;
     # withUWSM = true;
   };
@@ -86,40 +87,47 @@ in
       { config, ... }:
       {
         xdg.portal = {
-          enable           = true;
-          extraPortals     = with pkgs; [ xdg-desktop-portal-gtk ];
+          enable = true;
+          extraPortals = with pkgs; [
+            xdg-desktop-portal-gtk
+          ];
           xdgOpenUsePortal = true;
-          configPackages   = [ config.wayland.windowManager.hyprland.package ];
-          config.hyprland  = {
-            default = [ "hyprland" "gtk" ];
-            "org.freedesktop.impl.portal.OpenURI"     = "gtk";
+          configPackages = [ config.wayland.windowManager.hyprland.package ];
+          config.hyprland = {
+            default = [
+              "hyprland"
+              "gtk"
+            ];
+            "org.freedesktop.impl.portal.OpenURI" = "gtk";
             "org.freedesktop.impl.portal.FileChooser" = "gtk";
-            "org.freedesktop.impl.portal.Print"       = "gtk";
+            "org.freedesktop.impl.portal.Print" = "gtk";
           };
         };
 
         xdg.configFile."hypr/icons" = {
-          source    = ./icons;
+          source = ./icons;
           recursive = true;
         };
 
-        services.swww.enable = true;
 
+        #test later systemd.user.targets.hyprland-session.Unit.Wants = [ "xdg-desktop-autostart.target" ];
         wayland.windowManager.hyprland = {
-          enable  = true;
+          enable = true;
           package = pkgs.hyprland;
-          plugins = [ ];
+          plugins = [
+            # inputs.hyprland-plugins.packages.${pkgs.stdenv.hostPlatform.system}.hyprwinwrap
+            # inputs.hyprsysteminfo.packages.${pkgs.stdenv.hostPlatform.system}.default
+          ];
           systemd = {
-            enable    = true;
+            enable = true;
             variables = [ "--all" ];
           };
-
           settings = {
-            "$mainMod"     = "SUPER";
-            "$term"        = "${getExe pkgs.${terminal}}";
-            "$editor"      = "code --disable-gpu";
+            "$mainMod" = "SUPER";
+            "$term" = "${getExe pkgs.${terminal}}";
+            "$editor" = "code --disable-gpu";
             "$fileManager" = "$term --class \"tuiFileManager\" -e ${tuiFileManager}";
-            "$browser"     = browser;
+            "$browser" = browser;
 
             env = [
               "XDG_CURRENT_DESKTOP,Hyprland"
@@ -141,83 +149,94 @@ in
               "WLR_RENDERER_ALLOW_SOFTWARE,1"
               "NIXPKGS_ALLOW_UNFREE,1"
             ];
-
             exec-once = [
+              #"[workspace 1 silent] ${terminal}"
+              #"[workspace 5 silent] ${browser}"
+              #"[workspace 6 silent] spotify"
+              #"[workspace special silent] ${browser} --private-window"
+              #"[workspace special silent] ${terminal}"
+
+              "awww-daemon"
               "${lib.getExe wallpaper}"
               "${bar}"
               "swaync"
               "nm-applet --indicator"
-              "${getExe' pkgs.wl-clipboard "wl-paste"} --type text  --watch cliphist store"
-              "${getExe' pkgs.wl-clipboard "wl-paste"} --type image --watch cliphist store"
-              "rm '$XDG_CACHE_HOME/cliphist/db'"
-              "${getExe batterynotify}"
+              # "wl-clipboard-history -t"
+              "${getExe' pkgs.wl-clipboard "wl-paste"} --type text --watch cliphist store" # clipboard store text data
+              "${getExe' pkgs.wl-clipboard "wl-paste"} --type image --watch cliphist store" # clipboard store image data
+              "rm '$XDG_CACHE_HOME/cliphist/db'" # Clear clipboard
+              "${getExe batterynotify}" # battery notification
               "polkit-agent-helper-1"
+              "/run/current-system/sw/bin/screenpipe-start"
             ];
+          input = {
+            kb_layout = "us, ua";
+            kb_variant = "colemak_dh,";          # default fallback
+            kb_options = "caps:backspace";        # caps as backspace for all devices
+            repeat_delay = 275;
+            repeat_rate = 35;
+            numlock_by_default = true;
 
-            input = {
-              # Global default — per-device overrides below
-              kb_layout  = "${kbdLayout},ua,us";
-              kb_variant = "${kbdVariant},,";
+            follow_mouse = 1;
+
+            touchpad.natural_scroll = false;
+
+            tablet.output = "current";
+
+            sensitivity = 0;
+            force_no_accel = true;
+          };
+
+          device = [
+            {
+              name = "at-translated-set-2-keyboard";   # laptop keyboard
+              kb_layout = "us, ua";
+              kb_variant = "colemak_dh,";
               kb_options = "caps:backspace";
-              repeat_delay = 300;
-              repeat_rate  = 30;
-              follow_mouse = 1;
-              sensitivity  = 0.3;
-              force_no_accel = false;
-              numlock_by_default = true;
-              touchpad.natural_scroll = false;
-              tablet.output = "current";
-            };
-
-            # Personal: per-device keyboard configs
-            device = [
-              {
-                name       = laptopKbdName;
-                kb_layout  = "us,ua,us";
-                kb_variant = "colemak_dh,,";
-              }
-              {
-                name       = urchinKbdName;
-                kb_layout  = "us,ua,us";
-                kb_variant = "colemak_dh_ortho,,";
-              }
-            ];
-
-            general = {
-              gaps_in  = 4;
+            }
+            {
+              name = "urchin-keyboard";                # Bluetooth split keyboard
+              kb_layout = "us, ua";
+              kb_variant = "colemak_dh_ortho,";
+              kb_options = "caps:backspace";
+            }
+          ];
+           general = {
+              gaps_in = 4;
               gaps_out = 9;
               border_size = 2;
-              "col.active_border"   = "rgba(ca9ee6ff) rgba(f2d5cfff) 45deg";
+              "col.active_border" = "rgba(ca9ee6ff) rgba(f2d5cfff) 45deg";
               "col.inactive_border" = "rgba(b4befecc) rgba(6c7086cc) 45deg";
               resize_on_border = true;
-              layout = "dwindle";
+              layout = "dwindle"; # dwindle, master, scrolling, monocle
+              # allow_tearing = true; # Allow tearing for games (use immediate window rules for specific games or all titles)
             };
-
             decoration = {
               shadow.enabled = false;
-              rounding    = 10;
+              rounding = 10;
               dim_special = 0.3;
               blur = {
-                enabled          = true;
-                special          = true;
-                size             = 6;
-                passes           = 2;
+                enabled = true;
+                special = true;
+                size = 6; # 6
+                passes = 2; # 3
                 new_optimizations = true;
-                ignore_opacity   = true;
-                xray             = false;
+                ignore_opacity = true;
+                xray = false;
               };
             };
-
             group = {
-              "col.border_active"        = "rgba(ca9ee6ff) rgba(f2d5cfff) 45deg";
-              "col.border_inactive"      = "rgba(b4befecc) rgba(6c7086cc) 45deg";
+              "col.border_active" = "rgba(ca9ee6ff) rgba(f2d5cfff) 45deg";
+              "col.border_inactive" = "rgba(b4befecc) rgba(6c7086cc) 45deg";
               "col.border_locked_active" = "rgba(ca9ee6ff) rgba(f2d5cfff) 45deg";
               "col.border_locked_inactive" = "rgba(b4befecc) rgba(6c7086cc) 45deg";
             };
-
             layerrule = [
+              # Rofi
               "blur on, match:namespace rofi"
               "ignore_alpha 0.7, match:namespace rofi"
+
+              # Hyprpanel Menus
               "blur on, match:namespace ^bar-.*$"
               "blur on, match:namespace notifications-window"
               "blur on, match:namespace mediamenu"
@@ -236,12 +255,14 @@ in
               "ignore_alpha 0.7, match:namespace networkmenu"
               "ignore_alpha 0.7, match:namespace energymenu"
               "ignore_alpha 0.7, match:namespace dashboardmenu"
+
+              # Swaync
               "blur on, match:namespace swaync-control-center"
               "blur on, match:namespace swaync-notification-window"
               "ignore_alpha 0.7, match:namespace swaync-control-center"
               "ignore_alpha 0.8, match:namespace swaync-notification-window"
+              # "dim_around on, match:namespace swaync-control-center"
             ];
-
             animations = {
               enabled = true;
               bezier = [
@@ -261,217 +282,261 @@ in
                 "windows, 1, 3, md3_decel, popin 60%"
                 "border, 1, 10, default"
                 "fade, 1, 2.5, md3_decel"
+                # "workspaces, 1, 3.5, md3_decel, slide"
                 "workspaces, 1, 3.5, easeOutExpo, slide"
+                # "workspaces, 1, 7, fluent_decel, slidefade 15%"
+                # "specialWorkspace, 1, 3, md3_decel, slidefadevert 15%"
                 "specialWorkspace, 1, 3, md3_decel, slidevert"
               ];
             };
-
             render = {
-              direct_scanout = 0;
+              direct_scanout = 0; # 0 = off, 1 = on, 2 = auto (on with content type ‘game’)
             };
-
             ecosystem = {
-              no_update_news  = true;
+              enforce_permissions = true;
+              no_update_news = true;
               no_donation_nag = true;
             };
-
-            misc = {
-              disable_hyprland_logo    = true;
-              mouse_move_focuses_monitor = true;
-              swallow_regex            = "^(Alacritty|kitty)$";
-              enable_swallow           = true;
-              vfr = true;
-              vrr = 2; # fullscreen only
+            debug = {
+              disable_logs = false;
             };
-
+            misc = {
+              disable_hyprland_logo = true;
+              mouse_move_focuses_monitor = true;
+              swallow_regex = "^(Alacritty|kitty)$";
+              enable_swallow = true;
+              vfr = true; # always keep on
+              vrr = 2; # enable variable refresh rate (0=off, 1=on, 2=fullscreen only, 3 = fullscreen games/media)
+            };
             xwayland.force_zero_scaling = false;
-
             gesture = [
               "3, horizontal, workspace"
-              "4, down, close"
-              "3, up, fullscreen"
-              "3, down, fullscreen"
             ];
-
             dwindle = {
-              pseudotile    = true;
+              pseudotile = true;
               preserve_split = true;
             };
-
             master = {
               new_status = "master";
               new_on_top = true;
-              mfact      = 0.5;
+              mfact = 0.5;
             };
-
             windowrule = [
               "tile on, match:title (.*)(Godot)(.*)$"
-              "workspace 1, match:class ^(kitty|Alacritty|org.wezfurlong.wezterm)$"
-              "workspace 2, match:class ^(code|VSCodium|code-url-handler|codium-url-handler)$"
-              "workspace 3, match:class ^(krita|factorio|steam)$"
-              "workspace 3, match:title (.*)(Godot)(.*)$"
-              "workspace 3, match:title (GNU Image Manipulation Program)(.*)$"
-              "workspace 5, match:class ^(firefox|floorp|zen|zen-beta)$"
-              "workspace 6, match:class ^(Spotify)$"
-              "workspace 6, match:title (.*)(Spotify)(.*)$"
 
               "opacity 1.00 1.00, match:class ^(firefox|Brave-browser|floorp|zen|zen-beta)$"
+              "opacity 0.90 0.80, match:class ^(Emacs)$"
               "opacity 0.90 0.80, match:class ^(gcr-prompter)$"
               "opacity 0.90 0.80, match:title ^(Hyprland Polkit Agent)$"
-              "opacity 0.90 0.80, match:class ^(discord)$"
-              "opacity 0.90 0.80, match:class ^(WebCord)$"
+              "opacity 0.90 0.80, match:class ^(obsidian)$"
+              "opacity 0.90 0.80, match:class ^(proton.vpn.app.gtk)$"
+              "opacity 0.90 0.80, match:class ^(heroic)$"
+              "opacity 0.90 0.80, match:class ^(Lutris|lutris|net.lutris.Lutris)$"
+
               "opacity 0.80 0.70, match:class ^(kitty|alacritty|Alacritty|org.wezfurlong.wezterm)$"
-              "opacity 0.80 0.70, match:class ^(tuiFileManager)$"
+              "opacity 0.80 0.70, match:class ^(nvim-wrapper)$"
+              "opacity 0.80 0.70, match:class ^(gnome-disks)$"
+              "opacity 0.80 0.70, match:class ^(org.gnome.Nautilus|Thunar|thunar|pcmanfm)$"
+              "opacity 0.80 0.70, match:class ^(thunar-volman-settings)$"
+              "opacity 0.80 0.70, match:class ^(org.gnome.FileRoller)$"
+              "opacity 0.80 0.70, match:class ^(io.github.ilya_zlobintsev.LACT)$"
               "opacity 0.80 0.70, match:class ^(Steam|steam|steamwebhelper)$"
-              "opacity 0.80 0.70, match:class ^(Spotify|spotify)$"
-              "opacity 0.80 0.70, match:title ^(Spotify)(.*)$"
+              "opacity 0.80 0.70, match:class ^(Spotify|spotify|com.github.th_ch.youtube_music)$"
+              "opacity 0.80 0.70, match:title ^(Kvantum Manager)$"
               "opacity 0.80 0.70, match:class ^(VSCodium|codium-url-handler)$"
               "opacity 0.80 0.70, match:class ^(code|code-url-handler)$"
-              "opacity 0.80 0.70, match:class ^(org.kde.dolphin|org.kde.ark)$"
-              "opacity 0.80 0.70, match:class ^(nwg-look|qt5ct|qt6ct)$"
+              "opacity 0.80 0.70, match:class ^(tuiFileManager)$"
+              "opacity 0.80 0.70, match:class ^(org.kde.dolphin)$"
+              "opacity 0.80 0.70, match:class ^(org.kde.ark)$"
+              "opacity 0.80 0.70, match:class ^(nwg-look)$"
+              "opacity 0.80 0.70, match:class ^(qt5ct|qt6ct)$"
               "opacity 0.80 0.70, match:class ^(yad)$"
-              "opacity 0.80 0.70, match:class ^(io.github.ilya_zlobintsev.LACT)$"
+              "opacity 0.80 0.70, match:class ^(gjs)$"
+
+
+              "opacity 0.90 0.80, match:class ^(Anki)$"
+              "opacity 0.90 0.80, match:class ^(discord)$"
+              "opacity 0.90 0.80, match:class ^(WebCord)$"
+              "opacity 0.90 0.80, match:class ^(com.github.rafostar.Clapper)$"
+              "opacity 0.80 0.70, match:class ^(com.github.tchx84.Flatseal)$"
+              "opacity 0.80 0.70, match:class ^(hu.kramo.Cartridges)$"
               "opacity 0.80 0.70, match:class ^(com.obsproject.Studio)$"
               "opacity 0.80 0.70, match:class ^(gnome-boxes)$"
-              "opacity 0.80 0.70, match:class ^(pavucontrol|org.pulseaudio.pavucontrol)$"
-              "opacity 0.80 0.70, match:class ^(blueman-manager|.blueman-manager-wrapped)$"
-              "opacity 0.80 0.70, match:class ^(nm-applet|nm-connection-editor)$"
+              "opacity 0.80 0.70, match:class ^(app.drey.Warp)$"
+              "opacity 0.80 0.70, match:class ^(net.davidotek.pupgui2)$"
+              "opacity 0.80 0.70, match:class ^(Signal)$"
+              "opacity 0.80 0.70, match:class ^(io.gitlab.theevilskeleton.Upscaler)$"
+
+              "opacity 0.80 0.70, match:class ^(pavucontrol)$"
+              "opacity 0.80 0.70, match:class ^(org.pulseaudio.pavucontrol)$"
+              "opacity 0.80 0.70, match:class ^(blueman-manager)$"
+              "opacity 0.80 0.70, match:class ^(.blueman-manager-wrapped)$"
+              "opacity 0.80 0.70, match:class ^(nm-applet)$"
+              "opacity 0.80 0.70, match:class ^(nm-connection-editor)$"
               "opacity 0.80 0.70, match:class ^(org.kde.polkit-kde-authentication-agent-1)$"
-              "opacity 0.80 0.80, match:class ^(anki-bin)$"
 
               "float on, match:title ^(Picture-in-Picture)$, match:class ^(zen|zen-beta|floorp|firefox)$"
-              "pin on,   match:title ^(Picture-in-Picture)$, match:class ^(zen|zen-beta|floorp|firefox)$"
+              "pin on, match:title ^(Picture-in-Picture)$, match:class ^(zen|zen-beta|floorp|firefox)$"
 
               "content game, match:tag games"
-              "tag +games,   match:class ^(steam_app.*|steam_app_\\d+)$"
-              "tag +games,   match:class ^(gamescope)$"
+              "tag +games, match:content 3"
+              "tag +games, match:class ^(steam_app.*|steam_app_\\d+)$"
+              "tag +games, match:class ^(gamescope)$"
+              "tag +games, match:class (Waydroid)"
+              "tag +games, match:class (osu!)"
+
               "sync_fullscreen on, match:tag games"
-              "fullscreen on,      match:tag games"
-              "border_size 0,      match:tag games"
-              "no_shadow on,       match:tag games"
-              "no_blur on,         match:tag games"
-              "no_anim on,         match:tag games"
+              "fullscreen on, match:tag games"
+              "border_size 0, match:tag games"
+              "no_shadow on, match:tag games"
+              "no_blur on, match:tag games"
+              "no_anim on, match:tag games"
 
               "opacity 0.80 0.70, match:class ^(microfetch)$"
-              "float on,           match:class ^(microfetch)$"
-              "center on,          match:class ^(microfetch)$"
-              "size 802 261,       match:class ^(microfetch)$"
+              "float on, match:class ^(microfetch)$"
+              "center on, match:class ^(microfetch)$"
+              "size 802 261, match:class ^(microfetch)$"
 
-              "float on, match:class ^(qt5ct|nwg-look|org.kde.ark)$"
-              "float on, match:class ^(Signal|eog|yad|pavucontrol)$"
-              "float on, match:class ^(blueman-manager|.blueman-manager-wrapped)$"
-              "float on, match:class ^(nm-applet|nm-connection-editor)$"
+              "float on, match:class ^(qt5ct)$"
+              "float on, match:class ^(nwg-look)$"
+              "float on, match:class ^(org.kde.ark)$"
+              "float on, match:class ^(Signal)$"
+              "float on, match:class ^(com.github.rafostar.Clapper)$"
+              "float on, match:class ^(app.drey.Warp)$"
+              "float on, match:class ^(net.davidotek.pupgui2)$"
+              "float on, match:class ^(eog)$"
+              "float on, match:class ^(io.gitlab.theevilskeleton.Upscaler)$"
+              "float on, match:class ^(yad)$"
+              "float on, match:class ^(pavucontrol)$"
+              "float on, match:class ^(blueman-manager)$"
+              "float on, match:class ^(.blueman-manager-wrapped)$"
+              "float on, match:class ^(nm-applet)$"
+              "float on, match:class ^(nm-connection-editor)$"
               "float on, match:class ^(org.kde.polkit-kde-authentication-agent-1)$"
             ];
-
             binde = [
+              # Resize windows
               "$mainMod SHIFT, right, resizeactive, 30 0"
-              "$mainMod SHIFT, left,  resizeactive, -30 0"
-              "$mainMod SHIFT, up,    resizeactive, 0 -30"
-              "$mainMod SHIFT, down,  resizeactive, 0 30"
+              "$mainMod SHIFT, left, resizeactive, -30 0"
+              "$mainMod SHIFT, up, resizeactive, 0 -30"
+              "$mainMod SHIFT, down, resizeactive, 0 30"
+
+              # Resize windows with hjkl keys
               "$mainMod SHIFT, l, resizeactive, 30 0"
               "$mainMod SHIFT, h, resizeactive, -30 0"
               "$mainMod SHIFT, k, resizeactive, 0 -30"
               "$mainMod SHIFT, j, resizeactive, 0 30"
-              ",XF86MonBrightnessDown, exec, ${pkgs.brightnessctl}/bin/brightnessctl set 2%-"
-              ",XF86MonBrightnessUp,   exec, ${pkgs.brightnessctl}/bin/brightnessctl set +2%"
-              ",XF86AudioLowerVolume,  exec, ${pkgs.pamixer}/bin/pamixer -d 2"
-              ",XF86AudioRaiseVolume,  exec, ${pkgs.pamixer}/bin/pamixer -i 2"
+
+              # Functional keybinds
+              ",XF86MonBrightnessDown,exec,${pkgs.brightnessctl}/bin/brightnessctl set 2%-"
+              ",XF86MonBrightnessUp,exec,${pkgs.brightnessctl}/bin/brightnessctl set +2%"
+              ",XF86AudioLowerVolume,exec,${pkgs.pamixer}/bin/pamixer -d 2"
+              ",XF86AudioRaiseVolume,exec,${pkgs.pamixer}/bin/pamixer -i 2"
             ];
-
             bind = [
+              # Keybinds help menu
               "$mainMod, question, exec, ${getExe keybinds-yad}"
-              "$mainMod, slash,    exec, ${getExe keybinds-yad}"
-              "$mainMod CTRL, K,   exec, ${getExe keybinds-yad}"
+              "$mainMod, slash, exec, ${getExe keybinds-yad}"
+              "$mainMod CTRL, K, exec, ${getExe keybinds-yad}"
 
-              "$mainMod, F9,  exec, ${getExe pkgs.hyprsunset} --temperature 3500"
+              "$mainMod, F8, exec, kill $(cat /tmp/auto-clicker.pid) 2>/dev/null || ${getExe autoclicker} --cps 40"
+              # "$mainMod ALT, mouse:276, exec, kill $(cat /tmp/auto-clicker.pid) 2>/dev/null || ${lib.getExe autoclicker} --cps 60"
+
+              # Night Mode (lower value means warmer temp)
+              "$mainMod, F9, exec, ${getExe pkgs.hyprsunset} --temperature 3500" # good values: 3500, 3000, 2500
               "$mainMod, F10, exec, pkill hyprsunset"
-              "$mainMod, F8,  exec, kill $(cat /tmp/auto-clicker.pid) 2>/dev/null || ${getExe autoclicker} --cps 40"
 
-              # Window/Session
-              "$mainMod, Q,      killactive"
-              "ALT, F4,          forcekillactive"
-              "$mainMod, delete, exit"
-              "$mainMod, W,      togglefloating"
-              "$mainMod SHIFT, G, togglegroup"
-              "ALT, return,      fullscreen"
-              "$mainMod ALT, L,  exec, hyprlock"
-              "$mainMod, backspace, exec, pkill -x wlogout || wlogout -b 4"
-              "$mainMod SHIFT, F,   exec, ${./scripts/windowpin.sh}"  # Personal: window pin
-              "$CONTROL, ESCAPE,    exec, pkill waybar || pkill hyprpanel || ${bar}"
-              "$mainMod CTRL, mouse_down, exec, ${getExe zoom} in"
-              "$mainMod CTRL, mouse_up,   exec, ${getExe zoom} out"
+              # Window/Session actions
+              "$mainMod, Q, killactive"
+              "ALT, F4, forcekillactive"
+              "$mainMod, delete, exit" # kill hyperland session
+              "$mainMod, W, togglefloating" # toggle the window on focus to float
+              "$mainMod SHIFT, G, togglegroup" # toggle the window on focus to float
+              "ALT, return, fullscreen" # toggle the window on focus to fullscreen
+              "$mainMod ALT, L, exec, hyprlock" # lock screen
+              "$mainMod, backspace, exec, pkill -x wlogout || wlogout -b 4" # logout menu
+              "$CONTROL, ESCAPE, exec, pkill waybar || pkill hyprpanel || ${bar}" # toggle bar
+              "$mainMod CTRL, mouse_down, exec, ${getExe zoom} in" # zoom in
+              "$mainMod CTRL, mouse_up, exec, ${getExe zoom} out" # zoom out
 
-              # Personal: monitor rotation (HDMI-A-1)
-              "$mainMod SHIFT, R, exec, hyprctl keyword monitor 'HDMI-A-1,2560x1440@144,1920x0,1,transform,1'"
-              "$mainMod SHIFT, T, exec, hyprctl keyword monitor 'HDMI-A-1,2560x1440@144,1920x0,1,transform,0'"
-
-              # Applications
+              # Applications/Programs
               "$mainMod, Return, exec, $term"
-              "$mainMod, T,      exec, $term"
-              "$mainMod, E,      exec, $fileManager"
-              "$mainMod, C,      exec, $editor"
-              "$mainMod, F,      exec, $browser"
+              "$mainMod, T, exec, $term"
+              "$mainMod, E, exec, $fileManager"
+              "$mainMod, C, exec, $editor"
+              "$mainMod, F, exec, $browser"
               "$mainMod SHIFT, S, exec, spotify"
-              "$CONTROL ALT, DELETE, exec, $term -e '${getExe pkgs.btop}'"
-              "$CONTROL ALT, M,      exec, $term --class \"microfetch\" --hold -e microfetch"
-              "$mainMod CTRL, C,     exec, ${getExe pkgs.hyprpicker} --autocopy --format=hex"
+              "$mainMod SHIFT, Y, exec, youtube-music"
+              "$CONTROL ALT, DELETE, exec, $term -e '${getExe pkgs.btop}'" # System Monitor
+              "$CONTROL ALT, M, exec, $term --class \"microfetch\" --hold -e microfetch" # System Monitor
+              "$mainMod CTRL, C, exec, ${getExe pkgs.hyprpicker} --autocopy --format=hex" # Colour Picker
 
-              # Launchers
-              "$mainMod, A,      exec, launcher drun"
-              "$mainMod, SPACE,  exec, launcher drun"
-              "$mainMod, Z,      exec, launcher emoji"
-              "$mainMod, G,      exec, launcher games"
-              "$mainMod SHIFT, W, exec, launcher wallpaper"
-              "$mainMod SHIFT, T, exec, launcher tmux"
+              "$mainMod, A, exec, launcher drun" # launch desktop applications
+              "$mainMod, SPACE, exec, launcher drun" # launch desktop applications
+              "$mainMod SHIFT, W, exec, launcher wallpaper" # launch wallpaper switcher
+              "$mainMod, Z, exec, launcher emoji" # launch emoji picker
+              "$mainMod SHIFT, T, exec, launcher tmux" # launch tmux sessions
+              "$mainMod, G, exec, launcher games" # game launcher
+              # "$mainMod, tab, exec, launcher window" # switch between desktop applications
+              # "$mainMod, R, exec, launcher file" # brrwse system files
+              "$mainMod ALT, K, exec, ${getExe keyboardswitch}" # change keyboard layout
+              "$mainMod SHIFT, N, exec, swaync-client -t -sw" # swayNC panel
+              "$mainMod SHIFT, Q, exec, swaync-client -t -sw" # swayNC panel
+              "$mainMod ALT, G, exec, ${getExe gamemode}" # disable hypr effects for gamemode
+              "$mainMod, V, exec, ${getExe clipmanager}" # Clipboard Manager
+              "$mainMod, M, exec, ${getExe rofimusic}" # online music
 
-              # Personal: per-device keyboard switch
-              "$mainMod ALT, K, exec, ${getExe keyboardswitch}"
+              # Screenshot/Screencapture
+              "$mainMod SHIFT, R, exec, ${getExe screen-record} a" # Screen Record (area select)
+              "$mainMod CTRL, R, exec, ${getExe screen-record} m" # Screen Record (monitor select)
+              "$mainMod, P, exec, ${getExe screenshot} s" # drag to snip an area / click on a window to print it
+              "$mainMod CTRL, P, exec, ${getExe screenshot} sf" # frozen screen, drag to snip an area / click on a window to print it
+              "$mainMod, print, exec, ${getExe screenshot} m" # print focused monitor
+              "$mainMod ALT, P, exec, ${getExe screenshot} p" # print all monitor outputs
 
-              "$mainMod SHIFT, N, exec, swaync-client -t -sw"
-              "$mainMod SHIFT, Q, exec, swaync-client -t -sw"
-              "$mainMod ALT, G,   exec, ${getExe gamemode}"
-              "$mainMod, V,       exec, ${getExe clipmanager}"
-              "$mainMod, M,       exec, ${getExe rofimusic}"
+              # Functional keybinds
+              ",xf86Sleep, exec, systemctl suspend" # Put computer into sleep mode
+              ",XF86AudioMicMute,exec,${pkgs.pamixer}/bin/pamixer --default-source -t" # mute mic
+              ",XF86AudioMute,exec,${pkgs.pamixer}/bin/pamixer -t" # mute audio
+              ",XF86AudioPlay,exec,${pkgs.playerctl}/bin/playerctl play-pause" # Play/Pause media
+              ",XF86AudioPause,exec,${pkgs.playerctl}/bin/playerctl play-pause" # Play/Pause media
+              ",xf86AudioNext,exec,${pkgs.playerctl}/bin/playerctl next" # go to next media
+              ",xf86AudioPrev,exec,${pkgs.playerctl}/bin/playerctl previous" # go to previous media
 
-              # Screenshot/Screen capture
-              "$mainMod CTRL, R,  exec, ${getExe screen-record} a"
-              "$mainMod ALT, R,   exec, ${getExe screen-record} m"
-              "$mainMod, P,       exec, ${getExe screenshot} s"
-              "$mainMod CTRL, P,  exec, ${getExe screenshot} sf"
-              "$mainMod, print,   exec, ${getExe screenshot} m"
-              "$mainMod ALT, P,   exec, ${getExe screenshot} p"
+              # ",xf86AudioNext,exec,${getExe mediactrl} next" # go to next media
+              # ",xf86AudioPrev,exec,${getExe mediactrl} previous" # go to previous media
+              # ",XF86AudioPlay,exec,${getExe mediactrl} play-pause" # go to next media
+              # ",XF86AudioPause,exec,${getExe mediactrl} play-pause" # go to next media
 
-              # Media / System
-              ",xf86Sleep,        exec, systemctl suspend"
-              ",XF86AudioMicMute, exec, ${pkgs.pamixer}/bin/pamixer --default-source -t"
-              ",XF86AudioMute,    exec, ${pkgs.pamixer}/bin/pamixer -t"
-              ",XF86AudioPlay,    exec, ${pkgs.playerctl}/bin/playerctl play-pause"
-              ",XF86AudioPause,   exec, ${pkgs.playerctl}/bin/playerctl play-pause"
-              ",xf86AudioNext,    exec, ${pkgs.playerctl}/bin/playerctl next"
-              ",xf86AudioPrev,    exec, ${pkgs.playerctl}/bin/playerctl previous"
+              # to switch between windows in a floating workspace
+              "$mainMod, Tab, cyclenext"
+              "$mainMod, Tab, bringactivetotop"
 
-              # Focus
-              "$mainMod, Tab,   cyclenext"
-              "$mainMod, Tab,   bringactivetotop"
+              # Switch workspaces relative to the active workspace with mainMod + CTRL + [←→]
               "$mainMod CTRL, right, workspace, r+1"
-              "$mainMod CTRL, left,  workspace, r-1"
-              "$mainMod CTRL, down,  workspace, empty"
-              "$mainMod, left,  movefocus, l"
+              "$mainMod CTRL, left, workspace, r-1"
+
+              # move to the first empty workspace instantly with mainMod + CTRL + [↓]
+              "$mainMod CTRL, down, workspace, empty"
+
+              # Move focus with mainMod + arrow keys
+              "$mainMod, left, movefocus, l"
               "$mainMod, right, movefocus, r"
-              "$mainMod, up,    movefocus, u"
-              "$mainMod, down,  movefocus, d"
-              "ALT, Tab,        movefocus, d"
-              "$mainMod, h,     movefocus, l"
-              "$mainMod, l,     movefocus, r"
-              "$mainMod, k,     movefocus, u"
-              "$mainMod, j,     movefocus, d"
+              "$mainMod, up, movefocus, u"
+              "$mainMod, down, movefocus, d"
+              "ALT, Tab, movefocus, d"
 
-              # Scrolling layout columns
+              # Move focus with mainMod + HJKL keys
+              "$mainMod, h, movefocus, l"
+              "$mainMod, l, movefocus, r"
+              "$mainMod, k, movefocus, u"
+              "$mainMod, j, movefocus, d"
+
+              # Switch scrolling columns
               "$mainMod, period, layoutmsg, move +col"
-              "$mainMod, comma,  layoutmsg, move -col"
+              "$mainMod, comma, layoutmsg, move -col"
 
-              # Mouse workspace navigation
+              # Go to workspace 5, 6 and 7 with mouse side buttons
               "$mainMod, mouse:276, workspace, 5"
               "$mainMod, mouse:275, workspace, 6"
               "$mainMod ALT, mouse:275, workspace, 7"
@@ -482,81 +547,98 @@ in
               "$mainMod CTRL, mouse:275, movetoworkspacesilent, 6"
               "$mainMod CTRL ALT, mouse:275, movetoworkspacesilent, 7"
 
-              # Rebuild NixOS
+              # Rebuild NixOS with a KeyBind
               "$mainMod, U, exec, $term -e rebuild"
 
-              # Scroll workspaces
+              # Scroll through existing workspaces with mainMod + scroll
               "$mainMod, mouse_down, workspace, e+1"
-              "$mainMod, mouse_up,   workspace, e-1"
+              "$mainMod, mouse_up, workspace, e-1"
 
-              # Move active window
+              # Move active window to a relative workspace with mainMod + CTRL + ALT + [←→]
               "$mainMod CTRL ALT, right, movetoworkspace, r+1"
-              "$mainMod CTRL ALT, left,  movetoworkspace, r-1"
-              "$mainMod SHIFT $CONTROL, left,  movewindow, l"
+              "$mainMod CTRL ALT, left, movetoworkspace, r-1"
+
+              # Move active window around current workspace with mainMod + SHIFT + CTRL [←→↑↓]
+              "$mainMod SHIFT $CONTROL, left, movewindow, l"
               "$mainMod SHIFT $CONTROL, right, movewindow, r"
-              "$mainMod SHIFT $CONTROL, up,    movewindow, u"
-              "$mainMod SHIFT $CONTROL, down,  movewindow, d"
+              "$mainMod SHIFT $CONTROL, up, movewindow, u"
+              "$mainMod SHIFT $CONTROL, down, movewindow, d"
+
+              # Move active window around current workspace with mainMod + SHIFT + CTRL [HLJK]
               "$mainMod SHIFT $CONTROL, H, movewindow, l"
               "$mainMod SHIFT $CONTROL, L, movewindow, r"
               "$mainMod SHIFT $CONTROL, K, movewindow, u"
               "$mainMod SHIFT $CONTROL, J, movewindow, d"
 
-              # Scratchpad
+              # Special workspaces (scratchpad)
               "$mainMod CTRL, S, movetoworkspacesilent, special"
-              "$mainMod ALT, S,  movetoworkspacesilent, special"
-              "$mainMod, S,      togglespecialworkspace,"
+              "$mainMod ALT, S, movetoworkspacesilent, special"
+              "$mainMod, S, togglespecialworkspace,"
             ]
             ++ (builtins.concatLists (
               builtins.genList (
                 x:
                 let
-                  ws = let c = (x + 1) / 10; in builtins.toString (x + 1 - (c * 10));
+                  ws =
+                    let
+                      c = (x + 1) / 10;
+                    in
+                    builtins.toString (x + 1 - (c * 10));
                 in
                 [
-                  "$mainMod, ${ws},           workspace,            ${toString (x + 1)}"
-                  "$mainMod SHIFT, ${ws},     movetoworkspace,      ${toString (x + 1)}"
-                  "$mainMod CTRL, ${ws},      movetoworkspacesilent, ${toString (x + 1)}"
+                  "$mainMod, ${ws}, focusworkspaceoncurrentmonitor, ${toString (x + 1)}"
+                  "$mainMod SHIFT, ${ws}, movetoworkspace, ${toString (x + 1)}"
+                  "$mainMod CTRL, ${ws}, movetoworkspacesilent, ${toString (x + 1)}"
                 ]
               ) 10
             ));
-
             bindm = [
+              # Move/Resize windows with mainMod + LMB/RMB and dragging
               "$mainMod, mouse:272, movewindow"
               "$mainMod, mouse:273, resizewindow"
             ];
 
             binds = {
-              workspace_back_and_forth = 1; # Personal preference
+              workspace_back_and_forth = 0;
+              #allow_workspace_cycles=1
+              #pass_mouse_when_bound=0
             };
 
             monitor = [
-              "eDP-1,1920x1080@60,0x0,1"                                                          # Laptop screen
-              "desc:BNQ BenQ EW277HDR 99J01861SL0,preferred,-1920x0,1"
-              "desc:BNQ BenQ EL2870U PCK00489SL0,preferred,0x0,2"
-              "desc:BNQ BenQ xl2420t 99D06760SL0,preferred,1920x-420,1,transform,1"
-              ",preferred,auto,1"                                                                   # Fallback
+              # Easily plug in any monitor
+              ",preferred,auto,1"
+
+              # My Monitors (Fine to leave these since i used the serial numbers)
+              "eDP-1,1920x1080@60,0x0,1.33"
+              "HDMI-A-1,2560x1440@144,auto,1.33,bitdepth,10"
+              "desc:BNQ BenQ xl2420t 99D06760SL0,preferred,1920x-420,1,transform,1" # 5 for fipped
             ];
 
             workspace = [
-              "1, persistent:true, monitor:desc:BNQ BenQ EL2870U PCK00489SL0, default:true"
-              "2, persistent:true, monitor:desc:BNQ BenQ EL2870U PCK00489SL0"
-              "3, persistent:true, monitor:desc:BNQ BenQ EL2870U PCK00489SL0"
-              "4, persistent:true, monitor:desc:BNQ BenQ EL2870U PCK00489SL0"
-              "5, persistent:true, monitor:desc:BNQ BenQ EW277HDR 99J01861SL0, default:true"
-              "6, persistent:true, monitor:desc:BNQ BenQ EW277HDR 99J01861SL0"
-              "7, persistent:true, monitor:desc:BNQ BenQ EW277HDR 99J01861SL0"
-              "8, persistent:true, monitor:desc:BNQ BenQ xl2420t 99D06760SL0, default:true"
-              "9, persistent:true, monitor:desc:BNQ BenQ xl2420t 99D06760SL0"
-              "10, persistent:true, monitor:desc:BNQ BenQ EL2870U PCK00489SL0"
+              # Binds workspaces to my monitors (find desc with: hyprctl monitors)
+              "1, persistent:true, monitor:eDP-1,default:true"
+              "2, persistent:true, monitor:eDP-1"
+              "3, persistent:true, monitor:eDP-1"
+              "4, persistent:true, monitor:HDMI-A-1, default:true"
+              "5, persistent:true, monitor:HDMI-A-1"
+              "6, persistent:true, monitor:HDMI-A-1"
+              "7, persistent:true"
+              "8, persistent:true"
+              "9, persistent:true"
+              "10, persistent:true"
             ];
           };
-
           extraConfig = ''
-            # Personal: lid switch — disable/enable laptop screen
-            bindl=,switch:on:Lid Switch,exec,hyprctl keyword monitor "eDP-1, disable"
-            bindl=,switch:off:Lid Switch,exec,hyprctl keyword monitor "eDP-1, 1920x1080@60, 0x0, 1"
+              permission = ${lib.getExe pkgs.grim}, screencopy, allow
+              permission = ${lib.escapeRegex (lib.getExe config.programs.hyprlock.package)}, screencopy, allow
+              permission = ${pkgs.xdg-desktop-portal-hyprland}/libexec/.xdg-desktop-portal-hyprland-wrapped, screencopy, allow
+              permission = /nix/store/[a-z0-9]{32}-zen-beta-bin-unwrapped-.*/lib/zen-bin-.*/zen, screencopy, allow
+              permission = /home/daniil/\.npm/_npx/[a-f0-9]*/node_modules/@screenpipe/cli-linux-x64/bin/screenpipe, screencopy, allow
+              permission = /nix/store/[a-z0-9]{32}-bun-[0-9.]*/bin/bun, screencopy, allow
+              permission = /nix/store/[a-z0-9]{32}-screenpipe-start/bin/screenpipe-start, screencopy, allow
           '';
-        };
+
+          };
       }
     )
   ];

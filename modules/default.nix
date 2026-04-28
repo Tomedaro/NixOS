@@ -41,13 +41,16 @@ in
     ./programs/cli/btop
     ./programs/media/discord
     ./programs/media/spicetify
-    # ./programs/media/youtube-music
-    # ./programs/media/thunderbird
+    ./programs/media/youtube-music
+    ./programs/media/thunderbird
     # ./programs/media/obs-studio
     ./programs/media/mpv
     ./programs/misc/tlp
     ./programs/misc/thunar
     ./programs/misc/lact # GPU fan, clock and power configuration
+    ./programs/ai/compat      # nix-ld + binary compat libs
+    ./programs/ai/ollama      # local LLM server
+    ./programs/ai/screenpipe  # AI screen recorder
   ]
   ++ lib.optional (vars.games == true) ./core/games.nix;
 }

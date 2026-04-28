@@ -3,7 +3,6 @@ let
   inherit (import ../hosts/${host}/variables.nix) sddmTheme;
 in
 {
-  # Overlay custom derivations into nixpkgs so you can use pkgs.<name>
   additions =
     final: _prev:
     import ../pkgs {
@@ -11,7 +10,6 @@ in
       inherit host;
     };
 
-  # https://wiki.nixos.org/wiki/Overlays
   modifications = final: prev: {
     nur = inputs.nur.overlays.default;
     stable = import inputs.nixpkgs-stable {
@@ -27,5 +25,15 @@ in
       withOpenASAR = true;
       enableAutoscroll = true;
     };
+    hyprland = prev.hyprland.overrideAttrs (old: {
+      postPatch = (old.postPatch or "") + ''
+        # Accept undersized shm fds from libwayshot (screenpipe resets fd size on retry)
+        for f in $(grep -rl "st_size >= size" src/ 2>/dev/null); do
+          substituteInPlace "$f" \
+            --replace 'return (size_t)st.st_size >= size;' \
+            'if ((size_t)st.st_size < (size_t)size) ftruncate(fd, size); return 1;'
+        done
+      '';
+    });
   };
 }

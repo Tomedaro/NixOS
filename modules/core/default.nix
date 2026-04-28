@@ -12,7 +12,7 @@
     ./security.nix
     ./dns.nix
     ./services.nix
-    # ./games.nix
+    ./games.nix
     # ./dlna.nix
     ./syncthing.nix
     ./system.nix
