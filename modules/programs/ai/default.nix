@@ -13,7 +13,17 @@
     ./compat
     ./phone-bridge
     ./dialog-bridge
+    ./llm-planner
+
   ];
+
+  my.ai.llmPlanner.enable = lib.mkDefault true;
+  my.ai.llmPlanner.aiDir = lib.mkDefault "/home/daniil/Sync/Perseverance.Gu/AI";
+  my.ai.llmPlanner.taskNotesDir = lib.mkDefault "/home/daniil/Sync/Perseverance.Gu/TaskNotes";
+  my.ai.llmPlanner.ollamaUrl = lib.mkDefault "http://127.0.0.1:11434";
+  my.ai.llmPlanner.model = lib.mkDefault "gemma3:4b";
+  my.ai.llmPlanner.enableTimer = lib.mkDefault false;
+  my.ai.llmPlanner.timerOnCalendar = lib.mkDefault "*:0/30";
 
   my.ai.vault.enable = lib.mkDefault true;
   my.ai.vault.root = lib.mkDefault "/home/daniil/Sync/Perseverance.Gu";
@@ -50,7 +60,7 @@
   my.ai.dialogBridge.aiDir = lib.mkDefault "/home/daniil/Sync/Perseverance.Gu/AI";
 
 # Keep timer off until manual test works.
-  my.ai.dialogBridge.enableTimer = lib.mkDefault false;
+  my.ai.dialogBridge.enableTimer = lib.mkDefault true;
   my.ai.dialogBridge.timerOnCalendar = lib.mkDefault "*:0/2";
 
   my.ai.dialogBridge.notificationTimeoutSeconds = lib.mkDefault 60;
