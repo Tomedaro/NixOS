@@ -11,6 +11,8 @@
     ./activitywatch
     ./ollama
     ./compat
+    ./phone-bridge
+
   ];
 
   my.ai.ollama.enable = lib.mkDefault true;
@@ -31,5 +33,12 @@
   my.ai.ankiBridge.decks = lib.mkDefault [ "Language" "General" ];
   my.ai.ankiBridge.intervalSeconds = lib.mkDefault 300;
   my.ai.ankiBridge.createTaskNote = lib.mkDefault true;
+
+  my.ai.phoneBridge.enable = lib.mkDefault true;
+  my.ai.phoneBridge.aiDir = lib.mkDefault "/home/daniil/Sync/Perseverance.Gu/AI";
+  my.ai.phoneBridge.intervalSeconds = lib.mkDefault 60;
+  my.ai.phoneBridge.stabilitySeconds = lib.mkDefault 10;
+  my.ai.phoneBridge.processedRetentionDays = lib.mkDefault 14;
+  my.ai.phoneBridge.createTemplates = lib.mkDefault true;
 
 }
