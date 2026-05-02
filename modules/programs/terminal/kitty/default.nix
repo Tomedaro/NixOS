@@ -5,14 +5,14 @@
       programs.kitty = {
         enable = true;
         font = {
-          size = 12.0;
+          size = 14.0;
           name = "monospace";
         };
-        themeFile = "Catppuccin-Mocha";
+        themeFile = "gruvbox-dark-hard";
         settings = {
           # shell = "${getExe pkgs.tmux}";
-          # cursor_trail = 3; # Fancy cursor movements (especially in nixvim)
-          # cursor_trail_decay = "0.08 0.3"; # Animation speed
+          cursor_trail = 5; # Fancy cursor movements (especially in nixvim)
+          cursor_trail_decay = "0.03 0.2"; # Animation speed
           # cursor_trail_start_threshold = "4";
           strip_trailing_spaces = "smart";
           macos_option_as_alt = "yes";

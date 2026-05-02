@@ -24,31 +24,38 @@ let
       from zoneinfo import ZoneInfo
 
 
-      AI_DIR = Path(os.environ.get("AI_DIR", "/home/Daniil/Sync/Perseverance.Gu/AI")).expanduser()
+      AI_DIR = Path(os.environ.get("AI_DIR", "/home/daniil/Sync/Perseverance.Gu/AI")).expanduser()
       AW_URL = os.environ.get("ACTIVITYWATCH_URL", "http://127.0.0.1:5600").rstrip("/")
       INTERVAL_SECONDS = int(os.environ.get("INTERVAL_SECONDS", "60"))
       NOTIFICATION_COOLDOWN_SECONDS = int(os.environ.get("NOTIFICATION_COOLDOWN_SECONDS", "600"))
       NOTIFY_SEND = os.environ.get("NOTIFY_SEND", "notify-send")
       TIMEZONE = ZoneInfo(os.environ.get("COACH_TIMEZONE", "Europe/Paris"))
 
+      CONTROL_DIR = AI_DIR / "control"
+      CURRENT_TASK_FILE = CONTROL_DIR / "current-task.md"
+      LEGACY_CURRENT_TASK_FILE = AI_DIR / "current-task.md"
 
-      CURRENT_TASK_FILE = AI_DIR / "current-task.md"
-      STATE_DIR = AI_DIR / "state"
-      LOG_DIR = AI_DIR / "logs"
+      STATE_DIR = AI_DIR / "state" / "desktop"
+      LOG_DIR = AI_DIR / "logs" / "desktop"
+      EVENTS_DIR = AI_DIR / "events" / "desktop"
+
       INBOX_PHONE_DIR = AI_DIR / "inbox" / "from-phone"
       OUTBOX_PHONE_DIR = AI_DIR / "outbox" / "to-phone"
+
       STATE_FILE = STATE_DIR / "coach-state.json"
+      NOW_JSON = STATE_DIR / "now.json"
+      NOW_MD = STATE_DIR / "now.md"
 
 
       DEFAULT_TASK_TEMPLATE = """# Current Task
 
-      Task: Study / productive computer work
-      Mode: study
+      Task: Review Anki due cards
+      Mode: anki-study
 
       Allowed apps: Anki, Obsidian, kitty, Zen, Firefox, Zathura, mpv
       Distracting apps: Discord, Steam, Telegram
 
-      Allowed title keywords: NixOS, Anki, Programming, Obsidian, modules/programs/ai, documentation, docs
+      Allowed title keywords: Anki, Language, General, Programming, Obsidian, modules/programs/ai, documentation, docs
       Distracting title keywords: YouTube, Reddit, Twitter, X.com, Twitch, Shorts
       """
 
@@ -57,31 +64,43 @@ let
           return datetime.now(TIMEZONE)
 
 
+      def now_iso():
+          return now_local().isoformat(timespec="seconds")
+
+
+      def today():
+          return now_local().strftime("%Y-%m-%d")
+
+
       def ensure_dirs():
-          AI_DIR.mkdir(parents=True, exist_ok=True)
-          STATE_DIR.mkdir(parents=True, exist_ok=True)
-          LOG_DIR.mkdir(parents=True, exist_ok=True)
-          INBOX_PHONE_DIR.mkdir(parents=True, exist_ok=True)
-          OUTBOX_PHONE_DIR.mkdir(parents=True, exist_ok=True)
+          for path in [
+              CONTROL_DIR,
+              STATE_DIR,
+              LOG_DIR,
+              EVENTS_DIR,
+              INBOX_PHONE_DIR,
+              OUTBOX_PHONE_DIR,
+          ]:
+              path.mkdir(parents=True, exist_ok=True)
 
 
       def load_state():
           if not STATE_FILE.exists():
               return {}
           try:
-              return json.loads(STATE_FILE.read_text())
+              return json.loads(STATE_FILE.read_text(encoding="utf-8"))
           except Exception:
               return {}
 
 
       def save_state(state):
           tmp = STATE_FILE.with_suffix(".tmp")
-          tmp.write_text(json.dumps(state, indent=2, ensure_ascii=False))
+          tmp.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
           tmp.replace(STATE_FILE)
 
 
       def get_json(url, timeout=5):
-          req = urllib.request.Request(url, headers={"User-Agent": "productivity-coach/0.1"})
+          req = urllib.request.Request(url, headers={"User-Agent": "productivity-coach/0.2"})
           with urllib.request.urlopen(req, timeout=timeout) as response:
               return json.loads(response.read().decode("utf-8"))
 
@@ -101,7 +120,6 @@ let
           if not candidates:
               return None
 
-          # Prefer buckets created by awatcher.
           awatcher_candidates = [
               (bucket_id, data)
               for bucket_id, data in candidates
@@ -110,7 +128,6 @@ let
 
           selected = awatcher_candidates or candidates
 
-          # Pick the most recently updated-ish bucket.
           selected.sort(
               key=lambda item: (
                   item[1].get("metadata", {}).get("end")
@@ -145,22 +162,34 @@ let
           ]
 
 
-      def parse_current_task():
-          created = False
+      def ensure_current_task_file():
+          if CURRENT_TASK_FILE.exists():
+              return True
 
-          if not CURRENT_TASK_FILE.exists():
-              CURRENT_TASK_FILE.write_text(DEFAULT_TASK_TEMPLATE)
-              created = True
+          if LEGACY_CURRENT_TASK_FILE.exists():
+              CURRENT_TASK_FILE.write_text(
+                  LEGACY_CURRENT_TASK_FILE.read_text(encoding="utf-8"),
+                  encoding="utf-8",
+              )
+              return True
+
+          CURRENT_TASK_FILE.write_text(DEFAULT_TASK_TEMPLATE, encoding="utf-8")
+          return False
+
+
+      def parse_current_task():
+          existed = ensure_current_task_file()
 
           result = {
-              "exists": not created,
-              "task": "Study / productive computer work",
-              "mode": "study",
+              "exists": existed,
+              "task": "Review Anki due cards",
+              "mode": "anki-study",
               "allowed_apps": ["Anki", "Obsidian", "kitty", "Zen", "Firefox", "Zathura", "mpv"],
               "distracting_apps": ["Discord", "Steam", "Telegram"],
               "allowed_title_keywords": [
-                  "NixOS",
                   "Anki",
+                  "Language",
+                  "General",
                   "Programming",
                   "Obsidian",
                   "modules/programs/ai",
@@ -178,7 +207,7 @@ let
           }
 
           try:
-              text = CURRENT_TASK_FILE.read_text()
+              text = CURRENT_TASK_FILE.read_text(encoding="utf-8")
           except Exception:
               return result
 
@@ -268,7 +297,7 @@ let
           if title_contains(title, task["distracting_title_keywords"]):
               return {
                   "verdict": "off_task",
-                  "reason": f"Window title matches distracting keywords.",
+                  "reason": "Window title matches distracting keywords.",
               }
 
           if app_matches(app, task["allowed_apps"]):
@@ -304,15 +333,14 @@ let
                   check=False,
               )
           except Exception as error:
-              print(f"Failed to send notification: {error}", file=sys.stderr)
+              print(f"Failed to send notification: {error}", file=sys.stderr, flush=True)
 
 
-      def append_log(entry):
-          date = now_local().strftime("%Y-%m-%d")
-          log_file = LOG_DIR / f"{date}.md"
+      def append_markdown_log(entry):
+          log_file = LOG_DIR / f"{today()}.md"
 
           if not log_file.exists():
-              log_file.write_text(f"# Productivity Coach Log - {date}\n\n")
+              log_file.write_text(f"# Desktop Coach Log - {today()}\n\n", encoding="utf-8")
 
           with log_file.open("a", encoding="utf-8") as handle:
               handle.write(f"## {now_local().strftime('%H:%M:%S')}\n\n")
@@ -324,6 +352,49 @@ let
               handle.write(f"Title: {entry['title']}  \n")
               handle.write(f"AFK: {entry['afk']}  \n")
               handle.write(f"Action: {entry['action']}  \n\n")
+
+
+      def append_jsonl_event(entry):
+          event_file = EVENTS_DIR / f"{today()}.jsonl"
+
+          event = {
+              "source": "desktop-coach",
+              "timestamp": now_iso(),
+              "event": "coach_tick",
+              **entry,
+          }
+
+          with event_file.open("a", encoding="utf-8") as handle:
+              handle.write(json.dumps(event, ensure_ascii=False, sort_keys=True))
+              handle.write("\n")
+
+
+      def write_now(entry):
+          now_data = {
+              "updated_at": now_iso(),
+              **entry,
+          }
+
+          tmp = NOW_JSON.with_suffix(".tmp")
+          tmp.write_text(json.dumps(now_data, indent=2, ensure_ascii=False), encoding="utf-8")
+          tmp.replace(NOW_JSON)
+
+          lines = [
+              "# Current Desktop Coach Status",
+              "",
+              f"Last check: {now_data['updated_at']}",
+              f"Verdict: `{entry['verdict']}`",
+              f"Reason: {entry['reason']}",
+              f"Task: {entry['task']}",
+              f"Mode: {entry['mode']}",
+              f"App: `{entry['app']}`",
+              f"Title: `{entry['title']}`",
+              f"AFK: `{entry['afk']}`",
+              f"Action: `{entry['action']}`",
+              "",
+          ]
+
+          NOW_MD.write_text("\n".join(lines), encoding="utf-8")
 
 
       def should_notify(verdict, state):
@@ -349,7 +420,6 @@ let
           last_log_epoch = float(state.get("last_log_epoch", 0))
           now_epoch = time.time()
 
-          # Log on state changes, actions, or every 15 minutes as a heartbeat.
           if signature != last_signature:
               return True
 
@@ -416,10 +486,15 @@ let
               "title": title,
               "afk": afk,
               "action": action,
+              "window_bucket_id": window_bucket_id or "",
+              "afk_bucket_id": afk_bucket_id or "",
           }
 
+          write_now(entry)
+
           if should_log(entry, state):
-              append_log(entry)
+              append_markdown_log(entry)
+              append_jsonl_event(entry)
 
               state["last_log_signature"] = "|".join([
                   entry["verdict"],
@@ -431,17 +506,8 @@ let
               state["last_log_epoch"] = time.time()
 
           state["last_seen"] = {
-              "timestamp": now_local().isoformat(),
-              "verdict": entry["verdict"],
-              "reason": entry["reason"],
-              "task": entry["task"],
-              "mode": entry["mode"],
-              "app": entry["app"],
-              "title": entry["title"],
-              "afk": entry["afk"],
-              "action": entry["action"],
-              "window_bucket_id": window_bucket_id,
-              "afk_bucket_id": afk_bucket_id,
+              "timestamp": now_iso(),
+              **entry,
           }
 
           save_state(state)
@@ -451,6 +517,7 @@ let
           print("Productivity coach started", flush=True)
           print(f"AI_DIR={AI_DIR}", flush=True)
           print(f"ACTIVITYWATCH_URL={AW_URL}", flush=True)
+          print(f"CURRENT_TASK_FILE={CURRENT_TASK_FILE}", flush=True)
 
           while True:
               try:
@@ -472,7 +539,7 @@ in
 
     aiDir = lib.mkOption {
       type = lib.types.str;
-      default = "/home/Daniil/Sync/Perseverance.Gu/AI";
+      default = "/home/daniil/Sync/Perseverance.Gu/AI";
       description = "Directory where coach state, logs, and task files are stored.";
     };
 
@@ -509,11 +576,13 @@ in
       after = [
         "aw-server-rust.service"
         "awatcher.service"
+        "ai-vault-init.service"
       ];
 
       wants = [
         "aw-server-rust.service"
         "awatcher.service"
+        "ai-vault-init.service"
       ];
 
       environment = {

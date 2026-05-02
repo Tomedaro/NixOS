@@ -12,8 +12,13 @@
     ./ollama
     ./compat
     ./phone-bridge
-
+    ./dialog-bridge
   ];
+
+  my.ai.vault.enable = lib.mkDefault true;
+  my.ai.vault.root = lib.mkDefault "/home/daniil/Sync/Perseverance.Gu";
+  my.ai.vault.aiDir = lib.mkDefault "/home/daniil/Sync/Perseverance.Gu/AI";
+  my.ai.vault.taskNotesDir = lib.mkDefault "/home/daniil/Sync/Perseverance.Gu/TaskNotes";
 
   my.ai.ollama.enable = lib.mkDefault true;
   my.ai.ollama.package = lib.mkDefault pkgs.ollama-cpu;
@@ -41,4 +46,15 @@
   my.ai.phoneBridge.processedRetentionDays = lib.mkDefault 14;
   my.ai.phoneBridge.createTemplates = lib.mkDefault true;
 
+  my.ai.dialogBridge.enable = lib.mkDefault true;
+  my.ai.dialogBridge.aiDir = lib.mkDefault "/home/daniil/Sync/Perseverance.Gu/AI";
+
+# Keep timer off until manual test works.
+  my.ai.dialogBridge.enableTimer = lib.mkDefault false;
+  my.ai.dialogBridge.timerOnCalendar = lib.mkDefault "*:0/2";
+
+  my.ai.dialogBridge.notificationTimeoutSeconds = lib.mkDefault 60;
+  my.ai.dialogBridge.notificationCooldownSeconds = lib.mkDefault 600;
+  my.ai.dialogBridge.maxQuestionAgeSeconds = lib.mkDefault 14400;
+  my.ai.dialogBridge.triggerPlannerOnAnswer = lib.mkDefault true;
 }

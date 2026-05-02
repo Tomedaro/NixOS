@@ -202,11 +202,11 @@ in
             }
           ];
            general = {
-              gaps_in = 4;
-              gaps_out = 9;
+              gaps_in = 2;
+              gaps_out = 6;
               border_size = 2;
-              "col.active_border" = "rgba(ca9ee6ff) rgba(f2d5cfff) 45deg";
-              "col.inactive_border" = "rgba(b4befecc) rgba(6c7086cc) 45deg";
+              "col.active_border" = "rgba(fabd2fff) rgba(fe8019ff) 45deg";
+              "col.inactive_border" = "rgba(665c54cc) rgba(3c3836cc) 45deg";
               resize_on_border = true;
               layout = "dwindle"; # dwindle, master, scrolling, monocle
               # allow_tearing = true; # Allow tearing for games (use immediate window rules for specific games or all titles)
@@ -226,10 +226,13 @@ in
               };
             };
             group = {
-              "col.border_active" = "rgba(ca9ee6ff) rgba(f2d5cfff) 45deg";
-              "col.border_inactive" = "rgba(b4befecc) rgba(6c7086cc) 45deg";
-              "col.border_locked_active" = "rgba(ca9ee6ff) rgba(f2d5cfff) 45deg";
-              "col.border_locked_inactive" = "rgba(b4befecc) rgba(6c7086cc) 45deg";
+              groupbar = {
+                  enabled = false;
+              };
+              "col.border_active" = "rgba(fabd2fff) rgba(fe8019ff) 45deg";
+              "col.border_inactive" = "rgba(504945cc) rgba(282828cc) 45deg";
+              "col.border_locked_active" = "rgba(b8bb26ff) rgba(fabd2fff) 45deg";
+              "col.border_locked_inactive" = "rgba(665c54cc) rgba(3c3836cc) 45deg";
             };
             layerrule = [
               # Rofi
@@ -308,7 +311,7 @@ in
               vfr = true; # always keep on
               vrr = 2; # enable variable refresh rate (0=off, 1=on, 2=fullscreen only, 3 = fullscreen games/media)
             };
-            xwayland.force_zero_scaling = false;
+            xwayland.force_zero_scaling = true;
             gesture = [
               "3, horizontal, workspace"
             ];
@@ -452,6 +455,8 @@ in
               "$mainMod, delete, exit" # kill hyperland session
               "$mainMod, W, togglefloating" # toggle the window on focus to float
               "$mainMod SHIFT, G, togglegroup" # toggle the window on focus to float
+              "$mainMod ALT, left, changegroupactive, b"
+              "$mainMod ALT, right, changegroupactive, f"
               "ALT, return, fullscreen" # toggle the window on focus to fullscreen
               "$mainMod ALT, L, exec, hyprlock" # lock screen
               "$mainMod, backspace, exec, pkill -x wlogout || wlogout -b 4" # logout menu

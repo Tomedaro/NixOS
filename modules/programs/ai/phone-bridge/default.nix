@@ -322,21 +322,28 @@ let
           tmp.write_text(json.dumps(event, indent=2, ensure_ascii=False), encoding="utf-8")
           tmp.replace(LATEST_JSON)
 
+          event_name = event.get("event", "")
+          event_time = event.get("timestamp", "")
+          device = event.get("device", "")
+          message = event.get("message", "")
+          proof_id = event.get("proof_id", "")
+          file_ref = event.get("file", "")
+
           lines = [
               "# Latest Phone Event",
               "",
               f"Last updated: {now_iso()}",
-              f"Event: `{event.get('event', '')}`",
-              f"Time: {event.get('timestamp', '')}",
-              f"Device: {event.get('device', '')}",
-              f"Message: {event.get('message', '')}",
+              f"Event: `{event_name}`",
+              f"Time: {event_time}",
+              f"Device: {device}",
+              f"Message: {message}",
           ]
 
-          if event.get("proof_id"):
-              lines.append(f"Proof ID: `{event.get('proof_id')}`")
+          if proof_id:
+              lines.append(f"Proof ID: `{proof_id}`")
 
-          if event.get("file"):
-              lines.append(f"File: `{event.get('file')}`")
+          if file_ref:
+              lines.append(f"File: `{file_ref}`")
 
           LATEST_MD.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
