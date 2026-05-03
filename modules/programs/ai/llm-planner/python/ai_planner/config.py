@@ -14,6 +14,7 @@ class PlannerConfig:
     ollama_num_ctx: int
     ollama_num_predict: int
     ollama_timeout_seconds: int
+    ollama_keep_alive: str
     timezone: ZoneInfo
     max_log_chars: int
     max_jsonl_events: int
@@ -22,6 +23,9 @@ class PlannerConfig:
     max_policy_chars: int
     max_control_chars: int
     max_context_chars: int
+    enable_schema_retry: bool
+    planner_mode: str
+    generated_at: str = ""
 
     @classmethod
     def from_env(cls):
@@ -34,6 +38,7 @@ class PlannerConfig:
             ollama_num_ctx=int(os.environ.get("OLLAMA_NUM_CTX", "4096")),
             ollama_num_predict=int(os.environ.get("OLLAMA_NUM_PREDICT", "900")),
             ollama_timeout_seconds=int(os.environ.get("OLLAMA_TIMEOUT_SECONDS", "600")),
+            ollama_keep_alive=os.environ.get("OLLAMA_KEEP_ALIVE", "10m"),
             timezone=ZoneInfo(os.environ.get("LLM_PLANNER_TIMEZONE", "Europe/Paris")),
             max_log_chars=int(os.environ.get("MAX_LOG_CHARS", "800")),
             max_jsonl_events=int(os.environ.get("MAX_JSONL_EVENTS", "20")),
@@ -42,6 +47,8 @@ class PlannerConfig:
             max_policy_chars=int(os.environ.get("MAX_POLICY_CHARS", "700")),
             max_control_chars=int(os.environ.get("MAX_CONTROL_CHARS", "1000")),
             max_context_chars=int(os.environ.get("MAX_CONTEXT_CHARS", "4500")),
+            enable_schema_retry=os.environ.get("ENABLE_SCHEMA_RETRY", "0") == "1",
+            planner_mode=os.environ.get("PLANNER_MODE", "block-plan"),
         )
 
     @property
@@ -65,6 +72,10 @@ class PlannerConfig:
         return self.state_dir / "phone"
 
     @property
+    def state_session_dir(self):
+        return self.state_dir / "session"
+
+    @property
     def state_llm_dir(self):
         return self.state_dir / "llm"
 
@@ -75,6 +86,10 @@ class PlannerConfig:
     @property
     def reports_daily_dir(self):
         return self.ai_dir / "reports" / "daily"
+
+    @property
+    def reports_help_now_dir(self):
+        return self.ai_dir / "reports" / "help-now"
 
     @property
     def proposed_tasks_dir(self):

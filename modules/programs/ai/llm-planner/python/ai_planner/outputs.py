@@ -1,6 +1,9 @@
+import time
+
 from ai_planner.io_utils import (
     atomic_write_json,
     atomic_write_text,
+    now,
     now_iso,
     read_json,
     read_text,
@@ -13,12 +16,24 @@ def write_context_files(config, context, markdown):
     atomic_write_text(config.context_dir / "today.md", markdown)
 
 
+def report_path_for_mode(config):
+    mode = getattr(config, "planner_mode", "block-plan")
+
+    if mode == "help-now":
+        stamp = now(config).strftime("%Y-%m-%d-%H%M%S")
+        return config.reports_help_now_dir / f"{stamp}.md"
+
+    return config.reports_daily_dir / f"{today(config)}.md"
+
+
 def write_markdown_outputs(config, result):
-    date = today(config)
+    mode = getattr(config, "planner_mode", "block-plan")
+    report_path = report_path_for_mode(config)
 
     report = []
-    report.append(f"# Daily LLM Planner Report - {date}")
+    report.append(f"# LLM Planner Report - {today(config)}")
     report.append("")
+    report.append(f"Mode: `{mode}`")
     report.append(f"Generated at: {result.get('_metadata', {}).get('generated_at', now_iso(config))}")
     report.append(f"Model: `{result.get('_metadata', {}).get('model', config.ollama_model)}`")
     report.append("")
@@ -105,29 +120,31 @@ def write_markdown_outputs(config, result):
     else:
         report.append("No major risks reported.")
 
-    atomic_write_text(config.reports_daily_dir / f"{date}.md", "\n".join(report))
+    atomic_write_text(report_path, "\n".join(report))
 
-    proposed = []
-    proposed.append(f"# Proposed Tasks - {date}")
-    proposed.append("")
-    proposed.append("> These are proposals from the local planner. Review before turning them into real TaskNotes.")
-    proposed.append("")
-
-    for task in result.get("proposed_tasks", []):
-        proposed.append(f"## {task.get('title', '')}")
+    if mode != "help-now":
+        proposed = []
+        proposed.append(f"# Proposed Tasks - {today(config)}")
         proposed.append("")
-        proposed.append(f"Priority: {task.get('priority', '')}")
-        proposed.append(f"Estimate: {task.get('estimated_minutes', '')} min")
-        proposed.append(f"Project: {task.get('project', '')}")
-        proposed.append("")
-        proposed.append(f"Reason: {task.get('reason', '')}")
+        proposed.append("> These are proposals from the local planner. Review before turning them into real TaskNotes.")
         proposed.append("")
 
-    atomic_write_text(config.proposed_tasks_dir / f"{date}.md", "\n".join(proposed))
+        for task in result.get("proposed_tasks", []):
+            proposed.append(f"## {task.get('title', '')}")
+            proposed.append("")
+            proposed.append(f"Priority: {task.get('priority', '')}")
+            proposed.append(f"Estimate: {task.get('estimated_minutes', '')} min")
+            proposed.append(f"Project: {task.get('project', '')}")
+            proposed.append("")
+            proposed.append(f"Reason: {task.get('reason', '')}")
+            proposed.append("")
+
+        atomic_write_text(config.proposed_tasks_dir / f"{today(config)}.md", "\n".join(proposed))
 
     last_md = []
     last_md.append("# Last LLM Planner Output")
     last_md.append("")
+    last_md.append(f"Mode: `{mode}`")
     last_md.append(f"Generated at: {result.get('_metadata', {}).get('generated_at', now_iso(config))}")
     last_md.append(f"Model: `{result.get('_metadata', {}).get('model', config.ollama_model)}`")
     last_md.append("")
@@ -170,7 +187,7 @@ def write_machine_outputs(config, result):
         question = ask.get("question", "")
         reason = ask.get("reason", "")
         existing_id = existing_pending_matches(config, question, reason)
-        question_id = existing_id or f"q-{today(config)}-{int(__import__('time').time())}"
+        question_id = existing_id or f"q-{today(config)}-{int(time.time())}"
 
         pending = {
             "question_id": question_id,
@@ -180,6 +197,7 @@ def write_machine_outputs(config, result):
             "answer_options": ask.get("answer_options", []),
             "free_text_allowed": ask.get("free_text_allowed", True),
             "source": "llm-planner",
+            "planner_mode": getattr(config, "planner_mode", "block-plan"),
         }
 
         atomic_write_json(pending_path, pending)
@@ -226,6 +244,7 @@ def write_machine_outputs(config, result):
                 f"Message: {nudge.get('message', '')}",
                 f"Recommended next action: {result.get('recommended_next_action', '')}",
                 f"Updated: {now_iso(config)}",
+                f"Planner mode: {getattr(config, 'planner_mode', 'block-plan')}",
                 "",
             ]),
         )
@@ -238,6 +257,7 @@ def write_machine_outputs(config, result):
                 "Status: inactive",
                 "Message: No current nudge.",
                 f"Updated: {now_iso(config)}",
+                f"Planner mode: {getattr(config, 'planner_mode', 'block-plan')}",
                 "",
             ]),
         )
@@ -248,6 +268,7 @@ def write_error_file(config, error):
         "# LLM Planner Error",
         "",
         f"Time: {now_iso(config)}",
+        f"Mode: `{getattr(config, 'planner_mode', 'block-plan')}`",
         "",
         "```text",
         str(error),
@@ -256,3 +277,55 @@ def write_error_file(config, error):
     ]
 
     atomic_write_text(config.state_llm_dir / "last-error.md", "\n".join(lines))
+
+
+def write_planner_status(config, status, metadata=None, warnings=None, error=""):
+    metadata = metadata or {}
+    warnings = warnings or []
+
+    data = {
+        "updated_at": now_iso(config),
+        "status": status,
+        "model": config.ollama_model,
+        "planner_mode": getattr(config, "planner_mode", "block-plan"),
+        "ollama_format": config.ollama_format,
+        "metadata": metadata,
+        "warnings": warnings,
+        "error": error,
+    }
+
+    atomic_write_json(config.state_llm_dir / "planner-status.json", data)
+
+    lines = []
+    lines.append("# LLM Planner Status")
+    lines.append("")
+    lines.append(f"Updated: {data['updated_at']}")
+    lines.append(f"Status: `{status}`")
+    lines.append(f"Mode: `{data['planner_mode']}`")
+    lines.append(f"Model: `{config.ollama_model}`")
+    lines.append(f"Format: `{config.ollama_format}`")
+    lines.append("")
+
+    if metadata:
+        lines.append("## Metadata")
+        lines.append("")
+        for key, value in metadata.items():
+            lines.append(f"- {key}: `{value}`")
+        lines.append("")
+
+    if warnings:
+        lines.append("## Warnings")
+        lines.append("")
+        for warning in warnings:
+            lines.append(f"- {warning}")
+        lines.append("")
+
+    if error:
+        lines.append("## Error")
+        lines.append("")
+        lines.append("```text")
+        lines.append(error)
+        lines.append("```")
+        lines.append("")
+
+    atomic_write_text(config.state_llm_dir / "planner-status.md", "\n".join(lines))

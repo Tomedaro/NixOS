@@ -8,6 +8,7 @@ let
 in
 {
   imports = [
+    ./session-manager
     # Shared foundation / path protocol
     ./vault-bridge
     ./compat
@@ -23,6 +24,7 @@ in
     # Immediate feedback and interaction
     ./coach-daemon
     ./dialog-bridge
+    ./desktop-event-bridge
 
     # Higher-level reasoning
     ./llm-planner
@@ -206,4 +208,28 @@ in
     # But this only becomes useful after pending-question lifecycle is stable.
     triggerPlannerOnAnswer = lib.mkDefault true;
   };
+
+  ###########################################################################
+  # Desktop event bridge
+  ###########################################################################
+
+  my.ai.desktopEventBridge = {
+    enable = lib.mkDefault true;
+    aiDir = lib.mkDefault aiDir;
+    enablePath = lib.mkDefault true;
+    stabilitySeconds = lib.mkDefault 2;
+    triggerHelpNow = lib.mkDefault true;
+    helpNowService = lib.mkDefault "llm-planner-help-now.service";
+  };
+
+  ###########################################################################
+  # Session manager / policy compiler
+  ###########################################################################
+
+  my.ai.sessionManager.enable = lib.mkDefault true;
+  my.ai.sessionManager.aiDir = lib.mkDefault "/home/daniil/Sync/Perseverance.Gu/AI";
+  my.ai.sessionManager.enableRequestBridge = lib.mkDefault true;
+  my.ai.sessionManager.enableRequestPath = lib.mkDefault true;
+  my.ai.sessionManager.requestStabilitySeconds = lib.mkDefault 2;
+
 }

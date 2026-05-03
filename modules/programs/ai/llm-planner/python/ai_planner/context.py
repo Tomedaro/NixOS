@@ -158,6 +158,15 @@ def derive_flags(context):
     if verdict:
         flags.append(f"desktop_verdict_{verdict}")
 
+    session = context.get("session", {}).get("current", {})
+    if isinstance(session, dict):
+        session_status = session.get("status")
+        session_mode = session.get("mode")
+        if session_status:
+            flags.append(f"session_status_{session_status}")
+        if session_mode:
+            flags.append(f"session_mode_{session_mode}")
+
     phone_recent = context.get("events", {}).get("phone_summary", {}).get("event_counts", {})
     desktop_recent = context.get("events", {}).get("desktop_summary", {}).get("event_counts", {})
 
@@ -204,6 +213,14 @@ def build_context(config):
             "desktop_now": read_json(config.state_desktop_dir / "now.json", {}),
             "phone_latest": read_json(config.state_phone_dir / "latest.json", {}),
             "last_answer": read_json(config.state_llm_dir / "last-answer.json", {}),
+        },
+        "session": {
+            "current": read_json(config.state_session_dir / "current.json", {}),
+            "current_policy": read_json(config.state_session_dir / "current-policy.json", {}),
+            "current_policy_markdown": read_text_limited(
+                config.state_session_dir / "current-policy.md",
+                config.max_policy_chars,
+            ),
         },
         "anki": anki_status,
         "events": {
@@ -257,6 +274,21 @@ def context_to_markdown(config, context):
     lines.append("## Anki compact status")
     lines.append("```json")
     lines.append(json.dumps(context["anki"], indent=2, ensure_ascii=False))
+    lines.append("```")
+    lines.append("")
+
+    lines.append("## Current session")
+    lines.append("### current.json")
+    lines.append("```json")
+    lines.append(json.dumps(context.get("session", {}).get("current", {}), indent=2, ensure_ascii=False))
+    lines.append("```")
+    lines.append("### current-policy.json")
+    lines.append("```json")
+    lines.append(json.dumps(context.get("session", {}).get("current_policy", {}), indent=2, ensure_ascii=False))
+    lines.append("```")
+    lines.append("### current-policy.md")
+    lines.append("```markdown")
+    lines.append(context.get("session", {}).get("current_policy_markdown", ""))
     lines.append("```")
     lines.append("")
 

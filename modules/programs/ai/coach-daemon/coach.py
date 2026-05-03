@@ -26,6 +26,10 @@ CONTROL_DIR = AI_DIR / "control"
 CURRENT_TASK_FILE = CONTROL_DIR / "current-task.md"
 LEGACY_CURRENT_TASK_FILE = AI_DIR / "current-task.md"
 
+SESSION_DIR = AI_DIR / "state" / "session"
+CURRENT_SESSION_JSON = SESSION_DIR / "current.json"
+CURRENT_POLICY_JSON = SESSION_DIR / "current-policy.json"
+
 STATE_DIR = AI_DIR / "state" / "desktop"
 LOG_DIR = AI_DIR / "logs" / "desktop"
 EVENTS_DIR = AI_DIR / "events" / "desktop"
@@ -204,10 +208,36 @@ def ensure_current_task_file():
     return False
 
 
-def parse_current_task():
-    existed = ensure_current_task_file()
+def read_json_file(path, default=None):
+    if default is None:
+        default = {}
 
-    result = {
+    try:
+        if path.exists():
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                return data
+    except Exception:
+        return default
+
+    return default
+
+
+def list_from_value(value):
+    if value is None:
+        return []
+
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+
+    if isinstance(value, str):
+        return split_csv(value)
+
+    return []
+
+
+def default_task_policy(existed=True):
+    return {
         "exists": existed,
         "task": "Study / productive computer work",
         "mode": "study",
@@ -231,17 +261,87 @@ def parse_current_task():
             "Twitch",
             "Shorts",
         ],
+        "session_id": "",
+        "session_status": "",
+        "policy_source": "fallback-default",
+        "strictness": 1,
+        "cooldown_seconds": NOTIFICATION_COOLDOWN_SECONDS,
     }
+
+
+def policy_list(policy, key, fallback):
+    if key not in policy:
+        return list(fallback)
+    return list_from_value(policy.get(key))
+
+
+def parse_policy_json():
+    policy = read_json_file(CURRENT_POLICY_JSON, {})
+    if not policy:
+        return None
+
+    session = read_json_file(CURRENT_SESSION_JSON, {})
+
+    fallback = default_task_policy(existed=True)
+    intervention = policy.get("intervention", {}) if isinstance(policy.get("intervention"), dict) else {}
+
+    return {
+        "exists": True,
+        "task": str(policy.get("task") or session.get("task") or fallback["task"]),
+        "mode": str(policy.get("mode") or session.get("mode") or fallback["mode"]),
+        "allowed_apps": policy_list(policy, "allowed_apps", fallback["allowed_apps"]),
+        "distracting_apps": policy_list(policy, "distracting_apps", fallback["distracting_apps"]),
+        "allowed_title_keywords": policy_list(policy, "allowed_title_keywords", fallback["allowed_title_keywords"]),
+        "distracting_title_keywords": policy_list(policy, "distracting_title_keywords", fallback["distracting_title_keywords"]),
+        "session_id": str(session.get("session_id", "")),
+        "session_status": str(session.get("status", "")),
+        "policy_source": str(CURRENT_POLICY_JSON),
+        "strictness": int(intervention.get("level", fallback["strictness"]) or 0),
+        "cooldown_seconds": int(intervention.get("cooldown_seconds", fallback["cooldown_seconds"]) or NOTIFICATION_COOLDOWN_SECONDS),
+    }
+
+
+def parse_current_task_markdown():
+    existed = ensure_current_task_file()
+    result = default_task_policy(existed=existed)
+    result["policy_source"] = str(CURRENT_TASK_FILE)
 
     try:
         text = CURRENT_TASK_FILE.read_text(encoding="utf-8")
     except Exception:
         return result
 
+    section_to_key = {
+        "allowed apps": "allowed_apps",
+        "distracting apps": "distracting_apps",
+        "allowed title keywords": "allowed_title_keywords",
+        "distracting title keywords": "distracting_title_keywords",
+    }
+
+    current_list_key = None
+    seen_lists = set()
+
     for raw_line in text.splitlines():
         line = raw_line.strip()
 
-        if not line or line.startswith("#") or ":" not in line:
+        if not line:
+            continue
+
+        if line.startswith("#"):
+            heading = line.lstrip("#").strip().lower()
+            current_list_key = section_to_key.get(heading)
+            if current_list_key and current_list_key not in seen_lists:
+                result[current_list_key] = []
+                seen_lists.add(current_list_key)
+            continue
+
+        if line.startswith("- ") and current_list_key:
+            item = line[2:].strip()
+            if item:
+                result[current_list_key].append(item)
+            continue
+
+        if ":" not in line:
             continue
 
         key, value = line.split(":", 1)
@@ -252,6 +352,10 @@ def parse_current_task():
             result["task"] = value or result["task"]
         elif key == "mode":
             result["mode"] = value or result["mode"]
+        elif key == "session id":
+            result["session_id"] = value
+        elif key == "status":
+            result["session_status"] = value
         elif key == "allowed apps":
             result["allowed_apps"] = split_csv(value)
         elif key == "distracting apps":
@@ -263,6 +367,13 @@ def parse_current_task():
 
     return result
 
+
+def parse_current_task():
+    policy_task = parse_policy_json()
+    if policy_task is not None:
+        return policy_task
+
+    return parse_current_task_markdown()
 
 def lower_list(items):
     return [item.lower() for item in items]
@@ -288,13 +399,7 @@ def title_contains(title, keywords):
     return False
 
 
-def classify(window_event, afk_event, task, stale_reasons):
-    if stale_reasons:
-        return {
-            "verdict": "unknown",
-            "reason": "ActivityWatch event is stale or unavailable: " + ", ".join(stale_reasons),
-        }
-
+def classify(window_event, afk_event, task, window_event_is_stale):
     if not task.get("exists", True):
         return {
             "verdict": "no_plan",
@@ -311,7 +416,7 @@ def classify(window_event, afk_event, task, stale_reasons):
             "reason": "ActivityWatch reports AFK.",
         }
 
-    if not window_event:
+    if window_event_is_stale or not window_event:
         return {
             "verdict": "unknown",
             "reason": "No fresh current window event available.",
@@ -349,7 +454,6 @@ def classify(window_event, afk_event, task, stale_reasons):
         "verdict": "unknown",
         "reason": "Current activity matched neither allowed nor distracting rules.",
     }
-
 
 def send_notification(summary, body, urgency="normal"):
     try:
@@ -421,6 +525,10 @@ def write_now(entry):
         f"Reason: {entry['reason']}",
         f"Task: {entry['task']}",
         f"Mode: {entry['mode']}",
+        f"Session ID: `{entry.get('session_id', '')}`",
+        f"Session status: `{entry.get('session_status', '')}`",
+        f"Policy source: `{entry.get('policy_source', '')}`",
+        f"Strictness: `{entry.get('strictness', '')}`",
         f"App: `{entry['app']}`",
         f"Title: `{entry['title']}`",
         f"AFK: `{entry['afk']}`",
@@ -438,7 +546,7 @@ def should_notify(verdict, state, entry):
     if in_startup_grace_period():
         return False
 
-    if entry.get("window_event_stale") or entry.get("afk_event_stale"):
+    if entry.get("window_event_stale"):
         return False
 
     if verdict not in ["off_task", "no_plan"]:
@@ -491,19 +599,16 @@ def tick():
 
     window_event_is_stale = False
     afk_event_is_stale = False
-    stale_reasons = []
 
     if window_event and not event_is_fresh(window_event):
         window_event_is_stale = True
-        stale_reasons.append("window")
         window_event = None
 
     if afk_event and not event_is_fresh(afk_event):
         afk_event_is_stale = True
-        stale_reasons.append("afk")
         afk_event = None
 
-    verdict_data = classify(window_event, afk_event, task, stale_reasons)
+    verdict_data = classify(window_event, afk_event, task, window_event_is_stale)
 
     app = ""
     title = ""
@@ -521,6 +626,10 @@ def tick():
         "reason": verdict_data["reason"],
         "task": task["task"],
         "mode": task["mode"],
+        "session_id": task.get("session_id", ""),
+        "session_status": task.get("session_status", ""),
+        "policy_source": task.get("policy_source", ""),
+        "strictness": task.get("strictness", 1),
         "app": app,
         "title": title,
         "afk": afk,

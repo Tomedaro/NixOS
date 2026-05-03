@@ -8,6 +8,27 @@ let
     export PYTHONPATH="${./python}:$PYTHONPATH"
     exec ${pkgs.python3}/bin/python3 ${./planner.py} "$@"
   '';
+
+  commonEnvironment = {
+    AI_DIR = cfg.aiDir;
+    TASKNOTES_DIR = cfg.taskNotesDir;
+    OLLAMA_URL = cfg.ollamaUrl;
+    OLLAMA_MODEL = cfg.model;
+    OLLAMA_FORMAT = cfg.ollamaFormat;
+    OLLAMA_NUM_CTX = toString cfg.ollamaNumCtx;
+    OLLAMA_NUM_PREDICT = toString cfg.ollamaNumPredict;
+    OLLAMA_KEEP_ALIVE = "10m";
+    ENABLE_SCHEMA_RETRY = "0";
+    MAX_LOG_CHARS = toString cfg.maxLogChars;
+    MAX_JSONL_EVENTS = toString cfg.maxJsonlEvents;
+    MAX_TASKNOTES = toString cfg.maxTaskNotes;
+    MAX_TASKNOTE_CHARS = toString cfg.maxTaskNoteChars;
+    MAX_POLICY_CHARS = toString cfg.maxPolicyChars;
+    MAX_CONTROL_CHARS = toString cfg.maxControlChars;
+    MAX_CONTEXT_CHARS = toString cfg.maxContextChars;
+    LLM_PLANNER_TIMEZONE = "Europe/Paris";
+    PYTHONUNBUFFERED = "1";
+  };
 in
 {
   options.my.ai.llmPlanner = {
@@ -52,13 +73,13 @@ in
     ollamaNumPredict = lib.mkOption {
       type = lib.types.int;
       default = 900;
-      description = "Maximum generated tokens for planner output.";
+      description = "Maximum generated tokens for normal planner output.";
     };
 
     enableTimer = lib.mkOption {
       type = lib.types.bool;
       default = false;
-      description = "Whether to run the planner periodically.";
+      description = "Whether to run the block-plan planner periodically.";
     };
 
     timerOnCalendar = lib.mkOption {
@@ -129,33 +150,52 @@ in
         "ai-vault-init.service"
       ];
 
-      environment = {
-        AI_DIR = cfg.aiDir;
-        TASKNOTES_DIR = cfg.taskNotesDir;
-        OLLAMA_URL = cfg.ollamaUrl;
-        OLLAMA_MODEL = cfg.model;
-        OLLAMA_FORMAT = cfg.ollamaFormat;
-        OLLAMA_NUM_CTX = toString cfg.ollamaNumCtx;
-        OLLAMA_NUM_PREDICT = toString cfg.ollamaNumPredict;
-        MAX_LOG_CHARS = toString cfg.maxLogChars;
-        MAX_JSONL_EVENTS = toString cfg.maxJsonlEvents;
-        MAX_TASKNOTES = toString cfg.maxTaskNotes;
-        MAX_TASKNOTE_CHARS = toString cfg.maxTaskNoteChars;
-        MAX_POLICY_CHARS = toString cfg.maxPolicyChars;
-        MAX_CONTROL_CHARS = toString cfg.maxControlChars;
-        MAX_CONTEXT_CHARS = toString cfg.maxContextChars;
-        LLM_PLANNER_TIMEZONE = "Europe/Paris";
-        PYTHONUNBUFFERED = "1";
+      environment = commonEnvironment // {
+        PLANNER_MODE = "block-plan";
       };
 
       serviceConfig = {
         Type = "oneshot";
-        ExecStart = "${plannerScript}/bin/llm-planner";
+        ExecStart = "${plannerScript}/bin/llm-planner --mode block-plan";
+        TimeoutStartSec = 420;
+      };
+    };
+
+    systemd.user.services.llm-planner-help-now = {
+      description = "Fast local LLM planner after check-in or answer";
+
+      after = [
+        "productivity-coach.service"
+        "phone-bridge.service"
+        "anki-bridge.service"
+        "ai-vault-init.service"
+      ];
+
+      wants = [
+        "ai-vault-init.service"
+      ];
+
+      environment = commonEnvironment // {
+        PLANNER_MODE = "help-now";
+        OLLAMA_NUM_PREDICT = "180";
+        MAX_CONTEXT_CHARS = "1200";
+        MAX_LOG_CHARS = "200";
+        MAX_JSONL_EVENTS = "5";
+        MAX_TASKNOTES = "1";
+        MAX_TASKNOTE_CHARS = "300";
+        MAX_POLICY_CHARS = "300";
+        MAX_CONTROL_CHARS = "700";
+      };
+
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = "${plannerScript}/bin/llm-planner --mode help-now";
+        TimeoutStartSec = 75;
       };
     };
 
     systemd.user.timers.llm-planner = lib.mkIf cfg.enableTimer {
-      description = "Run local LLM planner periodically";
+      description = "Run local LLM block planner periodically";
 
       wantedBy = [ "timers.target" ];
 
