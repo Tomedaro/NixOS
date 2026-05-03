@@ -19,9 +19,9 @@
     pkgs.kdePackages.qtvirtualkeyboard
 
     # From flake inputs
-    inputs.bzmenu.packages.${pkgs.system}.default
-    inputs.yt-x.packages.${pkgs.system}.default
-    inputs.zen-browser.packages.${pkgs.system}.default
+    inputs.bzmenu.packages.${stdenv.hostPlatform.system}.default
+    inputs.yt-x.packages.${stdenv.hostPlatform.system}.default
+    inputs.zen-browser.packages.${stdenv.hostPlatform.system}.default
 
     # Dev tools
     obsidian

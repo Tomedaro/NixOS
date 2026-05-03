@@ -1,70 +1,209 @@
 # modules/programs/ai/default.nix
 { lib, pkgs, ... }:
+
+let
+  vaultRoot = "/home/daniil/Sync/Perseverance.Gu";
+  aiDir = "${vaultRoot}/AI";
+  taskNotesDir = "${vaultRoot}/TaskNotes";
+in
 {
   imports = [
-    ./anki-bridge
-    ./hypr-agent
-    ./coach-daemon
+    # Shared foundation / path protocol
     ./vault-bridge
-    ./notifications
-    ./browser-bridge
-    ./activitywatch
-    ./ollama
     ./compat
+
+    # Local model runtime
+    ./ollama
+
+    # Sensors / telemetry
+    ./activitywatch
+    ./anki-bridge
     ./phone-bridge
+
+    # Immediate feedback and interaction
+    ./coach-daemon
     ./dialog-bridge
+
+    # Higher-level reasoning
     ./llm-planner
 
+    # Future / optional integration layers
+    ./notifications
+    ./browser-bridge
+    ./hypr-agent
   ];
 
-  my.ai.llmPlanner.enable = lib.mkDefault true;
-  my.ai.llmPlanner.aiDir = lib.mkDefault "/home/daniil/Sync/Perseverance.Gu/AI";
-  my.ai.llmPlanner.taskNotesDir = lib.mkDefault "/home/daniil/Sync/Perseverance.Gu/TaskNotes";
-  my.ai.llmPlanner.ollamaUrl = lib.mkDefault "http://127.0.0.1:11434";
-  my.ai.llmPlanner.model = lib.mkDefault "gemma3:4b";
-  my.ai.llmPlanner.enableTimer = lib.mkDefault false;
-  my.ai.llmPlanner.timerOnCalendar = lib.mkDefault "*:0/30";
+  ###########################################################################
+  # Vault / shared file protocol
+  ###########################################################################
 
-  my.ai.vault.enable = lib.mkDefault true;
-  my.ai.vault.root = lib.mkDefault "/home/daniil/Sync/Perseverance.Gu";
-  my.ai.vault.aiDir = lib.mkDefault "/home/daniil/Sync/Perseverance.Gu/AI";
-  my.ai.vault.taskNotesDir = lib.mkDefault "/home/daniil/Sync/Perseverance.Gu/TaskNotes";
+  my.ai.vault = {
+    enable = lib.mkDefault true;
 
-  my.ai.ollama.enable = lib.mkDefault true;
-  my.ai.ollama.package = lib.mkDefault pkgs.ollama-cpu;
-  my.ai.ollama.loadModels = lib.mkDefault [ "qwen2.5vl:3b" "gemma3:4b" ];
+    root = lib.mkDefault vaultRoot;
+    aiDir = lib.mkDefault aiDir;
+    taskNotesDir = lib.mkDefault taskNotesDir;
+  };
 
-  # Add this if you want ActivityWatch enabled by default
-  my.ai.activitywatch.enable = lib.mkDefault true;
+  ###########################################################################
+  # Ollama
+  ###########################################################################
 
-  my.ai.coachDaemon.enable = lib.mkDefault true;
-  my.ai.coachDaemon.aiDir = lib.mkDefault "/home/daniil/Sync/Perseverance.Gu/AI";
-  my.ai.coachDaemon.intervalSeconds = lib.mkDefault 60;
-  my.ai.coachDaemon.notificationCooldownSeconds = lib.mkDefault 300;
+  my.ai.ollama = {
+    enable = lib.mkDefault true;
 
-  my.ai.ankiBridge.enable = lib.mkDefault true;
-  my.ai.ankiBridge.aiDir = lib.mkDefault "/home/daniil/Sync/Perseverance.Gu/AI";
-  my.ai.ankiBridge.taskNotesDir = lib.mkDefault "/home/daniil/Sync/Perseverance.Gu/TaskNotes";
-  my.ai.ankiBridge.decks = lib.mkDefault [ "Language" "General" ];
-  my.ai.ankiBridge.intervalSeconds = lib.mkDefault 300;
-  my.ai.ankiBridge.createTaskNote = lib.mkDefault true;
+    # Keep CPU for now. Vulkan can be tested later as a separate performance step.
+    package = lib.mkDefault pkgs.ollama-cpu;
 
-  my.ai.phoneBridge.enable = lib.mkDefault true;
-  my.ai.phoneBridge.aiDir = lib.mkDefault "/home/daniil/Sync/Perseverance.Gu/AI";
-  my.ai.phoneBridge.intervalSeconds = lib.mkDefault 60;
-  my.ai.phoneBridge.stabilitySeconds = lib.mkDefault 10;
-  my.ai.phoneBridge.processedRetentionDays = lib.mkDefault 14;
-  my.ai.phoneBridge.createTemplates = lib.mkDefault true;
+    # Planner currently uses gemma3:4b.
+    #
+    # Do not preload qwen2.5vl here yet unless screenshot/vision analysis is active.
+    # Preloading extra models increases memory pressure and boot-time failure/noise.
+    loadModels = lib.mkDefault [
+      "gemma3:4b"
+    ];
 
-  my.ai.dialogBridge.enable = lib.mkDefault true;
-  my.ai.dialogBridge.aiDir = lib.mkDefault "/home/daniil/Sync/Perseverance.Gu/AI";
+    # Later, when vision/screenshot processing is implemented:
+    # loadModels = lib.mkDefault [
+    #   "gemma3:4b"
+    #   "qwen2.5vl:3b"
+    # ];
+  };
 
-# Keep timer off until manual test works.
-  my.ai.dialogBridge.enableTimer = lib.mkDefault true;
-  my.ai.dialogBridge.timerOnCalendar = lib.mkDefault "*:0/2";
+  ###########################################################################
+  # ActivityWatch
+  ###########################################################################
 
-  my.ai.dialogBridge.notificationTimeoutSeconds = lib.mkDefault 60;
-  my.ai.dialogBridge.notificationCooldownSeconds = lib.mkDefault 600;
-  my.ai.dialogBridge.maxQuestionAgeSeconds = lib.mkDefault 14400;
-  my.ai.dialogBridge.triggerPlannerOnAnswer = lib.mkDefault true;
+  my.ai.activitywatch = {
+    enable = lib.mkDefault true;
+  };
+
+  ###########################################################################
+  # Immediate desktop coach
+  ###########################################################################
+
+  my.ai.coachDaemon = {
+    enable = lib.mkDefault true;
+
+    # These are explicit for now, even if coach-daemon defaults to my.ai.vault.aiDir.
+    # This keeps the file robust during the transition/refactor.
+    aiDir = lib.mkDefault aiDir;
+
+    intervalSeconds = lib.mkDefault 60;
+
+    # 300 was a bit aggressive during debugging. Use 600 to avoid nag loops.
+    notificationCooldownSeconds = lib.mkDefault 600;
+
+    # Boot safety:
+    # ActivityWatch persists old events, so ignore stale boot-time activity.
+    eventFreshnessSeconds = lib.mkDefault 180;
+
+    # Suppress notifications for the first few seconds after coach startup.
+    startupGraceSeconds = lib.mkDefault 30;
+  };
+
+  ###########################################################################
+  # Anki bridge
+  ###########################################################################
+
+  my.ai.ankiBridge = {
+    enable = lib.mkDefault true;
+
+    aiDir = lib.mkDefault aiDir;
+    taskNotesDir = lib.mkDefault taskNotesDir;
+
+    decks = lib.mkDefault [
+      "Language"
+      "General"
+    ];
+
+    intervalSeconds = lib.mkDefault 300;
+
+    # Keep true for now if your current Anki recovery task note depends on it.
+    # Later we should move this behind a safer TaskNotes promotion layer.
+    createTaskNote = lib.mkDefault true;
+  };
+
+  ###########################################################################
+  # Phone bridge
+  ###########################################################################
+
+  my.ai.phoneBridge = {
+    enable = lib.mkDefault true;
+
+    aiDir = lib.mkDefault aiDir;
+
+    intervalSeconds = lib.mkDefault 60;
+    stabilitySeconds = lib.mkDefault 10;
+    processedRetentionDays = lib.mkDefault 14;
+
+    # Ideally vault-bridge owns templates. Keep this true until phone-bridge
+    # has been refactored and verified not to rely on creating any files.
+    createTemplates = lib.mkDefault true;
+  };
+
+  ###########################################################################
+  # LLM planner
+  ###########################################################################
+
+  my.ai.llmPlanner = {
+    enable = lib.mkDefault true;
+
+    aiDir = lib.mkDefault aiDir;
+    taskNotesDir = lib.mkDefault taskNotesDir;
+
+    ollamaUrl = lib.mkDefault "http://127.0.0.1:11434";
+    model = lib.mkDefault "gemma3:4b";
+
+    # Keep manual/on-demand for now.
+    # Planner works, but output quality and dialog loop should be stabilized
+    # before automatic runs.
+    enableTimer = lib.mkDefault false;
+    timerOnCalendar = lib.mkDefault "*:0/30";
+
+    # JSON mode is more robust than full schema mode for current local model.
+    ollamaFormat = lib.mkDefault "json";
+
+    # Keep context within the 4096 token context window.
+    ollamaNumCtx = lib.mkDefault 4096;
+
+    # 900 is enough for the current report/nudge/task output and faster than 1200.
+    ollamaNumPredict = lib.mkDefault 900;
+
+    # Compact context limits tested successfully.
+    maxLogChars = lib.mkDefault 800;
+    maxJsonlEvents = lib.mkDefault 20;
+    maxTaskNotes = lib.mkDefault 5;
+    maxContextChars = lib.mkDefault 4500;
+    maxTaskNoteChars = lib.mkDefault 700;
+    maxPolicyChars = lib.mkDefault 700;
+    maxControlChars = lib.mkDefault 1000;
+  };
+
+  ###########################################################################
+  # Dialog bridge
+  ###########################################################################
+
+  my.ai.dialogBridge = {
+    enable = lib.mkDefault true;
+
+    aiDir = lib.mkDefault aiDir;
+
+    # Keep timer off until:
+    # 1. planner output quality is acceptable,
+    # 2. pending-question lifecycle is stable,
+    # 3. stale test questions are cleared.
+    enableTimer = lib.mkDefault false;
+
+    # When re-enabled, I recommend every 5 minutes at first, not every 2.
+    timerOnCalendar = lib.mkDefault "*:0/5";
+
+    notificationTimeoutSeconds = lib.mkDefault 60;
+    notificationCooldownSeconds = lib.mkDefault 600;
+    maxQuestionAgeSeconds = lib.mkDefault 14400;
+
+    # Good: answering a question should trigger replanning.
+    # But this only becomes useful after pending-question lifecycle is stable.
+    triggerPlannerOnAnswer = lib.mkDefault true;
+  };
 }

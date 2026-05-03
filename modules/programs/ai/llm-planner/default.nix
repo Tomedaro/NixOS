@@ -5,6 +5,7 @@ let
   cfg = config.my.ai.llmPlanner;
 
   plannerScript = pkgs.writeShellScriptBin "llm-planner" ''
+    export PYTHONPATH="${./python}:$PYTHONPATH"
     exec ${pkgs.python3}/bin/python3 ${./planner.py} "$@"
   '';
 in
@@ -36,6 +37,24 @@ in
       description = "Ollama model used by the planner.";
     };
 
+    ollamaFormat = lib.mkOption {
+      type = lib.types.str;
+      default = "json";
+      description = "Ollama structured output mode: json or schema.";
+    };
+
+    ollamaNumCtx = lib.mkOption {
+      type = lib.types.int;
+      default = 4096;
+      description = "Ollama context window requested by the planner.";
+    };
+
+    ollamaNumPredict = lib.mkOption {
+      type = lib.types.int;
+      default = 900;
+      description = "Maximum generated tokens for planner output.";
+    };
+
     enableTimer = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -50,20 +69,44 @@ in
 
     maxLogChars = lib.mkOption {
       type = lib.types.int;
-      default = 12000;
+      default = 800;
       description = "Maximum characters from each daily markdown log to include in context.";
     };
 
     maxJsonlEvents = lib.mkOption {
       type = lib.types.int;
-      default = 120;
+      default = 20;
       description = "Maximum recent JSONL events to include from desktop and phone logs.";
     };
 
     maxTaskNotes = lib.mkOption {
       type = lib.types.int;
-      default = 30;
+      default = 5;
       description = "Maximum TaskNotes markdown files to include as snippets.";
+    };
+
+    maxTaskNoteChars = lib.mkOption {
+      type = lib.types.int;
+      default = 700;
+      description = "Maximum characters included from each TaskNotes file.";
+    };
+
+    maxPolicyChars = lib.mkOption {
+      type = lib.types.int;
+      default = 700;
+      description = "Maximum characters included from each policy file.";
+    };
+
+    maxControlChars = lib.mkOption {
+      type = lib.types.int;
+      default = 1000;
+      description = "Maximum characters included from each control file.";
+    };
+
+    maxContextChars = lib.mkOption {
+      type = lib.types.int;
+      default = 4500;
+      description = "Maximum characters in final markdown context pack.";
     };
   };
 
@@ -91,9 +134,16 @@ in
         TASKNOTES_DIR = cfg.taskNotesDir;
         OLLAMA_URL = cfg.ollamaUrl;
         OLLAMA_MODEL = cfg.model;
+        OLLAMA_FORMAT = cfg.ollamaFormat;
+        OLLAMA_NUM_CTX = toString cfg.ollamaNumCtx;
+        OLLAMA_NUM_PREDICT = toString cfg.ollamaNumPredict;
         MAX_LOG_CHARS = toString cfg.maxLogChars;
         MAX_JSONL_EVENTS = toString cfg.maxJsonlEvents;
         MAX_TASKNOTES = toString cfg.maxTaskNotes;
+        MAX_TASKNOTE_CHARS = toString cfg.maxTaskNoteChars;
+        MAX_POLICY_CHARS = toString cfg.maxPolicyChars;
+        MAX_CONTROL_CHARS = toString cfg.maxControlChars;
+        MAX_CONTEXT_CHARS = toString cfg.maxContextChars;
         LLM_PLANNER_TIMEZONE = "Europe/Paris";
         PYTHONUNBUFFERED = "1";
       };
