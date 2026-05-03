@@ -5,6 +5,7 @@ let
   cfg = config.my.ai.desktopEventBridge;
 
   desktopEventBridgeScript = pkgs.writeShellScriptBin "desktop-event-bridge" ''
+    export PYTHONPATH="${../python}:$PYTHONPATH"
     exec ${pkgs.python3}/bin/python3 ${./desktop_event_bridge.py} "$@"
   '';
 in

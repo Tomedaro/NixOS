@@ -4,9 +4,23 @@
 let
   cfg = config.my.ai.llmPlanner;
 
+  selectedHelpNowModel =
+    if cfg.helpNowModel == null then cfg.model else cfg.helpNowModel;
+
+  selectedBlockPlanModel =
+    if cfg.blockPlanModel == null then cfg.model else cfg.blockPlanModel;
+
+  selectedDailyReviewModel =
+    if cfg.dailyReviewModel == null then cfg.model else cfg.dailyReviewModel;
+
   plannerScript = pkgs.writeShellScriptBin "llm-planner" ''
-    export PYTHONPATH="${./python}:$PYTHONPATH"
+    export PYTHONPATH="${./python}:${../python}:$PYTHONPATH"
     exec ${pkgs.python3}/bin/python3 ${./planner.py} "$@"
+  '';
+
+  benchmarkScript = pkgs.writeShellScriptBin "llm-planner-benchmark-models" ''
+    export PYTHONPATH="${./python}:${../python}:$PYTHONPATH"
+    exec ${pkgs.python3}/bin/python3 ${./benchmark_models.py} "$@"
   '';
 
   commonEnvironment = {
@@ -17,7 +31,8 @@ let
     OLLAMA_FORMAT = cfg.ollamaFormat;
     OLLAMA_NUM_CTX = toString cfg.ollamaNumCtx;
     OLLAMA_NUM_PREDICT = toString cfg.ollamaNumPredict;
-    OLLAMA_KEEP_ALIVE = "10m";
+    OLLAMA_TIMEOUT_SECONDS = toString cfg.ollamaTimeoutSeconds;
+    OLLAMA_KEEP_ALIVE = cfg.ollamaKeepAlive;
     ENABLE_SCHEMA_RETRY = "0";
     MAX_LOG_CHARS = toString cfg.maxLogChars;
     MAX_JSONL_EVENTS = toString cfg.maxJsonlEvents;
@@ -55,7 +70,25 @@ in
     model = lib.mkOption {
       type = lib.types.str;
       default = "gemma3:4b";
-      description = "Ollama model used by the planner.";
+      description = "Default fallback Ollama model used by the planner.";
+    };
+
+    helpNowModel = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "Ollama model used for fast help-now planning. Null means use my.ai.llmPlanner.model.";
+    };
+
+    blockPlanModel = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "Ollama model used for normal block planning. Null means use my.ai.llmPlanner.model.";
+    };
+
+    dailyReviewModel = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "Ollama model used for slower daily reviews. Null means use my.ai.llmPlanner.model.";
     };
 
     ollamaFormat = lib.mkOption {
@@ -74,6 +107,30 @@ in
       type = lib.types.int;
       default = 900;
       description = "Maximum generated tokens for normal planner output.";
+    };
+
+    ollamaTimeoutSeconds = lib.mkOption {
+      type = lib.types.int;
+      default = 600;
+      description = "Default Ollama request timeout for normal planner runs.";
+    };
+
+    ollamaKeepAlive = lib.mkOption {
+      type = lib.types.str;
+      default = "10m";
+      description = "Ollama keep_alive value used by planner requests.";
+    };
+
+    helpNowNumPredict = lib.mkOption {
+      type = lib.types.int;
+      default = 180;
+      description = "Maximum generated tokens for help-now planner output.";
+    };
+
+    helpNowTimeoutSeconds = lib.mkOption {
+      type = lib.types.int;
+      default = 45;
+      description = "Ollama request timeout for help-now planner runs.";
     };
 
     enableTimer = lib.mkOption {
@@ -134,6 +191,7 @@ in
   config = lib.mkIf cfg.enable {
     environment.systemPackages = [
       plannerScript
+      benchmarkScript
     ];
 
     systemd.user.services.llm-planner = {
@@ -152,6 +210,7 @@ in
 
       environment = commonEnvironment // {
         PLANNER_MODE = "block-plan";
+        OLLAMA_MODEL = selectedBlockPlanModel;
       };
 
       serviceConfig = {
@@ -177,7 +236,9 @@ in
 
       environment = commonEnvironment // {
         PLANNER_MODE = "help-now";
-        OLLAMA_NUM_PREDICT = "180";
+        OLLAMA_MODEL = selectedHelpNowModel;
+        OLLAMA_NUM_PREDICT = toString cfg.helpNowNumPredict;
+        OLLAMA_TIMEOUT_SECONDS = toString cfg.helpNowTimeoutSeconds;
         MAX_CONTEXT_CHARS = "1200";
         MAX_LOG_CHARS = "200";
         MAX_JSONL_EVENTS = "5";
@@ -190,7 +251,33 @@ in
       serviceConfig = {
         Type = "oneshot";
         ExecStart = "${plannerScript}/bin/llm-planner --mode help-now";
-        TimeoutStartSec = 75;
+        TimeoutStartSec = cfg.helpNowTimeoutSeconds + 30;
+      };
+    };
+
+    systemd.user.services.llm-planner-daily-review = {
+      description = "Slow local LLM daily review for productivity system";
+
+      after = [
+        "productivity-coach.service"
+        "phone-bridge.service"
+        "anki-bridge.service"
+        "ai-vault-init.service"
+      ];
+
+      wants = [
+        "ai-vault-init.service"
+      ];
+
+      environment = commonEnvironment // {
+        PLANNER_MODE = "daily-review";
+        OLLAMA_MODEL = selectedDailyReviewModel;
+      };
+
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = "${plannerScript}/bin/llm-planner --mode daily-review";
+        TimeoutStartSec = 1200;
       };
     };
 

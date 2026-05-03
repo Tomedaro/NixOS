@@ -62,7 +62,7 @@ in
     # Do not preload qwen2.5vl here yet unless screenshot/vision analysis is active.
     # Preloading extra models increases memory pressure and boot-time failure/noise.
     loadModels = lib.mkDefault [
-      "gemma3:4b"
+      "qwen3:1.7b"
     ];
 
     # Later, when vision/screenshot processing is implemented:
@@ -121,9 +121,11 @@ in
 
     intervalSeconds = lib.mkDefault 300;
 
-    # Keep true for now if your current Anki recovery task note depends on it.
-    # Later we should move this behind a safer TaskNotes promotion layer.
+    # Safer authority model:
+    # - createTaskNote keeps backwards compatibility as a legacy gate.
+    # - taskNoteMode controls whether Anki writes no task, a proposal, or a real TaskNote.
     createTaskNote = lib.mkDefault true;
+    taskNoteMode = lib.mkDefault "propose";
   };
 
   ###########################################################################
@@ -155,7 +157,18 @@ in
     taskNotesDir = lib.mkDefault taskNotesDir;
 
     ollamaUrl = lib.mkDefault "http://127.0.0.1:11434";
+
+    # Default model used when a per-mode model is not configured.
     model = lib.mkDefault "gemma3:4b";
+
+    # Per-mode routing.
+    #
+    # Keep help-now on gemma3:4b until a faster local model is benchmarked and pulled.
+    # Candidate later:
+    #   helpNowModel = lib.mkDefault "qwen3:1.7b";
+    helpNowModel = lib.mkDefault "gemma3:4b";
+    blockPlanModel = lib.mkDefault "gemma3:4b";
+    dailyReviewModel = lib.mkDefault "gemma3:4b";
 
     # Keep manual/on-demand for now.
     # Planner works, but output quality and dialog loop should be stabilized
@@ -171,6 +184,10 @@ in
 
     # 900 is enough for the current report/nudge/task output and faster than 1200.
     ollamaNumPredict = lib.mkDefault 900;
+
+    # Fast help-now settings. Deterministic fallback remains permanent.
+    helpNowNumPredict = lib.mkDefault 180;
+    helpNowTimeoutSeconds = lib.mkDefault 45;
 
     # Compact context limits tested successfully.
     maxLogChars = lib.mkDefault 800;
