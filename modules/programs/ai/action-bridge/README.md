@@ -229,3 +229,30 @@ mutate TaskNotes without explicit action
 treat completed sessions as active context
 ```
 
+---
+
+## Smoke tests
+
+Action bridge behavior is covered by:
+
+```text
+modules/programs/ai/tests/action_bridge_smoke.py
+```
+
+Current smoke coverage:
+
+```text
+ack_nudge
+snooze_nudge
+start_recovery_target
+answer_question
+dismiss_question
+```
+
+The tests run against a temporary `AI_DIR` and verify state writes, event writes, and action queue movement without touching the real vault.
+
+Run with:
+
+```zsh
+PYTHONPATH=modules/programs/ai/python nix run nixpkgs#python3 -- modules/programs/ai/tests/action_bridge_smoke.py
+```

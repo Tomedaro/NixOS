@@ -375,6 +375,20 @@ active_session -> skip
 
 ---
 
+### action-bridge tests
+
+Implemented smoke coverage:
+
+```text
+ack_nudge -> current nudge inactive, action event written, raw action processed
+snooze_nudge -> current nudge inactive, interaction-state records snooze details
+start_recovery_target -> recovery/current.json active, recovery event written, originating nudge consumed
+answer_question -> last-answer.json written, current question inactive
+dismiss_question -> current question inactive, dismiss event written
+```
+
+These tests protect the command execution boundary that future LLM/agent proposals will eventually feed through.
+
 ## Near-term plan
 
 1. Keep `recovery-trigger` disabled.
