@@ -285,6 +285,34 @@ The deterministic gate should validate this before anything reaches the phone.
 
 ---
 
+### deterministic proposal validation gate
+
+Future LLM/agent recovery proposals should pass through a pure validation gate before any phone nudge or action file is written.
+
+Implemented module:
+
+```text
+modules/programs/ai/python/ai_system/proposal_gate.py
+```
+
+Smoke tests:
+
+```text
+modules/programs/ai/tests/proposal_gate_smoke.py
+```
+
+The gate currently validates recovery proposals by:
+
+```text
+rejecting unknown recovery targets
+rejecting direct execution fields such as action, command, android_package, launch_task, path
+rejecting unsupported allowed actions
+blocking write_nudge when facts show active session/nudge/question/recovery, recent snooze, recent terminal recovery, or no Anki due
+regenerating executable phone actions from the shared recovery target registry
+```
+
+This keeps the future LLM adaptive while preserving deterministic execution safety.
+
 ## Known duplication
 
 These concepts are currently duplicated and should be extracted later.
