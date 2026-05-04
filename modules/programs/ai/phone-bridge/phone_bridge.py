@@ -37,63 +37,17 @@ LATEST_MD = PHONE_STATE_DIR / "latest.md"
 
 APP_POLICY_TEMPLATE = """# App Policy
 
-This file is for human-readable policy notes.
-The phone bridge does not enforce this yet.
+Phone protocol:
 
-## Productive apps
+- Intentional commands/check-ins go to `AI/inbox/actions/*.json`.
+- Passive phone telemetry goes to `AI/inbox/from-phone/events/*.json`.
 
-- AnkiDroid
-- Obsidian
-- TaskForge
-- Syncthing-Fork
-
-## Distracting apps
-
-- YouTube
-- Discord
-- Telegram
-- Reddit
-- Instagram
-- TikTok
-
-## Notes
-
-On phone, app-level data is usually easier to capture than website-level data.
-Treat browsers as ambiguous unless a URL is shared explicitly.
+The phone bridge processes passive telemetry only.
+The action bridge processes intentional commands.
 """
 
 
 DOMAIN_POLICY_TEMPLATE = """# Domain Policy
-
-Desktop browser classification should prefer domains/URLs over browser app names.
-
-## Generally productive
-
-- ankiweb.net
-- docs.ankiweb.net
-- github.com
-- nixos.org
-- wiki.nixos.org
-- tasknotes.dev
-- taskforge.md
-
-## Generally distracting
-
-- youtube.com
-- reddit.com
-- twitch.tv
-- x.com
-- twitter.com
-- instagram.com
-
-## Context-dependent
-
-- wikipedia.org
-- google.com
-- github.com
-- reddit.com/r/NixOS
-
-## Principle
 
 Browser app = neutral.
 Domain and current task decide whether it is productive.
@@ -102,26 +56,11 @@ Domain and current task decide whether it is productive.
 
 PROOF_POLICY_TEMPLATE = """# Proof Policy
 
-Proof files should be request-ID based, not random "last image" based.
+Proof files should be request-ID based.
 
 Preferred proof folder:
 
-AI/proofs/phone/YYYY-MM-DD/<proof-id>/
-
-Expected files:
-
-- proof.jpg or proof.png
-- metadata.json
-
-Expected event shape:
-
-{
-  "source": "tasker",
-  "event": "proof_submitted",
-  "proof_id": "anki-2026-04-30-1215",
-  "file": "AI/proofs/phone/2026-04-30/anki-2026-04-30-1215/proof.jpg",
-  "timestamp_epoch": "1714470000"
-}
+`AI/proofs/phone/YYYY-MM-DD/<proof-id>/`
 
 For Anki, prefer objective Anki progress proof over photos when possible.
 """
@@ -129,24 +68,22 @@ For Anki, prefer objective Anki progress proof over photos when possible.
 
 RETENTION_POLICY_TEMPLATE = """# Retention Policy
 
-Raw phone events are temporary queue files.
+Telemetry lifecycle:
 
-Recommended lifecycle:
-
-1. Tasker writes one raw event file into AI/inbox/from-phone/events/.
+1. Tasker writes passive telemetry into `AI/inbox/from-phone/events/`.
 2. phone-bridge validates it.
-3. phone-bridge appends it to AI/events/phone/YYYY-MM-DD.jsonl.
-4. phone-bridge appends a readable line to AI/logs/phone/YYYY-MM-DD.md.
-5. phone-bridge moves the raw file to processed/YYYY-MM-DD/.
-6. Processed raw files are deleted after the retention window.
+3. phone-bridge appends it to `AI/events/phone/YYYY-MM-DD.jsonl`.
+4. phone-bridge moves the raw file to `processed/YYYY-MM-DD/`.
 
-Defaults:
+Command lifecycle:
 
-- Processed raw event retention: 14 days
-- Daily JSONL logs: keep
-- Daily Markdown logs: keep
-- Daily reports: keep
-- Proof images: keep only if useful
+1. Tasker writes intentional commands into `AI/inbox/actions/`.
+2. ai-action-bridge validates and executes them.
+3. ai-action-bridge moves the raw action to `actions-processed/YYYY-MM-DD/`.
+
+Strict rule:
+
+Action-shaped files in `from-phone/events` are treated as misrouted errors.
 """
 
 
@@ -157,8 +94,6 @@ Proof ID:
 Task:
 Request:
 Deadline:
-
-When active, Tasker can use this file to ask for a photo/screenshot proof.
 """
 
 
@@ -211,7 +146,25 @@ def ensure_templates():
     write_if_missing(OUTBOX_TO_PHONE_DIR / "current-task.md", PHONE_TASK_TEMPLATE)
 
 
+def raw_is_action(raw):
+    if not isinstance(raw, dict):
+        return False
+
+    schema = str(raw.get("schema_version", "")).strip().lower()
+
+    return (
+        schema.startswith("action.")
+        or bool(str(raw.get("action", "")).strip())
+        or bool(str(raw.get("command", "")).strip())
+    )
+
+
 def normalize_phone_event(raw, source_file):
+    if raw_is_action(raw):
+        raise ValueError(
+            "misrouted action file: phone commands/check-ins must be written to AI/inbox/actions, not AI/inbox/from-phone/events"
+        )
+
     event = normalize_event(
         raw,
         source_file=source_file,
@@ -222,9 +175,7 @@ def normalize_phone_event(raw, source_file):
         session=None,
     )
 
-    if "message" not in event:
-        event["message"] = ""
-
+    event.setdefault("message", "")
     return event
 
 
@@ -238,16 +189,16 @@ def append_markdown_log(event):
     proof_id = event.get("proof_id", "")
     file_ref = event.get("file", "")
 
-    line = f"- {event['time']} - `{event['event']}`"
+    line = f"- {event['time']} — `{event['event']}`"
 
     if message:
-        line += f" - {message}"
+        line += f" — {message}"
 
     if proof_id:
-        line += f" - proof: `{proof_id}`"
+        line += f" — proof: `{proof_id}`"
 
     if file_ref:
-        line += f" - file: `{file_ref}`"
+        line += f" — file: `{file_ref}`"
 
     line += "\n"
 
@@ -258,31 +209,23 @@ def append_markdown_log(event):
 def write_latest(event):
     atomic_write_json(LATEST_JSON, event)
 
-    event_name = event.get("event", "")
-    event_time = event.get("timestamp", "")
-    device = event.get("device", "")
-    message = event.get("message", "")
-    proof_id = event.get("proof_id", "")
-    file_ref = event.get("file", "")
-
     lines = [
         "# Latest Phone Event",
         "",
         f"Last updated: {now_iso(TIMEZONE)}",
-        f"Event: `{event_name}`",
-        f"Time: {event_time}",
-        f"Device: {device}",
-        f"Message: {message}",
+        f"Event: `{event.get('event', '')}`",
+        f"Time: {event.get('timestamp', '')}",
+        f"Device: {event.get('device', '')}",
+        f"Message: {event.get('message', '')}",
     ]
 
-    if proof_id:
-        lines.append(f"Proof ID: `{proof_id}`")
+    if event.get("proof_id"):
+        lines.append(f"Proof ID: `{event.get('proof_id')}`")
 
-    if file_ref:
-        lines.append(f"File: `{file_ref}`")
+    if event.get("file"):
+        lines.append(f"File: `{event.get('file')}`")
 
     lines.append("")
-
     atomic_write_text(LATEST_MD, "\n".join(lines))
 
 
@@ -315,6 +258,7 @@ def process_event_file(path):
         move_to_processed(path, event)
         print(f"processed phone event: {event['event']} from {path.name}", flush=True)
         return True
+
     except Exception as error:
         print(f"failed phone event {path}: {error}", file=sys.stderr, flush=True)
         move_to_failed(path, error)

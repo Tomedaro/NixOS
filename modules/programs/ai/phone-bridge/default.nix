@@ -15,7 +15,7 @@ in
 
     aiDir = lib.mkOption {
       type = lib.types.str;
-      default = "/home/daniil/Sync/Perseverance.Gu/AI";
+      default = config.my.ai.vault.aiDir;
       description = "AI system directory inside the Obsidian vault.";
     };
 
@@ -28,7 +28,7 @@ in
     stabilitySeconds = lib.mkOption {
       type = lib.types.int;
       default = 10;
-      description = "Minimum file age before processing a raw event, to avoid reading partially synced files.";
+      description = "Minimum file age before processing a raw event.";
     };
 
     processedRetentionDays = lib.mkOption {

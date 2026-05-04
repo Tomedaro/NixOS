@@ -39,21 +39,29 @@ def _desktop_summary(context):
 
 
 def _session_context(context):
-    session = context.get("session", {}).get("current", {})
-    policy = context.get("session", {}).get("current_policy", {})
+    session_block = context.get("session", {})
+    session = session_block.get("current", {})
+    policy = session_block.get("current_policy", {})
 
     if not isinstance(session, dict):
         session = {}
     if not isinstance(policy, dict):
         policy = {}
 
-    task = str(session.get("task") or policy.get("task") or "").strip()
-    project = str(session.get("project") or policy.get("project") or "Current Task").strip()
-    mode = str(session.get("mode") or policy.get("mode") or "").strip().lower()
     status = str(session.get("status") or "").strip().lower()
+    active = status == "active"
+
+    if active:
+        task = str(session.get("task") or policy.get("task") or "").strip()
+        project = str(session.get("project") or policy.get("project") or "Current Task").strip()
+        mode = str(session.get("mode") or policy.get("mode") or "").strip().lower()
+    else:
+        task = ""
+        project = "Current Task"
+        mode = ""
 
     return {
-        "active": status == "active",
+        "active": active,
         "status": status,
         "task": task,
         "project": project or "Current Task",

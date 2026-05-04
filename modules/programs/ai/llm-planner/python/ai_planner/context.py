@@ -191,6 +191,33 @@ def build_context(config):
     phone_events = read_jsonl_tail(config.events_phone_dir / f"{date}.jsonl", config.max_jsonl_events)
     anki_status = compact_anki(read_json(config.anki_dir / "status.json", {}))
 
+    raw_session_current = read_json(config.state_session_dir / "current.json", {})
+    if not isinstance(raw_session_current, dict):
+        raw_session_current = {}
+
+    raw_current_policy = read_json(config.state_session_dir / "current-policy.json", {})
+    if not isinstance(raw_current_policy, dict):
+        raw_current_policy = {}
+
+    session_is_active = str(raw_session_current.get("status", "")).strip().lower() == "active"
+    session_current = raw_session_current if session_is_active else {}
+    session_last = {} if session_is_active else raw_session_current
+    current_policy = raw_current_policy if session_is_active else {}
+
+    if session_is_active:
+        current_task_text = read_text_limited(config.control_dir / "current-task.md", config.max_control_chars)
+        current_block_text = read_text_limited(config.control_dir / "current-block.md", config.max_control_chars)
+        current_mode_text = read_text_limited(config.control_dir / "current-mode.md", config.max_control_chars)
+        current_policy_markdown = read_text_limited(
+            config.state_session_dir / "current-policy.md",
+            config.max_policy_chars,
+        )
+    else:
+        current_task_text = "No active session."
+        current_block_text = "No active session."
+        current_mode_text = "No active session."
+        current_policy_markdown = ""
+
     context = {
         "generated_at": config.generated_at,
         "date": date,
@@ -199,9 +226,9 @@ def build_context(config):
             "tasknotes_dir": str(config.tasknotes_dir),
         },
         "control": {
-            "current_task": read_text_limited(config.control_dir / "current-task.md", config.max_control_chars),
-            "current_block": read_text_limited(config.control_dir / "current-block.md", config.max_control_chars),
-            "current_mode": read_text_limited(config.control_dir / "current-mode.md", config.max_control_chars),
+            "current_task": current_task_text,
+            "current_block": current_block_text,
+            "current_mode": current_mode_text,
         },
         "policy": {
             "apps": read_text_limited(config.policy_dir / "apps.md", config.max_policy_chars),
@@ -215,12 +242,11 @@ def build_context(config):
             "last_answer": read_json(config.state_llm_dir / "last-answer.json", {}),
         },
         "session": {
-            "current": read_json(config.state_session_dir / "current.json", {}),
-            "current_policy": read_json(config.state_session_dir / "current-policy.json", {}),
-            "current_policy_markdown": read_text_limited(
-                config.state_session_dir / "current-policy.md",
-                config.max_policy_chars,
-            ),
+            "has_active_session": session_is_active,
+            "current": session_current,
+            "last": session_last,
+            "current_policy": current_policy,
+            "current_policy_markdown": current_policy_markdown,
         },
         "anki": anki_status,
         "events": {

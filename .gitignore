@@ -13,3 +13,4 @@ dev-shells/*/flake.lock
 [Bb]ackup/*
 __pycache__/
 *.py[cod]
+*.pyc

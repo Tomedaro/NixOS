@@ -19,10 +19,18 @@ let
     mkdir -p "$AI_DIR/state/phone"
     mkdir -p "$AI_DIR/state/shared"
 
+    mkdir -p "$AI_DIR/state/action-bridge"
+    mkdir -p "$AI_DIR/state/llm"
+    mkdir -p "$AI_DIR/state/session"
+
     mkdir -p "$AI_DIR/inbox/from-phone/events"
     mkdir -p "$AI_DIR/inbox/from-phone/processed"
     mkdir -p "$AI_DIR/inbox/from-phone/failed"
     mkdir -p "$AI_DIR/inbox/from-desktop/events"
+
+    mkdir -p "$AI_DIR/inbox/actions"
+    mkdir -p "$AI_DIR/inbox/actions-processed"
+    mkdir -p "$AI_DIR/inbox/actions-failed"
 
     mkdir -p "$AI_DIR/outbox/to-phone"
     mkdir -p "$AI_DIR/outbox/to-desktop"
@@ -30,6 +38,10 @@ let
     mkdir -p "$AI_DIR/events/phone"
     mkdir -p "$AI_DIR/events/desktop"
     mkdir -p "$AI_DIR/events/anki"
+
+    mkdir -p "$AI_DIR/events/actions"
+    mkdir -p "$AI_DIR/events/tasknotes"
+    mkdir -p "$AI_DIR/events/proofs"
 
     mkdir -p "$AI_DIR/logs/phone"
     mkdir -p "$AI_DIR/logs/desktop"
@@ -46,6 +58,8 @@ let
     mkdir -p "$AI_DIR/proposed-tasks"
     mkdir -p "$AI_DIR/prompts"
     mkdir -p "$AI_DIR/templates"
+    mkdir -p "$AI_DIR/templates/actions"
+    mkdir -p "$AI_DIR/schemas"
     mkdir -p "$AI_DIR/tmp"
     mkdir -p "$AI_DIR/cache"
     mkdir -p "$AI_DIR/archive"
@@ -246,6 +260,60 @@ Status: inactive
 Message: No current nudge.
 Action: none
 EOF_NUDGE
+    fi
+
+
+    if [ ! -f "$AI_DIR/outbox/to-phone/current-nudge.json" ]; then
+      cat > "$AI_DIR/outbox/to-phone/current-nudge.json" <<'EOF_NUDGE_JSON'
+{
+  "schema_version": "phone_interaction.v1",
+  "kind": "nudge",
+  "status": "inactive",
+  "source": "vault-bridge",
+  "planner_mode": "none",
+  "urgency": "normal",
+  "message": "",
+  "recommended_next_action": "",
+  "actions": []
+}
+EOF_NUDGE_JSON
+    fi
+
+    if [ ! -f "$AI_DIR/outbox/to-phone/current-question.md" ]; then
+      cat > "$AI_DIR/outbox/to-phone/current-question.md" <<'EOF_QUESTION_MD'
+# Current Question
+
+Status: inactive
+Question: none
+EOF_QUESTION_MD
+    fi
+
+    if [ ! -f "$AI_DIR/outbox/to-phone/current-question.json" ]; then
+      cat > "$AI_DIR/outbox/to-phone/current-question.json" <<'EOF_QUESTION_JSON'
+{
+  "schema_version": "phone_interaction.v1",
+  "kind": "question",
+  "status": "inactive",
+  "source": "vault-bridge",
+  "planner_mode": "none",
+  "question": "",
+  "answer_options": [],
+  "free_text_allowed": true,
+  "response_action": "answer_question"
+}
+EOF_QUESTION_JSON
+    fi
+
+    if [ ! -f "$AI_DIR/outbox/to-phone/interaction-state.json" ]; then
+      cat > "$AI_DIR/outbox/to-phone/interaction-state.json" <<'EOF_INTERACTION_STATE_JSON'
+{
+  "schema_version": "phone_interaction_state.v1",
+  "source": "vault-bridge",
+  "planner_mode": "none",
+  "active_nudge": null,
+  "active_question": null
+}
+EOF_INTERACTION_STATE_JSON
     fi
 
     if [ ! -f "$AI_DIR/outbox/to-phone/current-task.md" ]; then

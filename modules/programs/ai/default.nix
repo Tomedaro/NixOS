@@ -9,6 +9,7 @@ in
 {
   imports = [
     ./session-manager
+    ./action-bridge
     # Shared foundation / path protocol
     ./vault-bridge
     ./compat
@@ -20,11 +21,11 @@ in
     ./activitywatch
     ./anki-bridge
     ./phone-bridge
+    ./recovery-manager
 
     # Immediate feedback and interaction
     ./coach-daemon
     ./dialog-bridge
-    ./desktop-event-bridge
 
     # Higher-level reasoning
     ./llm-planner
@@ -226,17 +227,19 @@ in
     triggerPlannerOnAnswer = lib.mkDefault true;
   };
 
+
   ###########################################################################
-  # Desktop event bridge
+  # Unified action bridge
   ###########################################################################
 
-  my.ai.desktopEventBridge = {
+  my.ai.actionBridge = {
     enable = lib.mkDefault true;
     aiDir = lib.mkDefault aiDir;
+    taskNotesDir = lib.mkDefault taskNotesDir;
     enablePath = lib.mkDefault true;
     stabilitySeconds = lib.mkDefault 2;
+    authorityLevel = lib.mkDefault 2;
     triggerHelpNow = lib.mkDefault true;
-    helpNowService = lib.mkDefault "llm-planner-help-now.service";
   };
 
   ###########################################################################
@@ -245,8 +248,14 @@ in
 
   my.ai.sessionManager.enable = lib.mkDefault true;
   my.ai.sessionManager.aiDir = lib.mkDefault "/home/daniil/Sync/Perseverance.Gu/AI";
-  my.ai.sessionManager.enableRequestBridge = lib.mkDefault true;
-  my.ai.sessionManager.enableRequestPath = lib.mkDefault true;
-  my.ai.sessionManager.requestStabilitySeconds = lib.mkDefault 2;
+
+
+  ###########################################################################
+  # Recovery lifecycle manager
+  ###########################################################################
+
+  my.ai.recoveryManager = {
+    enable = lib.mkDefault true;
+  };
 
 }

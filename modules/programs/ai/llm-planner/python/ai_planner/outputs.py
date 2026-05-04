@@ -160,14 +160,77 @@ def write_markdown_outputs(config, result):
     atomic_write_text(config.state_llm_dir / "last-output.md", "\n".join(last_md))
 
 
+def _planner_mode(config):
+    return getattr(config, "planner_mode", "block-plan")
+
+
+def _new_interaction_id(prefix, config):
+    return f"{prefix}-{today(config)}-{int(time.time())}"
+
+
+def _as_bool(value, default=False):
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    return str(value).strip().lower() in {"1", "true", "yes", "on", "active"}
+
+
+def _as_options(value):
+    if not isinstance(value, list):
+        return []
+
+    options = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+
+        option_id = str(item.get("id", "")).strip()
+        label = str(item.get("label", "")).strip()
+
+        if not option_id and not label:
+            continue
+
+        options.append({
+            "id": option_id or label.lower().replace(" ", "_"),
+            "label": label or option_id,
+        })
+
+    return options
+
+
+def _existing_active_question(config):
+    existing = read_json(config.outbox_to_phone_dir / "current-question.json", {})
+    if isinstance(existing, dict) and existing.get("status") == "active":
+        return existing
+
+    pending = read_json(config.state_llm_dir / "pending-question.json", {})
+    if isinstance(pending, dict) and pending:
+        return pending
+
+    return {}
+
+
+def _existing_active_nudge(config):
+    existing = read_json(config.outbox_to_phone_dir / "current-nudge.json", {})
+    if isinstance(existing, dict) and existing.get("status") == "active":
+        return existing
+
+    return {}
+
+
 def current_question_is_active(config):
+    question_json = read_json(config.outbox_to_phone_dir / "current-question.json", {})
+    if isinstance(question_json, dict) and question_json.get("status") == "active":
+        return True
+
     text = read_text(config.outbox_to_phone_dir / "current-question.md", "")
     return "Status: active" in text
 
 
 def existing_pending_matches(config, question, reason):
     existing = read_json(config.state_llm_dir / "pending-question.json", {})
-    if not existing:
+    if not isinstance(existing, dict) or not existing:
         return None
 
     if existing.get("question") == question and existing.get("reason") == reason and current_question_is_active(config):
@@ -176,28 +239,141 @@ def existing_pending_matches(config, question, reason):
     return None
 
 
-def write_machine_outputs(config, result):
-    atomic_write_json(config.state_llm_dir / "last-output.json", result)
+def _build_question_payload(config, ask, generated_at):
+    if not isinstance(ask, dict):
+        ask = {}
 
-    ask = result.get("ask_user", {})
-    pending_path = config.state_llm_dir / "pending-question.json"
-    current_question_path = config.outbox_to_phone_dir / "current-question.md"
+    question = str(ask.get("question", "")).strip()
+    reason = str(ask.get("reason", "")).strip()
+    enabled = _as_bool(ask.get("enabled")) and bool(question)
 
-    if ask.get("enabled"):
-        question = ask.get("question", "")
-        reason = ask.get("reason", "")
-        existing_id = existing_pending_matches(config, question, reason)
-        question_id = existing_id or f"q-{today(config)}-{int(time.time())}"
-
-        pending = {
-            "question_id": question_id,
-            "created_at": now_iso(config),
-            "question": question,
-            "reason": reason,
-            "answer_options": ask.get("answer_options", []),
-            "free_text_allowed": ask.get("free_text_allowed", True),
+    if not enabled:
+        return {
+            "schema_version": "phone_interaction.v1",
+            "kind": "question",
+            "status": "inactive",
+            "updated_at": generated_at,
             "source": "llm-planner",
-            "planner_mode": getattr(config, "planner_mode", "block-plan"),
+            "planner_mode": _planner_mode(config),
+            "question": "",
+            "answer_options": [],
+            "free_text_allowed": True,
+            "response_action": "answer_question",
+        }
+
+    existing = _existing_active_question(config)
+    same_question = (
+        existing.get("question") == question
+        and existing.get("reason") == reason
+        and current_question_is_active(config)
+    )
+
+    question_id = existing.get("question_id") if same_question else None
+    question_id = question_id or _new_interaction_id("q", config)
+    created_at = existing.get("created_at") if same_question else generated_at
+
+    return {
+        "schema_version": "phone_interaction.v1",
+        "kind": "question",
+        "status": "active",
+        "question_id": question_id,
+        "created_at": created_at,
+        "updated_at": generated_at,
+        "source": "llm-planner",
+        "planner_mode": _planner_mode(config),
+        "question": question,
+        "reason": reason,
+        "answer_options": _as_options(ask.get("answer_options", [])),
+        "free_text_allowed": _as_bool(ask.get("free_text_allowed"), True),
+        "response_action": "answer_question",
+        "dismiss_action": "dismiss_question",
+    }
+
+
+def _build_nudge_payload(config, result, generated_at):
+    nudge = result.get("phone_nudge", {})
+    if not isinstance(nudge, dict):
+        nudge = {}
+
+    message = str(nudge.get("message", "")).strip()
+    recommended_next_action = str(result.get("recommended_next_action", "")).strip()
+    urgency = str(nudge.get("urgency", "normal") or "normal").strip().lower()
+
+    if urgency not in {"low", "normal", "high"}:
+        urgency = "normal"
+
+    enabled = _as_bool(nudge.get("enabled")) and bool(message)
+
+    if not enabled:
+        return {
+            "schema_version": "phone_interaction.v1",
+            "kind": "nudge",
+            "status": "inactive",
+            "updated_at": generated_at,
+            "source": "llm-planner",
+            "planner_mode": _planner_mode(config),
+            "urgency": "normal",
+            "message": "",
+            "recommended_next_action": recommended_next_action,
+            "actions": [],
+        }
+
+    existing = _existing_active_nudge(config)
+    same_nudge = (
+        existing.get("message") == message
+        and existing.get("recommended_next_action") == recommended_next_action
+        and existing.get("urgency") == urgency
+    )
+
+    nudge_id = existing.get("nudge_id") if same_nudge else None
+    nudge_id = nudge_id or _new_interaction_id("n", config)
+    created_at = existing.get("created_at") if same_nudge else generated_at
+
+    return {
+        "schema_version": "phone_interaction.v1",
+        "kind": "nudge",
+        "status": "active",
+        "nudge_id": nudge_id,
+        "created_at": created_at,
+        "updated_at": generated_at,
+        "source": "llm-planner",
+        "planner_mode": _planner_mode(config),
+        "urgency": urgency,
+        "message": message,
+        "recommended_next_action": recommended_next_action,
+        "actions": [
+            {
+                "action": "ack_nudge",
+                "label": "Done",
+            },
+            {
+                "action": "snooze_nudge",
+                "label": "Not now",
+                "snooze_minutes": 15,
+            },
+        ],
+    }
+
+
+def _write_question_outputs(config, payload):
+    pending_path = config.state_llm_dir / "pending-question.json"
+    current_question_json_path = config.outbox_to_phone_dir / "current-question.json"
+    current_question_md_path = config.outbox_to_phone_dir / "current-question.md"
+
+    atomic_write_json(current_question_json_path, payload)
+
+    if payload.get("status") == "active":
+        pending = {
+            "schema_version": "pending_question.v1",
+            "question_id": payload.get("question_id", ""),
+            "created_at": payload.get("created_at", payload.get("updated_at", now_iso(config))),
+            "updated_at": payload.get("updated_at", now_iso(config)),
+            "question": payload.get("question", ""),
+            "reason": payload.get("reason", ""),
+            "answer_options": payload.get("answer_options", []),
+            "free_text_allowed": payload.get("free_text_allowed", True),
+            "source": payload.get("source", "llm-planner"),
+            "planner_mode": payload.get("planner_mode", _planner_mode(config)),
         }
 
         atomic_write_json(pending_path, pending)
@@ -206,61 +382,148 @@ def write_machine_outputs(config, result):
         q_md.append("# Current Question")
         q_md.append("")
         q_md.append("Status: active")
-        q_md.append(f"Question ID: {question_id}")
-        q_md.append(f"Created: {pending['created_at']}")
+        q_md.append(f"Question ID: {payload.get('question_id', '')}")
+        q_md.append(f"Created: {payload.get('created_at', '')}")
+        q_md.append(f"Updated: {payload.get('updated_at', '')}")
         q_md.append("")
-        q_md.append(f"Question: {pending['question']}")
+        q_md.append(f"Question: {payload.get('question', '')}")
         q_md.append("")
-        q_md.append(f"Reason: {pending['reason']}")
+        q_md.append(f"Reason: {payload.get('reason', '')}")
         q_md.append("")
         q_md.append("Options:")
-        for opt in pending["answer_options"]:
+
+        for opt in payload.get("answer_options", []):
             q_md.append(f"- `{opt.get('id', '')}` — {opt.get('label', '')}")
+
         q_md.append("")
-        q_md.append(f"Free text allowed: {str(pending['free_text_allowed']).lower()}")
+        q_md.append(f"Free text allowed: {str(payload.get('free_text_allowed', True)).lower()}")
+        q_md.append("")
+        q_md.append("Response action: `answer_question`")
+        q_md.append("Dismiss action: `dismiss_question`")
         q_md.append("")
 
-        atomic_write_text(current_question_path, "\n".join(q_md))
-    else:
-        if pending_path.exists():
-            try:
-                pending_path.unlink()
-            except Exception:
-                pass
+        atomic_write_text(current_question_md_path, "\n".join(q_md))
+        return
 
-        atomic_write_text(current_question_path, "# Current Question\n\nStatus: inactive\nQuestion: none\n")
+    if pending_path.exists():
+        try:
+            pending_path.unlink()
+        except Exception:
+            pass
 
-    nudge = result.get("phone_nudge", {})
-    current_nudge_path = config.outbox_to_phone_dir / "current-nudge.md"
+    atomic_write_text(
+        current_question_md_path,
+        "\n".join([
+            "# Current Question",
+            "",
+            "Status: inactive",
+            "Question: none",
+            f"Updated: {payload.get('updated_at', now_iso(config))}",
+            "",
+        ]),
+    )
 
-    if nudge.get("enabled"):
+
+def _write_nudge_outputs(config, payload):
+    current_nudge_json_path = config.outbox_to_phone_dir / "current-nudge.json"
+    current_nudge_md_path = config.outbox_to_phone_dir / "current-nudge.md"
+
+    atomic_write_json(current_nudge_json_path, payload)
+
+    if payload.get("status") == "active":
         atomic_write_text(
-            current_nudge_path,
+            current_nudge_md_path,
             "\n".join([
                 "# Current Nudge",
                 "",
                 "Status: active",
-                f"Urgency: {nudge.get('urgency', 'normal')}",
-                f"Message: {nudge.get('message', '')}",
-                f"Recommended next action: {result.get('recommended_next_action', '')}",
-                f"Updated: {now_iso(config)}",
-                f"Planner mode: {getattr(config, 'planner_mode', 'block-plan')}",
+                f"Nudge ID: {payload.get('nudge_id', '')}",
+                f"Urgency: {payload.get('urgency', 'normal')}",
+                f"Message: {payload.get('message', '')}",
+                f"Recommended next action: {payload.get('recommended_next_action', '')}",
+                f"Updated: {payload.get('updated_at', now_iso(config))}",
+                f"Planner mode: {payload.get('planner_mode', _planner_mode(config))}",
+                "Ack action: `ack_nudge`",
+                "Snooze action: `snooze_nudge`",
                 "",
             ]),
         )
-    else:
-        atomic_write_text(
-            current_nudge_path,
-            "\n".join([
-                "# Current Nudge",
-                "",
-                "Status: inactive",
-                "Message: No current nudge.",
-                f"Updated: {now_iso(config)}",
-                f"Planner mode: {getattr(config, 'planner_mode', 'block-plan')}",
-                "",
-            ]),
-        )
+        return
+
+    atomic_write_text(
+        current_nudge_md_path,
+        "\n".join([
+            "# Current Nudge",
+            "",
+            "Status: inactive",
+            "Message: No current nudge.",
+            f"Recommended next action: {payload.get('recommended_next_action', '')}",
+            f"Updated: {payload.get('updated_at', now_iso(config))}",
+            f"Planner mode: {payload.get('planner_mode', _planner_mode(config))}",
+            "",
+        ]),
+    )
+
+
+def _compact_question(payload):
+    if payload.get("status") != "active":
+        return None
+
+    return {
+        "question_id": payload.get("question_id", ""),
+        "status": payload.get("status", "active"),
+        "question": payload.get("question", ""),
+        "answer_options": payload.get("answer_options", []),
+        "free_text_allowed": payload.get("free_text_allowed", True),
+        "response_action": payload.get("response_action", "answer_question"),
+        "dismiss_action": payload.get("dismiss_action", "dismiss_question"),
+    }
+
+
+def _compact_nudge(payload):
+    if payload.get("status") != "active":
+        return None
+
+    return {
+        "nudge_id": payload.get("nudge_id", ""),
+        "status": payload.get("status", "active"),
+        "urgency": payload.get("urgency", "normal"),
+        "message": payload.get("message", ""),
+        "recommended_next_action": payload.get("recommended_next_action", ""),
+        "actions": payload.get("actions", []),
+    }
+
+
+def _write_interaction_state(config, question_payload, nudge_payload, generated_at):
+    state = {
+        "schema_version": "phone_interaction_state.v1",
+        "updated_at": generated_at,
+        "source": "llm-planner",
+        "planner_mode": _planner_mode(config),
+        "active_nudge": _compact_nudge(nudge_payload),
+        "active_question": _compact_question(question_payload),
+    }
+
+    atomic_write_json(config.outbox_to_phone_dir / "interaction-state.json", state)
+
+
+def write_machine_outputs(config, result):
+    atomic_write_json(config.state_llm_dir / "last-output.json", result)
+
+    metadata = result.get("_metadata", {})
+    if not isinstance(metadata, dict):
+        metadata = {}
+
+    generated_at = metadata.get("generated_at") or now_iso(config)
+
+    ask = result.get("ask_user", {})
+    question_payload = _build_question_payload(config, ask, generated_at)
+    _write_question_outputs(config, question_payload)
+
+    nudge_payload = _build_nudge_payload(config, result, generated_at)
+    _write_nudge_outputs(config, nudge_payload)
+
+    _write_interaction_state(config, question_payload, nudge_payload, generated_at)
 
 
 def write_error_file(config, error):
