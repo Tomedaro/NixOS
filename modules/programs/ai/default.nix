@@ -22,6 +22,7 @@ in
     ./anki-bridge
     ./phone-bridge
     ./recovery-manager
+    ./recovery-trigger
 
     # Immediate feedback and interaction
     ./coach-daemon
@@ -240,6 +241,15 @@ in
     stabilitySeconds = lib.mkDefault 2;
     authorityLevel = lib.mkDefault 2;
     triggerHelpNow = lib.mkDefault true;
+  };
+
+
+  ###########################################################################
+  # Recovery nudge trigger
+  ###########################################################################
+
+  my.ai.recoveryTrigger = {
+    enable = lib.mkDefault false;
   };
 
   ###########################################################################
