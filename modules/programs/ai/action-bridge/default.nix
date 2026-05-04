@@ -5,6 +5,7 @@ let
   cfg = config.my.ai.actionBridge;
 
   actionBridgeScript = pkgs.writeShellScriptBin "ai-action-bridge" ''
+    export PYTHONPATH="${../python}:$PYTHONPATH"
     exec ${pkgs.python3}/bin/python3 ${./action_bridge.py} "$@"
   '';
 in

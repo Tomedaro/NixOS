@@ -7,6 +7,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
+from ai_system.recovery_targets import get_recovery_target, recovery_target_action
 
 
 AI_DIR = Path(os.environ.get("AI_DIR", "/home/daniil/Sync/Perseverance.Gu/AI")).expanduser()
@@ -220,6 +221,7 @@ def recent_snooze_from_actions():
 
 
 def make_nudge(now_text, nudge_id):
+    target = get_recovery_target("anki")
     return {
         "schema_version": "phone_interaction.v1",
         "kind": "nudge",
@@ -230,19 +232,10 @@ def make_nudge(now_text, nudge_id):
         "source": "recovery-trigger",
         "planner_mode": "recovery",
         "urgency": "normal",
-        "message": "Anki recovery: start a tiny 5-minute block.",
-        "recommended_next_action": "Tap Start Anki. Stay in AnkiDroid for 5 minutes, then stop.",
+        "message": target["nudge_message"],
+        "recommended_next_action": target["recommended_next_action"],
         "actions": [
-            {
-                "action": "start_recovery_target",
-                "label": "Start Anki",
-                "target_id": "anki",
-                "target_name": "Anki",
-                "goal_text": "5 minutes in AnkiDroid",
-                "stop_condition": "Stay in AnkiDroid for 5 minutes, then stop.",
-                "android_package": "com.ichi2.anki",
-                "launch_task": "AI PI Launch AnkiDroid"
-            },
+            recovery_target_action("anki"),
             {
                 "action": "snooze_nudge",
                 "label": "Not now",
@@ -324,6 +317,7 @@ def write_phone_outputs(nudge, question, now_text):
 
 def build_decision():
     now_text = now_iso()
+    target = get_recovery_target("anki")
     session = read_json(SESSION_CURRENT_JSON, {})
     anki = read_json(ANKI_STATUS_JSON, {})
     desktop = read_json(DESKTOP_NOW_JSON, {})
@@ -402,8 +396,8 @@ def build_decision():
         "timestamp_epoch": epoch_now(),
         "source": "deterministic-v0",
         "decision": decision,
-        "target_id": "anki",
-        "target_name": "Anki",
+        "target_id": target["target_id"],
+        "target_name": target["display_name"],
         "confidence": confidence,
         "reason_codes": reason_codes,
         "blocked_reasons": blocked,
@@ -414,8 +408,8 @@ def build_decision():
         "facts": facts,
         "proposal": {
             "nudge_id": nudge_id,
-            "message": "Anki recovery: start a tiny 5-minute block.",
-            "recommended_next_action": "Tap Start Anki. Stay in AnkiDroid for 5 minutes, then stop.",
+            "message": target["nudge_message"],
+            "recommended_next_action": target["recommended_next_action"],
             "actions": [
                 "start_recovery_target",
                 "snooze_nudge"

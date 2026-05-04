@@ -8,6 +8,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
+from ai_system.recovery_targets import get_recovery_target
 
 
 AI_DIR = Path(os.environ.get("AI_DIR", "/home/daniil/Sync/Perseverance.Gu/AI")).expanduser()
@@ -27,12 +28,12 @@ EVENTS_PHONE_DIR = AI_DIR / "events" / "phone"
 EVENTS_RECOVERY_DIR = AI_DIR / "events" / "recovery"
 
 
-TARGET_EVENT_NAMES = {
-    "anki": {
-        "opened": {"opened_ankidroid"},
-        "closed": {"closed_ankidroid"},
-    },
-}
+def target_event_names(target_id):
+    target = get_recovery_target(target_id)
+    return {
+        "opened": set(target.get("phone_open_events", [])),
+        "closed": set(target.get("phone_close_events", [])),
+    }
 
 
 TERMINAL_STATUSES = {
@@ -175,9 +176,6 @@ def target_id_for(recovery):
         target = {}
     return str(target.get("target_id") or "").strip().lower()
 
-
-def target_event_names(target_id):
-    return TARGET_EVENT_NAMES.get(target_id, {"opened": set(), "closed": set()})
 
 
 def phone_events_for_dates(start_epoch, end_epoch=None):

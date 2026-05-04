@@ -48,6 +48,10 @@ def run_script(script: Path, ai_dir: Path, *args: str) -> subprocess.CompletedPr
     env["RECOVERY_MANAGER_TIMEZONE"] = "Europe/Paris"
     env["RECOVERY_TRIGGER_TIMEZONE"] = "Europe/Paris"
 
+    shared_python = str(REPO / "modules/programs/ai/python")
+    old_pythonpath = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = shared_python if not old_pythonpath else shared_python + ":" + old_pythonpath
+
     return subprocess.run(
         [sys.executable, str(script), *args],
         text=True,
@@ -66,7 +70,11 @@ def run_json(script: Path, ai_dir: Path, *args: str) -> dict:
     try:
         return json.loads(proc.stdout)
     except Exception as error:
-        raise AssertionError(f"could not parse JSON from {script.name}: {error}\n{proc.stdout}") from error
+        raise AssertionError(
+            f"could not parse JSON from {script.name}: {error}\n"
+            f"STDOUT:\n{proc.stdout}\n"
+            f"STDERR:\n{proc.stderr}"
+        ) from error
 
 
 def phone_event(kind: str, epoch: int) -> dict:

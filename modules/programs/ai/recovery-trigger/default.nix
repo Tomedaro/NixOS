@@ -5,6 +5,7 @@ let
   cfg = config.my.ai.recoveryTrigger;
 
   recoveryTriggerScript = pkgs.writeShellScriptBin "ai-recovery-trigger" ''
+    export PYTHONPATH="${../python}:$PYTHONPATH"
     exec ${pkgs.python3}/bin/python3 ${./recovery_trigger.py} "$@"
   '';
 in

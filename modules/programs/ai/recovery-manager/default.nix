@@ -5,6 +5,7 @@ let
   cfg = config.my.ai.recoveryManager;
 
   recoveryManagerScript = pkgs.writeShellScriptBin "ai-recovery-manager" ''
+    export PYTHONPATH="${../python}:$PYTHONPATH"
     exec ${pkgs.python3}/bin/python3 ${./recovery_manager.py} "$@"
   '';
 in

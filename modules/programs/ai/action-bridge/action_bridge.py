@@ -9,6 +9,7 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
+from ai_system.recovery_targets import get_recovery_target
 
 
 AI_DIR = Path(os.environ.get("AI_DIR", "/home/daniil/Sync/Perseverance.Gu/AI")).expanduser()
@@ -1050,24 +1051,9 @@ def write_nudge_recovery_started(event):
     return payload
 
 
-def known_recovery_target(target_id):
-    targets = {
-        "anki": {
-            "target_id": "anki",
-            "display_name": "Anki",
-            "kind": "app",
-            "android_package": "com.ichi2.anki",
-            "default_goal": "5 cards or 5 minutes",
-        },
-    }
 
-    return targets.get(str(target_id or "").strip().lower(), {
-        "target_id": str(target_id or "unknown").strip().lower() or "unknown",
-        "display_name": str(target_id or "Recovery target"),
-        "kind": "unknown",
-        "android_package": "",
-        "default_goal": "5 minutes",
-    })
+def known_recovery_target(target_id):
+    return get_recovery_target(target_id)
 
 
 def handle_start_recovery_target(action, path, action_id):
