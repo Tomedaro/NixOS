@@ -6,12 +6,13 @@ import os
 import time
 from datetime import datetime
 from pathlib import Path
-from zoneinfo import ZoneInfo
 from ai_system.recovery_targets import get_recovery_target, recovery_target_action
+from ai_system.io_utils import atomic_write_json, atomic_write_text, read_json, read_jsonl
+from ai_system.time_utils import get_timezone, now_iso as shared_now_iso, today as shared_today
 
 
 AI_DIR = Path(os.environ.get("AI_DIR", "/home/daniil/Sync/Perseverance.Gu/AI")).expanduser()
-TIMEZONE = ZoneInfo(os.environ.get("RECOVERY_TRIGGER_TIMEZONE", "Europe/Paris"))
+TIMEZONE = get_timezone(os.environ.get("RECOVERY_TRIGGER_TIMEZONE", "Europe/Paris"))
 
 SNOOZE_COOLDOWN_SECONDS = int(os.environ.get("RECOVERY_TRIGGER_SNOOZE_COOLDOWN_SECONDS", "1800"))
 RECENT_RECOVERY_COOLDOWN_SECONDS = int(os.environ.get("RECOVERY_TRIGGER_RECENT_RECOVERY_COOLDOWN_SECONDS", "1800"))
@@ -41,18 +42,6 @@ TERMINAL_RECOVERY_STATUSES = {"possible_success", "possible_abort", "expired", "
 GOOD_DESKTOP_VERDICTS = {"idle", "no_plan", "off_task", "distracted", "unknown"}
 
 
-def now():
-    return datetime.now(TIMEZONE)
-
-
-def now_iso():
-    return now().isoformat(timespec="seconds")
-
-
-def today():
-    return now().strftime("%Y-%m-%d")
-
-
 def epoch_now():
     return int(time.time())
 
@@ -60,53 +49,6 @@ def epoch_now():
 def ensure_dirs():
     for path in [OUTBOX_TO_PHONE_DIR, TRIGGER_STATE_DIR]:
         path.mkdir(parents=True, exist_ok=True)
-
-
-def atomic_write_text(path, text):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(str(text), encoding="utf-8")
-    tmp.replace(path)
-
-
-def atomic_write_json(path, data):
-    atomic_write_text(path, json.dumps(data, indent=2, ensure_ascii=False))
-
-
-def read_json(path, default=None):
-    if default is None:
-        default = {}
-
-    try:
-        if path.exists():
-            data = json.loads(path.read_text(encoding="utf-8"))
-            return data if isinstance(data, dict) else default
-    except Exception as error:
-        return {"_read_error": str(error), "_path": str(path)}
-
-    return default
-
-
-def read_jsonl(path):
-    if not path.exists():
-        return []
-
-    out = []
-    try:
-        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                item = json.loads(line)
-            except Exception:
-                continue
-            if isinstance(item, dict):
-                out.append(item)
-    except Exception:
-        return []
-
-    return out
 
 
 def parse_epoch(value):
@@ -202,7 +144,7 @@ def desktop_verdict(desktop):
 
 
 def recent_snooze_from_actions():
-    events = read_jsonl(EVENTS_ACTIONS_DIR / f"{today()}.jsonl")
+    events = read_jsonl(EVENTS_ACTIONS_DIR / f"{shared_today(TIMEZONE)}.jsonl")
     snoozes = []
 
     for event in events:
@@ -316,7 +258,7 @@ def write_phone_outputs(nudge, question, now_text):
 
 
 def build_decision():
-    now_text = now_iso()
+    now_text = shared_now_iso(TIMEZONE)
     target = get_recovery_target("anki")
     session = read_json(SESSION_CURRENT_JSON, {})
     anki = read_json(ANKI_STATUS_JSON, {})
@@ -428,7 +370,7 @@ def write_status(decision, wrote_nudge=False):
     lines = [
         "# Recovery Trigger Status",
         "",
-        f"Updated: {now_iso()}",
+        f"Updated: {shared_now_iso(TIMEZONE)}",
         f"Decision: `{decision.get('decision', '')}`",
         f"Target: `{decision.get('target_id', '')}`",
         f"Confidence: `{decision.get('confidence', 0)}`",

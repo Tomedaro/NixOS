@@ -42,3 +42,30 @@ def append_jsonl(path, event):
     with path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(event, ensure_ascii=False, sort_keys=True))
         handle.write("\n")
+
+def read_jsonl(path):
+    path = Path(path)
+
+    if not path.exists():
+        return []
+
+    events = []
+
+    try:
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+
+            try:
+                item = json.loads(line)
+            except Exception:
+                continue
+
+            if isinstance(item, dict):
+                events.append(item)
+    except Exception:
+        return []
+
+    return events
+
