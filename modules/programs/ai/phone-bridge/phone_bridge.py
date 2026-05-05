@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import json
+import re
 import os
 import sys
 import time
@@ -33,6 +34,12 @@ PROOFS_PHONE_DIR = AI_DIR / "proofs" / "phone"
 
 LATEST_JSON = PHONE_STATE_DIR / "latest.json"
 LATEST_MD = PHONE_STATE_DIR / "latest.md"
+
+
+RAW_EVENT_FILENAME_RE = re.compile(
+    r"^(?:[0-9]{10,13}|[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2})_[A-Za-z0-9][A-Za-z0-9_-]*[.]json$"
+)
+TASKER_LITERAL_RE = re.compile(r"%[A-Za-z0-9_]+")
 
 
 APP_POLICY_TEMPLATE = """# App Policy
@@ -159,7 +166,60 @@ def raw_is_action(raw):
     )
 
 
+
+def _safe_text(value):
+    return str(value if value is not None else "").strip()
+
+
+def _has_tasker_literal(value):
+    return bool(TASKER_LITERAL_RE.search(_safe_text(value)))
+
+
+def validate_raw_event_contract(raw, source_file):
+    """Reject malformed Tasker phone telemetry before normalization.
+
+    During development, do not preserve compatibility with broken Tasker
+    exports. Bad raw files belong in from-phone/failed, not events/phone.
+    """
+
+    if not isinstance(raw, dict):
+        raise ValueError("raw phone event must be a JSON object")
+
+    filename = source_file.name
+
+    if _has_tasker_literal(filename):
+        raise ValueError("unexpanded Tasker variable in phone event filename")
+
+    if not RAW_EVENT_FILENAME_RE.match(filename):
+        raise ValueError(
+            "invalid phone event filename: expected '<epoch>_<event>.json' or 'YYYY-MM-DDTHH-MM-SS_<event>.json'"
+        )
+
+    event_name = _safe_text(raw.get("event") or raw.get("event_type"))
+    if not event_name:
+        raise ValueError("missing phone event name")
+
+    if _has_tasker_literal(event_name):
+        raise ValueError("unexpanded Tasker variable in phone event name")
+
+    timestamp_epoch = raw.get("timestamp_epoch")
+    if timestamp_epoch is None:
+        raise ValueError("missing timestamp_epoch")
+
+    if _has_tasker_literal(timestamp_epoch):
+        raise ValueError("unexpanded Tasker variable in timestamp_epoch")
+
+    try:
+        epoch = int(float(_safe_text(timestamp_epoch)))
+    except Exception as error:
+        raise ValueError("invalid timestamp_epoch") from error
+
+    if epoch <= 0:
+        raise ValueError("timestamp_epoch must be positive")
+
 def normalize_phone_event(raw, source_file):
+    validate_raw_event_contract(raw, source_file)
+
     if raw_is_action(raw):
         raise ValueError(
             "misrouted action file: phone commands/check-ins must be written to AI/inbox/actions, not AI/inbox/from-phone/events"
