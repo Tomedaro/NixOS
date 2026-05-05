@@ -33,10 +33,6 @@ require_file() {
 check_markers() {
   local ok=0
 
-  grep -q 'const DEBUG_WRITES = false;' "$SRC_HTML" || {
-    echo "BAD missing DEBUG_WRITES=false in repo HTML"
-    ok=1
-  }
 
   grep -q 'function baseNudgeActionPayload' "$SRC_HTML" || {
     echo "BAD missing baseNudgeActionPayload in repo HTML"
@@ -113,6 +109,11 @@ require_file "$SRC_README"
 
 echo
 echo "===== marker checks ====="
+
+  if grep -qE 'DEBUG_WRITES|writeDebug|webview-start-recovery-debug|launch_task_requested' "$SRC_HTML"; then
+    echo "BAD repo HTML still contains debug write surface"
+    return 1
+  fi
 check_markers
 
 if [ "$MODE" = "--install" ]; then

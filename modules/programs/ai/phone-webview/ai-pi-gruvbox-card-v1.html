@@ -267,7 +267,6 @@ textarea::placeholder {
 
 <script>
 const ROOT = "/storage/emulated/11/Documents/Obsidian/AI";
-const DEBUG_WRITES = false;
 
 const PATHS = {
   nudge: ROOT + "/outbox/to-phone/current-nudge.json",
@@ -374,21 +373,6 @@ function writeAction(actionName, payload) {
   return { filePath, obj };
 }
 
-function writeDebug(stage, data) {
-  if (!DEBUG_WRITES) return;
-  try {
-    const payload = {
-      schema_version: "webview_start_recovery_debug.v1",
-      stage: stage,
-      wrote_at_epoch_ms: Date.now(),
-      data: data || {},
-      paths: PATHS
-    };
-    tkWrite(ROOT + "/state/phone/webview-start-recovery-debug.json", JSON.stringify(payload, null, 2));
-  } catch (e) {
-    try { tkFlash("Debug write failed: " + e.message); } catch (_) {}
-  }
-}
 
 function setText(id, text) {
   document.getElementById(id).textContent = text || "";
@@ -464,12 +448,7 @@ function renderNudge(n) {
     start.textContent = recoveryAction.label || "Start";
     start.onclick = function () {
       try {
-        writeDebug("start_button_pressed", {
-          nudge_id: String(n.nudge_id || ""),
-          recoveryAction: recoveryAction
-        });
-
-        const launchTask = String(recoveryAction.launch_task || "AI PI Launch AnkiDroid");
+const launchTask = String(recoveryAction.launch_task || "AI PI Launch AnkiDroid");
         const writeResult = writeAction("start_recovery_target", Object.assign(
           baseNudgeActionPayload(n),
           {
@@ -482,19 +461,8 @@ function renderNudge(n) {
           }
         ));
 
-        writeDebug("start_action_written", writeResult);
-
-        const launchResult = performTaskerTask(launchTask);
+const launchResult = performTaskerTask(launchTask);
         const launchKnown = launchResult !== false && launchResult !== null && launchResult !== undefined;
-
-        writeDebug("launch_task_requested", {
-          task_name: launchTask,
-          result: String(launchResult),
-          result_type: typeof launchResult,
-          launch_known: launchKnown,
-          has_performTask: typeof performTask === "function",
-          has_tk_performTask: !!(window.tk && typeof tk.performTask === "function")
-        });
 
         afterSubmit(
           "Starting Anki",

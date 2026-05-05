@@ -84,7 +84,7 @@ find modules/programs/ai -type f \
   ! -name '*.pyc' \
   -print0 \
   | xargs -0 grep -nE \
-      'Perseverance_AI_Phone_Interaction_v[12]|ai-pi-material-card|tasker-interaction-client-v2|%ai_event_epoch|webview-start-recovery-debug|bak-debug|bak-snooze|bak-start' \
+      'Perseverance_AI_Phone_Interaction_v[12]|ai-pi-material-card|tasker-interaction-client-v2|%ai_event_epoch|webview-start-recovery-debug|launch_task_requested|DEBUG_WRITES|writeDebug|bak-debug|bak-snooze|bak-start' \
       || true
 
 
@@ -92,7 +92,7 @@ section "legacy guard"
 
 legacy_hits="$(
   grep -RIn --color=never -E \
-    'Perseverance_AI_Phone_Interaction_v[12]|ai-pi-material-card|tasker-interaction-client-v2|bak-debug|bak-snooze|bak-start|default\.nix\.inline-backup' \
+    'Perseverance_AI_Phone_Interaction_v[12]|ai-pi-material-card|tasker-interaction-client-v2|bak-debug|bak-snooze|bak-start|webview-start-recovery-debug|launch_task_requested|DEBUG_WRITES|writeDebug|default\.nix\.inline-backup' \
     modules/programs/ai \
     | grep -v 'dev/audit-ai-project.sh' \
     | grep -v 'ARCHITECTURE.md' \

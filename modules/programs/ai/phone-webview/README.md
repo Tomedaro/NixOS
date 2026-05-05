@@ -37,7 +37,6 @@ Authority boundary:
 
 Operational note:
 
-`DEBUG_WRITES` may be temporarily enabled in the runtime vault HTML while testing,
 but should normally be disabled after the WebView/action path is stable.
 
 ## Runtime install and drift check
