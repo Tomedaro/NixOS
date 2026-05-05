@@ -44,3 +44,24 @@ Phone writes only:
 * `AI/inbox/from-phone/events/*.json` for passive telemetry.
 
 Desktop services own state, reports, and append-only event logs.
+
+```bash id="w7k9lc"
+modules/programs/ai/dev/check-ai-live.sh
+```
+
+Inspects the live AI services and queues. By default it only runs the safe passive check:
+
+```bash id="0w951g"
+phone-bridge --once
+```
+
+It does **not** process live action/recovery/trigger queues unless explicitly requested:
+
+```bash id="yx0z5a"
+modules/programs/ai/dev/check-ai-live.sh --process-actions
+modules/programs/ai/dev/check-ai-live.sh --run-recovery
+modules/programs/ai/dev/check-ai-live.sh --run-trigger
+modules/programs/ai/dev/check-ai-live.sh --run-outcomes
+```
+
+Use these mutating flags one at a time when debugging live state.
