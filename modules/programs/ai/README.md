@@ -2966,3 +2966,8 @@ admin cleanup
 Each new capability should have deterministic metadata, gates, cooldowns, approval requirements, and evidence/outcome classification before it can become more autonomous.
 
 The LLM may propose. Deterministic code validates. User action or validated bridges execute. Outcome managers classify evidence after the fact.
+
+## Architecture
+
+The canonical architecture and invariants document is [`ARCHITECTURE.md`](./ARCHITECTURE.md).
+Older design notes should not be treated as active contracts unless this file links to them explicitly.

@@ -163,3 +163,79 @@ Expected before committing:
 ## Current intentional simplification
 
 The project is still in development. Prefer deleting stale compatibility layers over preserving old implementations. Legacy Tasker/WebView versions should not remain on the active vault surface unless they are explicitly needed for debugging.
+
+## Canonical contract policy
+
+This repository is still in active development. Prefer removing old implementations over adding compatibility layers.
+
+Current active contracts are documented here and in current smoke tests. Historical files such as early architecture reviews, old phone interaction protocols, Tasker v1/v2 exports, WebView debug snapshots, inline backups, and malformed Tasker variable artifacts are not active APIs.
+
+When changing contracts:
+
+1. Update this document.
+2. Update or add smoke tests.
+3. Run `modules/programs/ai/dev/run-smoke.sh`.
+4. Run `modules/programs/ai/dev/audit-ai-project.sh`.
+5. Rebuild `Default` if a packaged runtime changed.
+
+## Engineering best practices
+
+This project should stay biased toward simple, observable, file-backed state machines.
+
+### Current development posture
+
+The system is still in active development. Prefer clean contracts over compatibility layers. Old Tasker/WebView/protocol implementations should be removed from the active surface instead of supported indefinitely. If history matters, keep it in Git history or in a short migration note, not in runtime paths.
+
+### Runtime boundaries
+
+- Phone WebView writes intentional user actions only to `AI/inbox/actions/*.json`.
+- Tasker app lifecycle profiles write passive telemetry only to `AI/inbox/from-phone/events/*.json`.
+- `phone-bridge` is a passive telemetry normalizer.
+- `action-bridge` is the authority for user actions.
+- Recovery manager classifies observed lifecycle evidence; it should not create nudges.
+- Recovery trigger proposes nudges; it should not classify lifecycle outcomes.
+- Outcome reporter summarizes interventions; it should not mutate interaction state.
+
+### Queue discipline
+
+Every queue processor should use the same shape:
+
+1. Read stable files only.
+2. Validate strictly.
+3. Normalize into canonical events.
+4. Append immutable JSONL event records.
+5. Move raw files to processed or failed.
+6. Write a small materialized current/status view.
+
+Invalid files should fail loudly and move out of the hot inbox. Do not silently coerce malformed Tasker data.
+
+### Idempotency and interruption tolerance
+
+Recovery lifecycle logic should be robust to duplicated open events, missing close events, short interruptions, noisy app switches, and late events after terminal classification. Dwell should be summed across valid intervals, but terminal success should not be downgraded by later noise.
+
+### Operational hygiene
+
+- Dev scripts should be runnable from a clean checkout.
+- Do not assume host Python exists; use `nix shell nixpkgs#python3 -c python3 ...`.
+- Prefer `--once` modes for debug and live checks.
+- Default live checks should be inspect-first and non-mutating, except passive safe drains such as `phone-bridge --once`.
+- Mutating live operations should require explicit flags.
+- Clipboard helpers must copy full output, not only a path.
+- Audit scripts should fail on active legacy runtime references, not merely print them.
+
+### Testing expectations
+
+Every runtime contract change should include a smoke/regression test. The minimum useful suite covers:
+
+- valid phone telemetry processing,
+- malformed phone telemetry rejection,
+- misrouted action rejection,
+- action bridge nudge actions,
+- recovery interruption and duplicate event handling,
+- proposal gate blockers,
+- outcome summarization,
+- live/dev workflow scripts.
+
+### Documentation expectations
+
+Architecture docs should describe current contracts and invariants, not preserve every historical implementation. Old standalone architecture/protocol docs can be deleted once their live invariants are consolidated into `ARCHITECTURE.md` and `README.md`.

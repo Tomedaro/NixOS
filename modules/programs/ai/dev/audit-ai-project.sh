@@ -87,6 +87,43 @@ find modules/programs/ai -type f \
       'Perseverance_AI_Phone_Interaction_v[12]|ai-pi-material-card|tasker-interaction-client-v2|%ai_event_epoch|webview-start-recovery-debug|bak-debug|bak-snooze|bak-start' \
       || true
 
+
+section "legacy guard"
+
+legacy_hits="$(
+  grep -RIn --color=never -E \
+    'Perseverance_AI_Phone_Interaction_v[12]|ai-pi-material-card|tasker-interaction-client-v2|bak-debug|bak-snooze|bak-start|default\.nix\.inline-backup' \
+    modules/programs/ai \
+    | grep -v 'dev/audit-ai-project.sh' \
+    | grep -v 'ARCHITECTURE.md' \
+    | grep -v 'README.md' \
+    || true
+)"
+
+if [ -n "$legacy_hits" ]; then
+  echo "$legacy_hits"
+  echo
+  echo "ERROR: legacy implementation references found outside allowed docs/audit files."
+  exit 1
+fi
+
+malformed_hits="$(
+  grep -RIn --color=never '%ai_event_epoch' modules/programs/ai \
+    | grep -v 'tests/phone_bridge_smoke.py' \
+    | grep -v 'dev/audit-ai-project.sh' \
+    | grep -v 'ARCHITECTURE.md' \
+    || true
+)"
+
+if [ -n "$malformed_hits" ]; then
+  echo "$malformed_hits"
+  echo
+  echo "ERROR: unexpanded Tasker variable reference found outside allowed docs/tests/audit files."
+  exit 1
+fi
+
+echo "OK legacy guard"
+
 section "queue directories"
 for dir in \
   "$AI_DIR/inbox/from-phone/events" \
