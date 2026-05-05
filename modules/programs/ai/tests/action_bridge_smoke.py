@@ -147,6 +147,7 @@ def test_ack_nudge() -> None:
             "kind": "nudge",
             "status": "active",
             "nudge_id": "n-ack-smoke",
+            "intervention_id": "i-ack-smoke",
             "message": "Smoke nudge",
             "recommended_next_action": "Acknowledge this.",
             "actions": [{"action": "ack_nudge", "label": "Done"}],
@@ -175,7 +176,15 @@ def test_ack_nudge() -> None:
         assert nudge["last_status"] == "acknowledged"
 
         events = latest_action_events(ai_dir)
-        assert any(e.get("event") == "ack_nudge" and e.get("nudge_id") == "n-ack-smoke" for e in events)
+        ack_events = [
+            e for e in events
+            if e.get("event") == "ack_nudge" and e.get("nudge_id") == "n-ack-smoke"
+        ]
+        assert ack_events
+        assert ack_events[-1]["intervention_id"] == "i-ack-smoke"
+
+        interaction_state = read_json(ai_dir / "outbox/to-phone/interaction-state.json")
+        assert interaction_state["last_nudge_ack"]["intervention_id"] == "i-ack-smoke"
         assert processed_files(ai_dir), "action file was not moved to processed"
 
 
@@ -190,6 +199,7 @@ def test_snooze_nudge() -> None:
             "kind": "nudge",
             "status": "active",
             "nudge_id": "n-snooze-smoke",
+            "intervention_id": "i-snooze-smoke",
             "message": "Smoke snooze nudge",
             "recommended_next_action": "Snooze this.",
             "actions": [{"action": "snooze_nudge", "label": "Not now", "snooze_minutes": 15}],
@@ -220,7 +230,13 @@ def test_snooze_nudge() -> None:
         assert snooze["snoozed_until"]
 
         events = latest_action_events(ai_dir)
-        assert any(e.get("event") == "snooze_nudge" and e.get("snooze_minutes") == 15 for e in events)
+        snooze_events = [
+            e for e in events
+            if e.get("event") == "snooze_nudge" and e.get("snooze_minutes") == 15
+        ]
+        assert snooze_events
+        assert snooze_events[-1]["intervention_id"] == "i-snooze-smoke"
+        assert interaction_state["last_nudge_snooze"]["intervention_id"] == "i-snooze-smoke"
 
 
 def test_start_recovery_target_consumes_nudge() -> None:
@@ -234,6 +250,7 @@ def test_start_recovery_target_consumes_nudge() -> None:
             "kind": "nudge",
             "status": "active",
             "nudge_id": "n-recovery-smoke",
+            "intervention_id": "i-recovery-smoke",
             "planner_mode": "recovery",
             "message": "Start Anki.",
             "recommended_next_action": "Tap Start Anki.",
@@ -261,13 +278,22 @@ def test_start_recovery_target_consumes_nudge() -> None:
         assert recovery["status"] == "active"
         assert recovery["target"]["target_id"] == "anki"
         assert recovery["goal"]["text"] == "5 minutes in AnkiDroid"
+        assert recovery["intervention"]["intervention_id"] == "i-recovery-smoke"
 
         nudge = read_json(ai_dir / "outbox/to-phone/current-nudge.json")
         assert nudge["status"] == "inactive"
         assert nudge["last_status"] == "recovery_started"
 
         recovery_events = read_jsonl(ai_dir / f"events/recovery/{today()}.jsonl")
-        assert any(e.get("event") == "recovery_started" and e.get("nudge_id") == "n-recovery-smoke" for e in recovery_events)
+        recovery_started = [
+            e for e in recovery_events
+            if e.get("event") == "recovery_started" and e.get("nudge_id") == "n-recovery-smoke"
+        ]
+        assert recovery_started
+        assert recovery_started[-1]["intervention_id"] == "i-recovery-smoke"
+
+        nudge = read_json(ai_dir / "outbox/to-phone/current-nudge.json")
+        assert nudge["last_recovery_start"]["intervention_id"] == "i-recovery-smoke"
 
 
 def test_answer_question() -> None:

@@ -575,6 +575,39 @@ def compact_nudge(payload):
     }
 
 
+
+def intervention_id_from_action_or_nudge(action, current_nudge):
+    values = [
+        action.get("intervention_id"),
+        action.get("intervention"),
+        current_nudge.get("intervention_id"),
+        current_nudge.get("intervention"),
+    ]
+
+    for value in values:
+        if isinstance(value, dict):
+            value = value.get("intervention_id")
+        text = str(value or "").strip()
+        if text:
+            return text
+
+    return ""
+
+
+def attach_intervention_ref(event, action, current_nudge, *, kind="recovery_nudge"):
+    intervention_id = intervention_id_from_action_or_nudge(action, current_nudge)
+
+    if intervention_id:
+        event["intervention_id"] = intervention_id
+        event["intervention_kind"] = str(
+            action.get("intervention_kind")
+            or current_nudge.get("intervention_kind")
+            or kind
+        )
+
+    return intervention_id
+
+
 def write_interaction_state_from_current(
     *,
     source="action-bridge",
@@ -715,6 +748,7 @@ def write_nudge_inactive(status, event):
         "last_ack": {
             "action_id": event.get("action_id", ""),
             "nudge_id": event.get("nudge_id", ""),
+            "intervention_id": event.get("intervention_id", ""),
             "processed_at": event.get("processed_at", ""),
         },
     }
@@ -762,6 +796,7 @@ def write_nudge_snoozed(event):
             "reason": event.get("reason", ""),
             "snooze_minutes": event.get("snooze_minutes", 15),
             "snoozed_until": event.get("snoozed_until", ""),
+            "intervention_id": event.get("intervention_id", ""),
             "processed_at": event.get("processed_at", ""),
         },
     }
@@ -864,6 +899,7 @@ def handle_ack_nudge(action, path, action_id):
     event["nudge_id"] = nudge_id
     event["message"] = str(current_nudge.get("message") or action.get("message") or "")
     event["recommended_next_action"] = str(current_nudge.get("recommended_next_action") or "")
+    attach_intervention_ref(event, action, current_nudge)
 
     append_action_event(event)
     write_nudge_inactive("acknowledged", event)
@@ -873,6 +909,7 @@ def handle_ack_nudge(action, path, action_id):
         last_nudge_ack={
             "action_id": event.get("action_id", ""),
             "nudge_id": event.get("nudge_id", ""),
+            "intervention_id": event.get("intervention_id", ""),
             "processed_at": event.get("processed_at", ""),
         },
     )
@@ -926,6 +963,7 @@ def handle_snooze_nudge(action, path, action_id):
         or action.get("recommended_next_action")
         or ""
     )
+    attach_intervention_ref(event, action, current_nudge)
 
     append_action_event(event)
     write_nudge_snoozed(event)
@@ -938,6 +976,7 @@ def handle_snooze_nudge(action, path, action_id):
             "reason": event.get("reason", ""),
             "snooze_minutes": event.get("snooze_minutes", 15),
             "snoozed_until": event.get("snoozed_until", ""),
+            "intervention_id": event.get("intervention_id", ""),
             "processed_at": event.get("processed_at", ""),
         },
     )
@@ -1025,6 +1064,7 @@ def write_nudge_recovery_started(event):
             "nudge_id": nudge_id,
             "recovery_id": event.get("recovery_id", ""),
             "target_id": event.get("target_id", ""),
+            "intervention_id": event.get("intervention_id", ""),
             "processed_at": event.get("processed_at", ""),
         },
     }
@@ -1059,6 +1099,9 @@ def known_recovery_target(target_id):
 def handle_start_recovery_target(action, path, action_id):
     target_id = str(action.get("target_id") or action.get("target") or "anki").strip().lower()
     target = known_recovery_target(target_id)
+    current_nudge = read_json(CURRENT_NUDGE_JSON, {})
+    if not isinstance(current_nudge, dict):
+        current_nudge = {}
 
     goal_text = str(
         action.get("goal_text")
@@ -1078,6 +1121,7 @@ def handle_start_recovery_target(action, path, action_id):
     event["goal_text"] = goal_text
     event["android_package"] = str(action.get("android_package") or target.get("android_package") or "")
     event["started_at"] = event.get("processed_at", now_iso())
+    intervention_id = attach_intervention_ref(event, action, current_nudge)
 
     recovery_state = {
         "schema_version": "recovery_session.v1",
@@ -1088,6 +1132,13 @@ def handle_start_recovery_target(action, path, action_id):
         "source": event.get("source", ""),
         "device": event.get("device", ""),
         "action_id": action_id,
+        "intervention": {
+            "schema_version": "intervention_ref.v1",
+            "intervention_id": intervention_id,
+            "kind": event.get("intervention_kind", ""),
+            "source": "action-bridge",
+            "nudge_id": event.get("nudge_id", ""),
+        },
         "target": {
             "target_id": event["target_id"],
             "name": event["target_name"],
