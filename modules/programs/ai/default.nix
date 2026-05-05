@@ -23,6 +23,7 @@ in
     ./phone-bridge
     ./recovery-manager
     ./recovery-trigger
+    ./intervention-outcomes
 
     # Immediate feedback and interaction
     ./coach-daemon
@@ -250,6 +251,18 @@ in
 
   my.ai.recoveryTrigger = {
     enable = lib.mkDefault false;
+  };
+
+  ###########################################################################
+  # Intervention outcome reporter
+  ###########################################################################
+
+  my.ai.interventionOutcomes = {
+    enable = lib.mkDefault true;
+    aiDir = lib.mkDefault aiDir;
+    enableTimer = lib.mkDefault true;
+    timerOnCalendar = lib.mkDefault "*:0/30";
+    days = lib.mkDefault 7;
   };
 
   ###########################################################################
