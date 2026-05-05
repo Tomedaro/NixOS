@@ -39,3 +39,21 @@ Operational note:
 
 `DEBUG_WRITES` may be temporarily enabled in the runtime vault HTML while testing,
 but should normally be disabled after the WebView/action path is stable.
+
+## Runtime install and drift check
+
+The repo copy is the source of truth for the phone WebView and Tasker import while this project is in development.
+
+Check whether the vault runtime files match the repo:
+
+```sh
+modules/programs/ai/phone-webview/install-to-vault.sh --check
+```
+
+Install the canonical repo files into the vault runtime surface:
+
+```sh
+modules/programs/ai/phone-webview/install-to-vault.sh --install
+```
+
+The installer intentionally does not preserve old Tasker/WebView variants. During development, obsolete implementations should be removed instead of supported through compatibility layers.
