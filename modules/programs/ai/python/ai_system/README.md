@@ -339,3 +339,34 @@ This is a learning/readout layer only. It must not write files, execute actions,
 PYTHONPATH=modules/programs/ai/python nix run nixpkgs#python3 -- modules/programs/ai/tests/intervention_outcomes_smoke.py
 ```
 
+
+### Intervention outcome reporter
+
+The pure summarizer is materialized by:
+
+```text
+modules/programs/ai/intervention-outcomes/intervention_outcomes_reporter.py
+```
+
+It reads append-only evidence logs:
+
+```text
+AI/events/interventions/YYYY-MM-DD.jsonl
+AI/events/actions/YYYY-MM-DD.jsonl
+AI/events/recovery/YYYY-MM-DD.jsonl
+```
+
+It writes derived review state only:
+
+```text
+AI/state/interventions/current.json
+AI/state/interventions/stats.json
+AI/state/interventions/status.md
+```
+
+Smoke test:
+
+```zsh
+PYTHONPATH=modules/programs/ai/python nix run nixpkgs#python3 -- modules/programs/ai/tests/intervention_outcomes_reporter_smoke.py
+```
+
