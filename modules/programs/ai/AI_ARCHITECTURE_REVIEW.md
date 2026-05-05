@@ -285,6 +285,35 @@ The deterministic gate should validate this before anything reaches the phone.
 
 ---
 
+### agent context pack
+
+The read-only agent context pack is the stable input contract for deterministic and future LLM proposal producers.
+
+Implemented module:
+
+```text
+modules/programs/ai/python/ai_system/agent_context.py
+```
+
+Smoke tests:
+
+```text
+modules/programs/ai/tests/agent_context_smoke.py
+```
+
+The context gathers session, Anki, desktop, recovery, current phone interaction state, and recent event tails into `agent_context.v1`.
+
+Execution boundary:
+
+```text
+agent_context.py reads facts
+proposal producer suggests
+proposal_gate.py validates
+phone outbox/action-bridge execute only after deterministic validation and user action
+```
+
+This prepares the system for LLM-generated proposals without giving the LLM direct write or execution authority.
+
 ### recovery-trigger proposal gate wiring
 
 `recovery-trigger` now routes its deterministic recovery proposal through `proposal_gate.py` before writing any phone nudge.
