@@ -1,0 +1,680 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AI Phone Interaction</title>
+<style>
+:root{
+  /* Gruvbox Dark */
+  --bg0: #282828;
+  --bg1: #3c3836;
+  --bg2: #504945;
+  --bg3: #665c54;
+  --fg0: #fbf1c7;
+  --fg1: #ebdbb2;
+  --fg2: #d5c4a1;
+  --fg3: #bdae93;
+  --red: #fb4934;
+  --green: #b8bb26;
+  --yellow: #fabd2f;
+  --blue: #83a598;
+  --purple: #d3869b;
+  --aqua: #8ec07c;
+  --orange: #fe8019;
+
+  --scrim: rgba(0,0,0,.42);
+  --card-bg: rgba(40,40,40,.97);
+  --card-border: rgba(251,241,199,.08);
+  --primary: var(--yellow);
+  --primary-text: #282828;
+  --secondary: #3c3836;
+  --secondary-text: #ebdbb2;
+  --muted: #bdae93;
+  --success: #b8bb26;
+  --danger: #fb4934;
+  --input-bg: #1d2021;
+
+  --radius: 28px;
+  --radius-sm: 18px;
+  --shadow: 0 18px 60px rgba(0,0,0,.45);
+
+  --card-max-width: 560px;
+  --card-min-width: 280px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100%;
+  background: transparent;
+  color: var(--fg1);
+  font-family: Inter, Roboto, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  min-height: 100vh;
+}
+
+.scrim {
+  min-height: 100vh;
+  width: 100%;
+  padding:
+    max(20px, env(safe-area-inset-top))
+    max(16px, env(safe-area-inset-right))
+    max(20px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
+  background: var(--scrim);
+  display: grid;
+  place-items: center;
+}
+
+.card {
+  width: min(var(--card-max-width), 100%);
+  min-width: min(var(--card-min-width), 100%);
+  max-height: min(84vh, 900px);
+  overflow: auto;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 22px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg1);
+  color: var(--fg2);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+
+.title {
+  margin-top: 16px;
+  font-size: clamp(23px, 3.4vw, 30px);
+  line-height: 1.15;
+  font-weight: 800;
+  color: var(--fg0);
+}
+
+.body {
+  margin-top: 12px;
+  font-size: clamp(16px, 2.5vw, 18px);
+  line-height: 1.5;
+  color: var(--fg1);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.hint {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: var(--bg1);
+  color: var(--fg2);
+  font-size: 14px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.option-list {
+  margin-top: 18px;
+  display: grid;
+  gap: 10px;
+}
+
+.actions {
+  margin-top: 18px;
+  display: grid;
+  gap: 12px;
+}
+
+.actions.two-col {
+  grid-template-columns: 1fr 1fr;
+}
+
+button {
+  appearance: none;
+  border: 0;
+  border-radius: 20px;
+  min-height: 54px;
+  padding: 14px 18px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+button.primary {
+  background: var(--primary);
+  color: var(--primary-text);
+}
+
+button.secondary {
+  background: var(--secondary);
+  color: var(--secondary-text);
+  border: 1px solid rgba(251,241,199,.08);
+}
+
+button.option {
+  background: var(--bg1);
+  color: var(--fg1);
+  text-align: left;
+  border: 1px solid rgba(251,241,199,.08);
+}
+
+button.success {
+  background: var(--green);
+  color: #1f1f1f;
+}
+
+button.danger {
+  background: var(--red);
+  color: #1f1f1f;
+}
+
+button:active {
+  transform: scale(.99);
+}
+
+.free-text {
+  margin-top: 18px;
+}
+
+.free-text label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+textarea {
+  width: 100%;
+  min-height: 110px;
+  max-height: 240px;
+  resize: vertical;
+  border: 1px solid rgba(251,241,199,.10);
+  border-radius: 18px;
+  padding: 14px 16px;
+  background: var(--input-bg);
+  color: var(--fg1);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+textarea::placeholder {
+  color: var(--muted);
+}
+
+.foot {
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.status-good {
+  color: var(--green);
+}
+
+.status-bad {
+  color: var(--red);
+}
+
+@media (max-width: 420px) {
+  .card {
+    padding: 18px;
+    border-radius: 24px;
+  }
+
+  .actions.two-col {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+</head>
+<body>
+<div class="scrim">
+  <div class="card" id="card">
+    <div class="pill" id="kindPill">AI</div>
+    <div class="title" id="title">Loading…</div>
+    <div class="body" id="bodyText">Reading current interaction…</div>
+    <div class="hint hidden" id="hintText"></div>
+    <div id="options"></div>
+    <div class="free-text hidden" id="freeTextWrap">
+      <label for="freeText">Type your answer</label>
+      <textarea id="freeText" placeholder="Write here…"></textarea>
+    </div>
+    <div class="actions" id="actions"></div>
+    <div class="foot" id="footText"></div>
+  </div>
+</div>
+
+<script>
+const ROOT = "/storage/emulated/11/Documents/Obsidian/AI";
+const DEBUG_WRITES = false;
+
+const PATHS = {
+  nudge: ROOT + "/outbox/to-phone/current-nudge.json",
+  question: ROOT + "/outbox/to-phone/current-question.json",
+  inboxDir: ROOT + "/inbox/actions"
+};
+
+function pad(n) { return String(n).padStart(2, "0"); }
+
+function nowMeta() {
+  const d = new Date();
+  return {
+    epochMs: Date.now(),
+    epoch: Math.floor(Date.now() / 1000),
+    tasker_date: pad(d.getDate()) + "-" + pad(d.getMonth() + 1) + "-" + d.getFullYear(),
+    tasker_time: pad(d.getHours()) + "." + pad(d.getMinutes())
+  };
+}
+
+function tkRead(path) {
+  if (typeof readFile === "function") return readFile(path);
+  if (window.tk && typeof tk.readFile === "function") return tk.readFile(path);
+  throw new Error("Tasker readFile is not available");
+}
+
+function tkWrite(path, text) {
+  if (typeof writeFile === "function") return writeFile(path, text, false);
+  if (window.tk && typeof tk.writeFile === "function") return tk.writeFile(path, text, false);
+  throw new Error("Tasker writeFile is not available");
+}
+
+function tkFlash(msg) {
+  try {
+    if (typeof flash === "function") return flash(msg);
+    if (window.tk && typeof tk.flash === "function") return tk.flash(msg);
+  } catch (e) {}
+}
+
+
+function performTaskerTask(taskName) {
+  try {
+    if (typeof performTask === "function") {
+      return performTask(taskName, 10, "", "");
+    }
+    if (window.tk && typeof tk.performTask === "function") {
+      return tk.performTask(taskName, 10, "", "");
+    }
+  } catch (e) {
+    tkFlash("Could not run task: " + taskName);
+  }
+  return false;
+}
+
+function nudgeInterventionId(n) {
+  return String(
+    (n && n.intervention_id)
+    || (n && n.intervention && n.intervention.intervention_id)
+    || ""
+  );
+}
+
+function nudgeInterventionKind(n) {
+  return String(
+    (n && n.intervention_kind)
+    || (n && n.intervention && n.intervention.kind)
+    || "recovery_nudge"
+  );
+}
+
+function baseNudgeActionPayload(n) {
+  return {
+    nudge_id: String((n && n.nudge_id) || ""),
+    interaction_id: String((n && n.nudge_id) || ""),
+    intervention_id: nudgeInterventionId(n),
+    intervention_kind: nudgeInterventionKind(n),
+    message: String((n && n.message) || ""),
+    recommended_next_action: String((n && n.recommended_next_action) || "")
+  };
+}
+
+function readJson(path, fallback) {
+  try {
+    const raw = tkRead(path);
+    if (!raw) return fallback;
+    return JSON.parse(String(raw));
+  } catch (e) {
+    return fallback;
+  }
+}
+
+function writeAction(actionName, payload) {
+  const meta = nowMeta();
+  const filePath = PATHS.inboxDir + "/" + meta.epochMs + "_" + actionName + ".json";
+  const obj = Object.assign({
+    schema_version: "action.v1",
+    source: "tasker",
+    device: "phone",
+    action: actionName,
+    timestamp_epoch: String(meta.epoch),
+    tasker_date: meta.tasker_date,
+    tasker_time: meta.tasker_time
+  }, payload || {});
+  tkWrite(filePath, JSON.stringify(obj, null, 2));
+  return { filePath, obj };
+}
+
+function writeDebug(stage, data) {
+  if (!DEBUG_WRITES) return;
+  try {
+    const payload = {
+      schema_version: "webview_start_recovery_debug.v1",
+      stage: stage,
+      wrote_at_epoch_ms: Date.now(),
+      data: data || {},
+      paths: PATHS
+    };
+    tkWrite(ROOT + "/state/phone/webview-start-recovery-debug.json", JSON.stringify(payload, null, 2));
+  } catch (e) {
+    try { tkFlash("Debug write failed: " + e.message); } catch (_) {}
+  }
+}
+
+function setText(id, text) {
+  document.getElementById(id).textContent = text || "";
+}
+
+function setHtml(id, html) {
+  document.getElementById(id).innerHTML = html || "";
+}
+
+function show(id, yes) {
+  document.getElementById(id).classList.toggle("hidden", !yes);
+}
+
+function clearNode(id) {
+  document.getElementById(id).innerHTML = "";
+}
+
+function afterSubmit(title, body, ok) {
+  setText("title", title);
+  setText("bodyText", body);
+  show("hintText", false);
+  clearNode("options");
+  clearNode("actions");
+  show("freeTextWrap", false);
+  setText("footText", ok
+    ? "Action file created. The desktop bridge should process it shortly."
+    : "No action file was created.");
+}
+
+function renderIdle() {
+  setText("kindPill", "No pending item");
+  setText("title", "Nothing to do right now");
+  setText("bodyText", "There is no active nudge or question.");
+  show("hintText", false);
+  clearNode("options");
+  clearNode("actions");
+  show("freeTextWrap", false);
+  setText("footText", "This card only becomes interactive when current-nudge.json or current-question.json is active.");
+}
+
+function recoveryStartAction(n) {
+  if (!Array.isArray(n.actions)) return null;
+  for (const action of n.actions) {
+    if (action && action.action === "start_recovery_target") return action;
+  }
+  return null;
+}
+
+function renderNudge(n) {
+  const recoveryAction = recoveryStartAction(n);
+
+  setText("kindPill", recoveryAction ? "Recovery" : "Nudge");
+  setText("title", recoveryAction ? "Tiny recovery start" : "Small next step");
+  setText("bodyText", n.message || "No message.");
+
+  if (n.recommended_next_action) {
+    setText("hintText", "Next: " + n.recommended_next_action);
+    show("hintText", true);
+  } else {
+    show("hintText", false);
+  }
+
+  clearNode("options");
+  show("freeTextWrap", false);
+
+  const actions = document.getElementById("actions");
+  actions.className = "actions";
+  actions.innerHTML = "";
+
+  if (recoveryAction) {
+    const start = document.createElement("button");
+    start.className = "primary";
+    start.textContent = recoveryAction.label || "Start";
+    start.onclick = function () {
+      try {
+        writeDebug("start_button_pressed", {
+          nudge_id: String(n.nudge_id || ""),
+          recoveryAction: recoveryAction
+        });
+
+        const launchTask = String(recoveryAction.launch_task || "AI PI Launch AnkiDroid");
+        const writeResult = writeAction("start_recovery_target", Object.assign(
+          baseNudgeActionPayload(n),
+          {
+            target_id: String(recoveryAction.target_id || "anki"),
+            target_name: String(recoveryAction.target_name || "Anki"),
+            goal_text: String(recoveryAction.goal_text || "5 cards or 5 minutes"),
+            stop_condition: String(recoveryAction.stop_condition || "Stop after 5 cards or 5 minutes"),
+            android_package: String(recoveryAction.android_package || "com.ichi2.anki"),
+            launch_task: launchTask
+          }
+        ));
+
+        writeDebug("start_action_written", writeResult);
+
+        const launchResult = performTaskerTask(launchTask);
+        const launchKnown = launchResult !== false && launchResult !== null && launchResult !== undefined;
+
+        writeDebug("launch_task_requested", {
+          task_name: launchTask,
+          result: String(launchResult),
+          result_type: typeof launchResult,
+          launch_known: launchKnown,
+          has_performTask: typeof performTask === "function",
+          has_tk_performTask: !!(window.tk && typeof tk.performTask === "function")
+        });
+
+        afterSubmit(
+          "Starting Anki",
+          launchKnown
+            ? "Recovery action was written. AnkiDroid should open now."
+            : "Recovery action was written. I could not confirm Tasker launch; open AnkiDroid manually if it does not appear.",
+          true
+        );
+        tkFlash(launchKnown ? "Starting Anki" : "Action written; launch uncertain");
+      } catch (e) {
+        afterSubmit("Error", "Could not start recovery: " + e.message, false);
+        tkFlash("Write failed");
+      }
+    };
+    actions.appendChild(start);
+  }
+
+  const later = document.createElement("button");
+  later.className = "secondary";
+  later.textContent = "Not now";
+  later.onclick = function () {
+    try {
+      writeAction("snooze_nudge", Object.assign(
+        baseNudgeActionPayload(n),
+        {
+          reason: "not_now",
+          snooze_minutes: 15
+        }
+      ));
+      afterSubmit(
+        "Snoozed",
+        "This nudge was snoozed for 15 minutes.",
+        true
+      );
+      tkFlash("Nudge snoozed");
+    } catch (e) {
+      afterSubmit("Error", "Could not write snooze_nudge action: " + e.message, false);
+      tkFlash("Write failed");
+    }
+  };
+
+  const done = document.createElement("button");
+  done.className = recoveryAction ? "secondary" : "primary";
+  done.textContent = recoveryAction ? "Dismiss" : "Done";
+  done.onclick = function () {
+    try {
+      writeAction("ack_nudge", baseNudgeActionPayload(n));
+      afterSubmit(
+        "Acknowledged",
+        "The nudge acknowledgement was written successfully.",
+        true
+      );
+      tkFlash("Nudge acknowledged");
+    } catch (e) {
+      afterSubmit("Error", "Could not write ack_nudge action: " + e.message, false);
+      tkFlash("Write failed");
+    }
+  };
+
+  actions.appendChild(later);
+  actions.appendChild(done);
+
+  setText(
+    "footText",
+    recoveryAction
+      ? "Start writes recovery state and opens AnkiDroid. Not now snoozes for 15 minutes."
+      : "Done = acknowledge and clear this nudge. Not now = snooze it for 15 minutes."
+  );
+}
+
+function renderQuestion(q) {
+  setText("kindPill", "Question");
+  setText("title", "Your reply is needed");
+  setText("bodyText", q.question || "No question text.");
+  show("hintText", false);
+
+  const freeAllowed = !!q.free_text_allowed;
+  const optionsNode = document.getElementById("options");
+  optionsNode.innerHTML = "";
+
+  if (Array.isArray(q.answer_options) && q.answer_options.length > 0) {
+    const wrap = document.createElement("div");
+    wrap.className = "option-list";
+
+    q.answer_options.forEach(function (opt) {
+      let value = "";
+      let label = "";
+      if (typeof opt === "string") {
+        value = opt;
+        label = opt;
+      } else if (opt && typeof opt === "object") {
+        value = String(opt.value || opt.answer || opt.label || "");
+        label = String(opt.label || opt.value || opt.answer || "");
+      }
+      const b = document.createElement("button");
+      b.className = "option";
+      b.textContent = label || value || "Option";
+      b.onclick = function () {
+        submitQuestion(q, value, label);
+      };
+      wrap.appendChild(b);
+    });
+
+    optionsNode.appendChild(wrap);
+  }
+
+  show("freeTextWrap", freeAllowed);
+
+  const actions = document.getElementById("actions");
+  actions.className = "actions two-col";
+  actions.innerHTML = "";
+
+  const dismiss = document.createElement("button");
+  dismiss.className = "secondary";
+  dismiss.textContent = "Dismiss";
+  dismiss.onclick = function () {
+    try {
+      writeAction("dismiss_question", {
+        question_id: String(q.question_id || ""),
+        reason: "user_dismissed"
+      });
+      afterSubmit("Dismissed", "The question was dismissed.", true);
+      tkFlash("Question dismissed");
+    } catch (e) {
+      afterSubmit("Error", "Could not write dismiss_question action: " + e.message, false);
+      tkFlash("Write failed");
+    }
+  };
+
+  const send = document.createElement("button");
+  send.className = "primary";
+  send.textContent = "Send answer";
+  send.onclick = function () {
+    submitQuestion(q, "", "");
+  };
+
+  actions.appendChild(dismiss);
+  actions.appendChild(send);
+
+  setText("footText", "Send answer = submit your reply. Dismiss = decline this question for now.");
+}
+
+function submitQuestion(q, value, label) {
+  try {
+    const freeTextNode = document.getElementById("freeText");
+    const freeText = freeTextNode ? String(freeTextNode.value || "") : "";
+
+    writeAction("answer_question", {
+      question_id: String(q.question_id || ""),
+      answer: String(value || ""),
+      answer_label: String(label || value || ""),
+      free_text: freeText
+    });
+
+    afterSubmit("Answer sent", "Your answer file was created successfully.", true);
+    tkFlash("Answer sent");
+  } catch (e) {
+    afterSubmit("Error", "Could not write answer_question action: " + e.message, false);
+    tkFlash("Write failed");
+  }
+}
+
+function loadCard() {
+  const q = readJson(PATHS.question, {});
+  const n = readJson(PATHS.nudge, {});
+
+  if (q && q.status === "active") {
+    renderQuestion(q);
+    return;
+  }
+
+  if (n && n.status === "active") {
+    renderNudge(n);
+    return;
+  }
+
+  renderIdle();
+}
+
+loadCard();
+</script>
+</body>
+</html>
