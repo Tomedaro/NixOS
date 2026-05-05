@@ -165,6 +165,26 @@ def test_event_tails_are_bounded_and_sorted() -> None:
         ]
 
 
+
+def test_legacy_anki_status_fallback() -> None:
+    with tempfile.TemporaryDirectory(prefix="ai-agent-legacy-anki-") as tmp:
+        ai_dir = Path(tmp) / "AI"
+
+        write_json(ai_dir / "anki/status.json", {
+            "available": True,
+            "totals": {
+                "due": 862,
+                "review_due": 862,
+                "learning": 70,
+                "new": 259785,
+            },
+        })
+
+        context = build_agent_context(ai_dir)
+        facts = context["derived_facts"]
+
+        assert facts["anki_due"] == 862
+
 def test_write_agent_context() -> None:
     with tempfile.TemporaryDirectory(prefix="ai-agent-context-write-") as tmp:
         ai_dir = Path(tmp) / "AI"
@@ -182,6 +202,7 @@ def main() -> None:
         test_anki_totals_due_shape,
         test_recent_snooze_and_terminal_recovery,
         test_event_tails_are_bounded_and_sorted,
+        test_legacy_anki_status_fallback,
         test_write_agent_context,
     ]
 

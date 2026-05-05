@@ -374,6 +374,15 @@ def build_agent_context(
 
     session = safe_dict(read_json(state_dir / "session" / "current.json", {}))
     anki = safe_dict(read_json(state_dir / "anki" / "status.json", {}))
+
+    # Compatibility:
+    # anki-bridge currently writes the live status to AI/anki/status.json.
+    # New shared-agent consumers prefer AI/state/anki/status.json.
+    # Read the canonical state path first, then fall back to the legacy bridge path.
+    if not anki or anki.get("error"):
+        legacy_anki = safe_dict(read_json(ai_dir / "anki" / "status.json", {}))
+        if legacy_anki and not legacy_anki.get("error"):
+            anki = legacy_anki
     desktop = safe_dict(read_json(state_dir / "desktop" / "now.json", {}))
     recovery = safe_dict(read_json(state_dir / "recovery" / "current.json", {}))
     current_nudge = safe_dict(read_json(outbox_to_phone_dir / "current-nudge.json", {}))
