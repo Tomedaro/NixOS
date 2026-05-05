@@ -167,7 +167,11 @@ run_first_unit_once() {
   echo
   echo "===== run $title ====="
 
-  mapfile -t units < <(find_units "$pattern")
+  # Prefer executable service units over companion .path/.timer units.
+  mapfile -t units < <(find_units "$pattern" | grep --color=never -E '\\.service$' || true)
+  if [ "${#units[@]}" -eq 0 ]; then
+    mapfile -t units < <(find_units "$pattern")
+  fi
   if [ "${#units[@]}" -eq 0 ]; then
     echo "SKIP: no matching unit found"
     return 0
