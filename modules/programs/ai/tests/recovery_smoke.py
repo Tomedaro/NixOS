@@ -356,12 +356,110 @@ def run_isolated(test_func) -> None:
     print(f"PASS {test_func.__name__}")
 
 
+
+def test_manager_interrupted_session_sums_dwell() -> None:
+    """Short app exits should not erase useful Anki dwell evidence.
+
+    This models: use Anki, briefly leave for a message/music, then return.
+    The lifecycle should sum observed Anki intervals inside the recovery window.
+    """
+    now = int(time.time())
+    start = now - 700
+    ai_dir = Path(os.environ["TEST_AI_DIR"])
+
+    setup_manager(
+        ai_dir,
+        recovery_state(start),
+        [
+            phone_event("opened_ankidroid", start + 10),
+            phone_event("closed_ankidroid", start + 80),
+            phone_event("opened_ankidroid", start + 120),
+        ],
+    )
+
+    recovery = manager_status(ai_dir)
+
+    assert recovery["status"] == "possible_success", recovery["status"]
+    assert recovery["lifecycle"]["target_opened"] is True
+    assert recovery["lifecycle"]["total_observed_dwell_seconds"] >= 300
+    assert len(recovery["lifecycle"]["intervals"]) >= 2
+
+    intervention_id = recovery["intervention"]["intervention_id"]
+    assert recovery["lifecycle"]["intervention_id"] == intervention_id
+    assert recovery["classification"]["intervention_id"] == intervention_id
+    assert recovery["last_lifecycle_event"]["intervention_id"] == intervention_id
+
+
+def test_manager_duplicate_open_events_do_not_double_count() -> None:
+    """Duplicate open events should not inflate dwell.
+
+    Tasker can emit noisy adjacent opened_ankidroid events. They should be
+    treated as one open interval, not multiple overlapping intervals.
+    """
+    now = int(time.time())
+    start = now - 500
+    ai_dir = Path(os.environ["TEST_AI_DIR"])
+
+    setup_manager(
+        ai_dir,
+        recovery_state(start),
+        [
+            phone_event("opened_ankidroid", start + 10),
+            phone_event("opened_ankidroid", start + 12),
+            phone_event("opened_ankidroid", start + 14),
+            phone_event("closed_ankidroid", start + 70),
+        ],
+    )
+
+    recovery = manager_status(ai_dir)
+
+    assert recovery["status"] in ("possible_abort", "observing"), recovery["status"]
+    assert recovery["lifecycle"]["target_opened"] is True
+    assert recovery["lifecycle"]["total_observed_dwell_seconds"] <= 70
+    assert recovery["lifecycle"]["longest_observed_dwell_seconds"] <= 70
+
+
+def test_manager_terminal_success_not_downgraded_by_later_noise() -> None:
+    """Once success is terminal, later close/open noise must not downgrade it."""
+    now = int(time.time())
+    start = now - 900
+    ai_dir = Path(os.environ["TEST_AI_DIR"])
+
+    state = recovery_state(start, status="possible_success")
+    state["classification"] = {
+        "status": "possible_success",
+        "previous_status": "observing",
+        "reason": "observed_target_dwell_reached_success_threshold",
+        "classified_at": iso(now - 300),
+        "intervention_id": state["intervention"]["intervention_id"],
+        "intervention_kind": "recovery_nudge",
+    }
+
+    setup_manager(
+        ai_dir,
+        state,
+        [
+            phone_event("opened_ankidroid", start + 10),
+            phone_event("closed_ankidroid", start + 20),
+            phone_event("opened_ankidroid", now - 10),
+            phone_event("closed_ankidroid", now - 5),
+        ],
+    )
+
+    recovery = manager_status(ai_dir)
+
+    assert recovery["status"] == "possible_success", recovery["status"]
+    assert recovery["classification"]["status"] == "possible_success"
+
 def main() -> None:
     tests = [
         test_manager_fresh_quick_exit,
         test_manager_old_quick_exit,
         test_manager_success_still_open,
         test_manager_terminal_no_churn,
+        test_manager_interrupted_session_sums_dwell,
+        test_manager_duplicate_open_events_do_not_double_count,
+        test_manager_terminal_success_not_downgraded_by_later_noise,
         test_trigger_due_zero_skips,
         test_trigger_gates_clear_writes_nudge,
         test_trigger_uses_agent_context_due_shape,
