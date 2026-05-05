@@ -488,3 +488,253 @@ TaskNotes mutation from recovery flow
 ```
 
 The current priority is reliability, observability, and a clean boundary for future LLM intelligence.
+
+## Destination architecture: adaptive productivity on deterministic rails
+
+The desired destination is an agentic, smart, adaptive productivity and recovery system that learns the user's patterns, supports short-term and long-term goals, proposes better environments and schedules, and can suggest new capabilities when evidence indicates they may help.
+
+The safety model is not:
+
+```text
+LLM sees tools -> LLM directly executes
+```
+
+The safety model is:
+
+```text
+adaptive intelligence over deterministic rails
+```
+
+The long-term loop should remain:
+
+```text
+observations + state + goals + policies
+  -> agent_context.py
+  -> proposal producer
+       deterministic producers now
+       shadow-mode LLM producers later
+       specialist agents later
+  -> deterministic gates
+  -> user-visible proposal / phone nudge / draft
+  -> user approval or validated bridge action
+  -> evidence collection
+  -> outcome classification
+  -> auditable learning and policy proposals
+```
+
+Core authority rule:
+
+```text
+LLM / agent may observe and propose.
+Deterministic code validates.
+User action / action-bridge executes.
+Recovery-manager and future outcome managers classify evidence after the fact.
+```
+
+### What the LLM may eventually do
+
+The LLM may become useful for:
+
+```text
+recognizing user patterns
+summarizing friction
+selecting among known safe intervention types
+adapting tone and timing
+proposing daily or weekly plans
+proposing environment changes
+estimating confidence
+generating feature proposals
+explaining tradeoffs
+forming auditable hypotheses from outcomes
+```
+
+The LLM should produce structured proposals, not side effects.
+
+Examples:
+
+```text
+agent_recovery_proposal.v1
+daily_plan_proposal.v1
+schedule_change_proposal.v1
+environment_change_proposal.v1
+feature_proposal.v1
+policy_change_proposal.v1
+```
+
+### What the LLM must not do
+
+The LLM must not directly:
+
+```text
+write action files
+write phone nudge files
+launch apps
+choose android_package
+choose launch_task
+run shell commands
+edit Nix modules
+enable timers or services
+mutate TaskNotes
+mutate calendar state
+change recovery lifecycle state
+change policy or cooldowns silently
+bypass proposal gates
+treat browser, email, notification, note, or webpage text as trusted instructions
+```
+
+Executable details must be regenerated from trusted registries such as `recovery_targets.py` and future capability registries.
+
+### Self-improvement contract
+
+The system may become self-improving only through auditable evidence and explicit proposal records.
+
+Allowed self-improvement shape:
+
+```text
+observe recurring friction
+  -> generate hypothesis
+  -> link supporting evidence
+  -> propose experiment / policy / feature
+  -> deterministic validation
+  -> user review
+  -> implementation and tests
+```
+
+Not allowed:
+
+```text
+observe behavior
+  -> silently change policy
+  -> silently enable autonomy
+  -> silently add new actions
+  -> silently rewrite execution rules
+```
+
+A safe future feature proposal should look like:
+
+```json
+{
+  "schema_version": "feature_proposal.v1",
+  "title": "Add morning planning nudge",
+  "problem": "User often starts work without an explicit first block.",
+  "evidence": [
+    "Several mornings had no active session before the first work block.",
+    "Planning nudges were accepted more often after idle terminal periods."
+  ],
+  "proposed_capability": "morning_plan_prompt",
+  "risk_level": "low",
+  "required_tests": [
+    "quiet hours are respected",
+    "active sessions block the nudge",
+    "daily maximum is enforced",
+    "proposal contains no executable fields"
+  ],
+  "execution_authority": "none"
+}
+```
+
+### Learning layer required before autonomy
+
+Before adding automatic LLM-driven nudges or actions, the system should record intervention outcomes.
+
+Every intervention should become inspectable as:
+
+```text
+proposal
+  -> validation result
+  -> user response
+  -> bridge action
+  -> evidence
+  -> outcome classification
+  -> later hypothesis or policy proposal
+```
+
+Future files may include:
+
+```text
+AI/events/interventions/YYYY-MM-DD.jsonl
+AI/state/interventions/current.json
+AI/state/interventions/stats.json
+AI/state/agent/last-proposal.json
+AI/state/agent/last-validation.json
+AI/state/agent/hypotheses.json
+```
+
+The learning layer should answer:
+
+```text
+What was proposed?
+Why was it proposed?
+Was it accepted by the gate?
+Did the user act?
+What happened after the action?
+Was the timing useful?
+Was the intervention annoying or helpful?
+Should this strategy be repeated, modified, or retired?
+```
+
+### Autonomy ladder
+
+Capabilities should move through explicit autonomy levels:
+
+```text
+Level 0: observe only
+Level 1: write private status or analysis
+Level 2: create proposal for user review
+Level 3: create draft artifact
+Level 4: create approved-shape phone nudge
+Level 5: execute only after explicit user action
+Level 6: automatic low-risk execution after prior approval and tests
+Level 7: high-risk actions require explicit confirmation every time
+```
+
+Current recovery work should remain around Levels 0-5.
+
+Do not jump directly from shadow-mode LLM proposals to automatic execution.
+
+### Capability registry direction
+
+`recovery_targets.py` is the first narrow trusted registry. Long-term, it should evolve into or be complemented by a capability registry.
+
+Each capability should declare:
+
+```text
+capability id
+kind
+risk level
+allowed proposal schemas
+trusted executable fields
+required user approval level
+cooldowns
+daily and weekly limits
+quiet-hour behavior
+evidence signals
+success criteria
+rollback behavior
+required smoke tests
+```
+
+The LLM may propose a capability id. Deterministic code hydrates executable details from the trusted registry.
+
+### Near-term sequencing
+
+The safe next sequence is:
+
+```text
+1. Keep recovery-trigger disabled unless explicitly enabled.
+2. Keep recovery-manager live and conservative.
+3. Wire deterministic recovery-trigger to consume agent_context.py facts.
+4. Add outcome/intervention logging before adding LLM autonomy.
+5. Add shadow-mode LLM proposal producer that writes only state/agent files.
+6. Compare deterministic and LLM proposals without writing nudges.
+7. Add goal graph and schedule/planning proposal schemas.
+8. Add feature proposal schema for system-improvement suggestions.
+9. Only promote capabilities after tests, gates, and user approval exist.
+```
+
+This preserves the main design invariant:
+
+```text
+adaptive proposals may become smarter over time;
+execution authority remains explicit, deterministic, and auditable.
+```

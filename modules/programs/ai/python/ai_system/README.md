@@ -137,3 +137,117 @@ PYTHONPATH=modules/programs/ai/python nix run nixpkgs#python3 -- modules/program
 nix run nixpkgs#python3 -- modules/programs/ai/tests/recovery_smoke.py
 ```
 
+## Adaptive agent contracts
+
+The shared package is the contract layer for the future adaptive system.
+
+The long-term goal is not to give an LLM direct tool access. The goal is to let deterministic and LLM proposal producers share the same input and validation path.
+
+Current and future contract shape:
+
+```text
+agent_context.py
+  -> proposal producer
+       deterministic recovery-trigger now
+       shadow-mode LLM later
+       specialist agents later
+  -> proposal_gate.py or another deterministic gate
+  -> normalized safe proposal
+  -> user-visible artifact or phone nudge
+  -> user action / bridge execution
+  -> evidence classification
+  -> auditable learning
+```
+
+### Context contract
+
+`agent_context.py` should remain read-only and non-executing.
+
+Allowed:
+
+```text
+read vault state
+read recent event tails
+derive facts
+write state/agent/context.json
+write state/agent/status.md
+```
+
+Not allowed:
+
+```text
+write action files
+write phone nudges
+launch apps
+call an LLM as a side effect
+mutate recovery/session/task state
+```
+
+### Proposal contract
+
+Proposal producers may produce structured JSON such as:
+
+```text
+agent_recovery_proposal.v1
+daily_plan_proposal.v1
+schedule_change_proposal.v1
+environment_change_proposal.v1
+feature_proposal.v1
+policy_change_proposal.v1
+```
+
+A proposal is not an action. It is an argument for a possible action.
+
+### Gate contract
+
+Gates must remain deterministic and side-effect-free where possible.
+
+They should:
+
+```text
+validate schema
+reject direct execution fields
+reject unknown capabilities or targets
+enforce active-state blockers
+enforce cooldowns and quiet hours
+enforce risk limits
+regenerate executable fields from trusted registries
+return normalized proposals
+return explicit rejection reasons
+```
+
+They should not call an LLM.
+
+### Execution contract
+
+The LLM must not choose executable details such as:
+
+```text
+android_package
+launch_task
+command
+path
+action_file
+raw action payload
+```
+
+Executable details must come from trusted deterministic registries.
+
+### Learning contract
+
+Self-improvement should be evidence-based and auditable.
+
+The system may later learn by recording:
+
+```text
+proposal
+validation result
+user response
+bridge action
+observed evidence
+outcome classification
+hypothesis
+suggested policy or feature change
+```
+
+The system must not silently rewrite policies, enable services, add actions, or change autonomy levels.

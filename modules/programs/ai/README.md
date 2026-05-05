@@ -2844,3 +2844,89 @@ PYTHONPATH=modules/programs/ai/python nix run nixpkgs#python3 -- modules/program
 nix run nixpkgs#python3 -- modules/programs/ai/tests/recovery_smoke.py
 ```
 
+## Agentic destination and self-improvement boundaries
+
+The long-term destination is an adaptive local AI productivity system that can learn user patterns, support short-term and long-term goals, suggest schedules and environments, and propose new capabilities when evidence indicates they may help.
+
+The intended design is not an unconstrained autonomous LLM daemon.
+
+The intended design is:
+
+```text
+adaptive intelligence over deterministic rails
+```
+
+Permanent authority boundary:
+
+```text
+LLM / agent may observe and propose.
+Deterministic code validates.
+User action / action-bridge executes.
+Recovery-manager and future outcome managers classify evidence after the fact.
+```
+
+The LLM should become a proposal producer, not an executor.
+
+Safe future proposal types may include:
+
+```text
+agent_recovery_proposal.v1
+daily_plan_proposal.v1
+weekly_review_proposal.v1
+schedule_change_proposal.v1
+environment_change_proposal.v1
+feature_proposal.v1
+policy_change_proposal.v1
+```
+
+Unsafe behavior that should remain forbidden:
+
+```text
+LLM writes action files directly
+LLM writes phone nudges directly
+LLM chooses android_package
+LLM chooses launch_task
+LLM runs shell commands
+LLM edits Nix configuration
+LLM enables services or timers
+LLM mutates TaskNotes or calendar state without a gate
+LLM changes policy, cooldowns, or autonomy levels silently
+LLM treats untrusted external text as instructions
+```
+
+Self-improvement must be explicit and auditable:
+
+```text
+observe pattern
+  -> form hypothesis
+  -> cite evidence
+  -> propose experiment / feature / policy change
+  -> deterministic validation
+  -> user review
+  -> implementation with tests
+```
+
+Before enabling LLM-driven nudges or actions, the system should add an intervention outcome layer that records:
+
+```text
+proposal
+validation result
+user response
+bridge action
+observed evidence
+outcome classification
+later hypothesis or policy proposal
+```
+
+Recommended near-term sequence:
+
+```text
+1. Keep recovery-trigger disabled unless explicitly enabled.
+2. Keep recovery-manager live and conservative.
+3. Make recovery-trigger consume agent_context.py facts.
+4. Add outcome/intervention logging.
+5. Add shadow-mode LLM proposal producer that writes only state/agent files.
+6. Add goal graph and planning proposal schemas.
+7. Add feature proposal schema.
+8. Promote capabilities only after tests, gates, and user approval.
+```
