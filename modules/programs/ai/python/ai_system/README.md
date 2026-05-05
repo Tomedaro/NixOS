@@ -304,3 +304,38 @@ Intervention is the broader audit/logging concept: a user-facing attempt to impr
 Capability is the future generalization of recovery targets. A capability should declare trusted metadata such as risk level, allowed proposal schemas, allowed actions, cooldowns, evidence signals, success criteria, and approval requirements.
 
 This means sport, math, books, and projects should not be added as arbitrary LLM tools. They should become registered capabilities with deterministic gates and outcome classifiers.
+
+### `intervention_outcomes.py`
+
+Pure intervention outcome summarization.
+
+It groups existing append-only evidence by `intervention_id`:
+
+```text
+events/interventions
+events/actions
+events/recovery
+```
+
+It classifies conservative outcomes such as:
+
+```text
+not_shown
+shown_no_response
+acknowledged
+snoozed
+started
+possible_success
+possible_abort
+expired
+unknown
+```
+
+This is a learning/readout layer only. It must not write files, execute actions, call LLMs, or change policies.
+
+### Intervention outcome smoke test
+
+```zsh
+PYTHONPATH=modules/programs/ai/python nix run nixpkgs#python3 -- modules/programs/ai/tests/intervention_outcomes_smoke.py
+```
+
