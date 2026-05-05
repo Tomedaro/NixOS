@@ -273,3 +273,24 @@ This keeps `recovery-trigger` as orchestration glue instead of the owner of prop
 PYTHONPATH=modules/programs/ai/python nix run nixpkgs#python3 -- modules/programs/ai/tests/recovery_proposals_smoke.py
 ```
 
+
+### `interventions.py`
+
+Pure helpers for append-only intervention audit events.
+
+Initial recovery-trigger events:
+
+```text
+intervention_proposed
+intervention_gated
+intervention_nudge_written
+```
+
+These records support later outcome analysis without giving the LLM or trigger new execution authority.
+
+### Intervention smoke test
+
+```zsh
+PYTHONPATH=modules/programs/ai/python nix run nixpkgs#python3 -- modules/programs/ai/tests/interventions_smoke.py
+```
+

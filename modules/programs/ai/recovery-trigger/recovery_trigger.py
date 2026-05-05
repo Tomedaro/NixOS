@@ -9,8 +9,9 @@ from ai_system.recovery_targets import get_recovery_target
 from ai_system.proposal_gate import validate_recovery_proposal
 from ai_system.agent_context import build_agent_context
 from ai_system.recovery_proposals import build_deterministic_recovery_proposal, build_recovery_reasoning
-from ai_system.io_utils import atomic_write_json, atomic_write_text
-from ai_system.time_utils import get_timezone, now_iso as shared_now_iso
+from ai_system.interventions import build_recovery_trigger_intervention_events, intervention_id_for
+from ai_system.io_utils import atomic_write_json, atomic_write_text, append_jsonl
+from ai_system.time_utils import get_timezone, now_iso as shared_now_iso, today as shared_today
 
 
 AI_DIR = Path(os.environ.get("AI_DIR", "/home/daniil/Sync/Perseverance.Gu/AI")).expanduser()
@@ -21,6 +22,7 @@ RECENT_RECOVERY_COOLDOWN_SECONDS = int(os.environ.get("RECOVERY_TRIGGER_RECENT_R
 
 STATE_DIR = AI_DIR / "state"
 OUTBOX_TO_PHONE_DIR = AI_DIR / "outbox" / "to-phone"
+EVENTS_INTERVENTIONS_DIR = AI_DIR / "events" / "interventions"
 
 
 CURRENT_NUDGE_JSON = OUTBOX_TO_PHONE_DIR / "current-nudge.json"
@@ -39,7 +41,7 @@ def epoch_now():
 
 
 def ensure_dirs():
-    for path in [OUTBOX_TO_PHONE_DIR, TRIGGER_STATE_DIR]:
+    for path in [OUTBOX_TO_PHONE_DIR, TRIGGER_STATE_DIR, EVENTS_INTERVENTIONS_DIR]:
         path.mkdir(parents=True, exist_ok=True)
 
 
@@ -138,7 +140,8 @@ def build_decision():
     reason_codes = list(reasoning.get("reason_codes", []))
     blocked = list(reasoning.get("blocked_reasons", []))
 
-    nudge_id = f"n-recovery-trigger-anki-{epoch_now()}"
+    intervention_id = intervention_id_for("recovery_nudge", "recovery-trigger", target["target_id"], now_epoch)
+    nudge_id = f"n-recovery-trigger-anki-{now_epoch}"
 
     # The deterministic trigger now produces the same proposal shape a future
     # LLM/agent should produce. The proposal gate is the authority boundary.
@@ -173,6 +176,14 @@ def build_decision():
         "decision": decision,
         "target_id": target["target_id"],
         "target_name": target["display_name"],
+        "intervention": {
+            "schema_version": "intervention_ref.v1",
+            "intervention_id": intervention_id,
+            "kind": "recovery_nudge",
+            "source": "recovery-trigger",
+            "target_id": target["target_id"],
+            "nudge_id": nudge_id,
+        },
         "confidence": confidence,
         "reason_codes": reason_codes,
         "blocked_reasons": final_blocked,
@@ -200,6 +211,12 @@ def build_decision():
         }
     }
 
+
+def write_intervention_events(decision, wrote_nudge=False):
+    events = build_recovery_trigger_intervention_events(decision, wrote_nudge=wrote_nudge)
+    for event in events:
+        event_date = event.get("date") or shared_today(TIMEZONE)
+        append_jsonl(EVENTS_INTERVENTIONS_DIR / f"{event_date}.jsonl", event)
 
 def write_status(decision, wrote_nudge=False):
     atomic_write_json(LAST_DECISION_JSON, decision)
@@ -272,12 +289,14 @@ def run_once(dry_run=False):
         nudge["nudge_id"] = decision["proposal"]["nudge_id"]
         nudge["created_at"] = now_text
         nudge["updated_at"] = now_text
+        nudge["intervention_id"] = decision.get("intervention", {}).get("intervention_id", "")
 
         question = make_inactive_question(now_text)
         write_phone_outputs(nudge, question, now_text)
         wrote_nudge = True
 
     write_status(decision, wrote_nudge=wrote_nudge)
+    write_intervention_events(decision, wrote_nudge=wrote_nudge)
 
     print(json.dumps({
         "decision": decision.get("decision"),
