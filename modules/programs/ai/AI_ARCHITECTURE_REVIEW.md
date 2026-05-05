@@ -754,3 +754,89 @@ agent_context.py
 ```
 
 `recovery-trigger` should remain orchestration glue: it may call the context builder, call the pure proposal builder, call the gate, and write accepted phone outputs. It should not own duplicate fact parsing or proposal safety logic.
+
+## Recovery, intervention, and capability vocabulary
+
+Recovery means a small, bounded re-entry action for low-agency, drift, overwhelm, or stuck states.
+
+Recovery is not punishment, productivity coercion, or automatic execution. It is a gentle attempt to restore momentum while preserving user agency.
+
+Current recovery implementation:
+
+```text
+Anki is the first recovery target.
+Anki is not the whole recovery concept.
+```
+
+Anki is a good first target because:
+
+```text
+due-card count is measurable
+the action is low-risk
+the phone app can be detected
+a 5-minute goal is bounded
+success or abort evidence can be classified after the fact
+```
+
+The broader model is:
+
+```text
+capability
+  -> proposal
+  -> deterministic gate
+  -> user-visible intervention
+  -> user action
+  -> evidence
+  -> outcome classification
+  -> learning / policy proposal
+```
+
+Definitions:
+
+```text
+Recovery:
+  A small bounded re-entry action intended to restore momentum.
+
+Intervention:
+  A user-facing attempt to improve state, such as a nudge, draft, plan, or prompt.
+
+Capability:
+  A registered safe action family with known metadata, allowed proposal schemas, risk level, cooldowns, evidence signals, and approval requirements.
+
+Outcome:
+  After-the-fact classification of what happened, based on evidence rather than assumption.
+```
+
+Scaling rule:
+
+```text
+New domains such as sport, math, books, or projects should be added as capabilities, not as free-form LLM tools.
+```
+
+The LLM may eventually propose:
+
+```text
+this capability may help now
+this is the evidence
+this is the confidence
+this is the expected benefit
+```
+
+Deterministic code must still validate:
+
+```text
+is the capability known?
+is this proposal schema allowed?
+is the timing allowed?
+are cooldowns and quiet hours respected?
+what user approval is required?
+what exact executable details come from trusted registries?
+```
+
+This keeps the central invariant:
+
+```text
+adaptive intelligence may improve proposals;
+execution authority remains deterministic, explicit, and auditable.
+```
+

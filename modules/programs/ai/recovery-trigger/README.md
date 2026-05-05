@@ -95,3 +95,20 @@ choose between Anki / writing / coding / admin recovery
 ```
 
 But execution should still pass through deterministic safety gates.
+
+## Recovery vocabulary
+
+Recovery is a small bounded re-entry action for moments of drift, overwhelm, stuckness, or low agency.
+
+It is not automatic execution and not a judgment about the user.
+
+Current implementation:
+
+```text
+Anki is the first recovery target.
+Anki is used because due cards are measurable and a 5-minute AnkiDroid block is bounded.
+```
+
+`recovery-trigger` may propose a recovery nudge only after deterministic gates pass. It must not launch apps, write action files, call an LLM, or bypass `proposal_gate.py`.
+
+Future domains such as sport, math, books, and projects should be added through registered capabilities and deterministic gates, not by giving an LLM direct tool execution.

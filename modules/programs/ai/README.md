@@ -2939,3 +2939,30 @@ The shared deterministic recovery proposal builder has its own smoke test:
 PYTHONPATH=modules/programs/ai/python nix run nixpkgs#python3 -- modules/programs/ai/tests/recovery_proposals_smoke.py
 ```
 
+
+## Recovery and capability vocabulary
+
+Recovery is a small bounded re-entry action for low-agency, drift, overwhelm, or stuck states.
+
+Current recovery target:
+
+```text
+Anki
+```
+
+Anki is the first concrete target, not the whole concept. The broader future design should scale through registered capabilities:
+
+```text
+sport
+math
+books
+projects
+planning
+health
+language learning
+admin cleanup
+```
+
+Each new capability should have deterministic metadata, gates, cooldowns, approval requirements, and evidence/outcome classification before it can become more autonomous.
+
+The LLM may propose. Deterministic code validates. User action or validated bridges execute. Outcome managers classify evidence after the fact.

@@ -294,3 +294,13 @@ These records support later outcome analysis without giving the LLM or trigger n
 PYTHONPATH=modules/programs/ai/python nix run nixpkgs#python3 -- modules/programs/ai/tests/interventions_smoke.py
 ```
 
+
+## Vocabulary for scaling beyond Anki
+
+Recovery is the current narrow loop for small bounded re-entry actions.
+
+Intervention is the broader audit/logging concept: a user-facing attempt to improve state.
+
+Capability is the future generalization of recovery targets. A capability should declare trusted metadata such as risk level, allowed proposal schemas, allowed actions, cooldowns, evidence signals, success criteria, and approval requirements.
+
+This means sport, math, books, and projects should not be added as arbitrary LLM tools. They should become registered capabilities with deterministic gates and outcome classifiers.
