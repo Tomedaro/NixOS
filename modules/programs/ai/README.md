@@ -2790,3 +2790,57 @@ After plausible success:
 
 <!-- AI-DOCS-CURRENT-STATE:END -->
 
+---
+
+## Agentic safety architecture
+
+The current AI system is moving toward an adaptive agent architecture, but execution remains deterministic and gated.
+
+Current safety loop:
+
+```text
+agent_context.py
+  -> proposal producer
+       deterministic recovery-trigger now
+       future LLM/agent later
+  -> proposal_gate.py
+  -> normalized safe phone_nudge
+  -> phone outbox
+  -> user action
+  -> action-bridge
+  -> recovery-manager evidence classification
+```
+
+Important rule:
+
+```text
+LLM/agent may propose.
+proposal_gate.py validates.
+action-bridge executes only validated/user-triggered actions.
+recovery-manager classifies observed evidence after the fact.
+```
+
+Shared deterministic contracts live in:
+
+```text
+modules/programs/ai/python/ai_system/
+```
+
+Key modules:
+
+```text
+agent_context.py     read-only context pack for deterministic and future LLM proposal producers
+proposal_gate.py     deterministic proposal validation gate
+recovery_targets.py  source of truth for recovery target metadata
+io_utils.py          shared atomic read/write and JSONL helpers
+```
+
+Core smoke tests:
+
+```zsh
+PYTHONPATH=modules/programs/ai/python nix run nixpkgs#python3 -- modules/programs/ai/tests/agent_context_smoke.py
+PYTHONPATH=modules/programs/ai/python nix run nixpkgs#python3 -- modules/programs/ai/tests/proposal_gate_smoke.py
+PYTHONPATH=modules/programs/ai/python nix run nixpkgs#python3 -- modules/programs/ai/tests/action_bridge_smoke.py
+nix run nixpkgs#python3 -- modules/programs/ai/tests/recovery_smoke.py
+```
+
