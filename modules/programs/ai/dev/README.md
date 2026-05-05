@@ -65,3 +65,13 @@ modules/programs/ai/dev/check-ai-live.sh --run-outcomes
 ```
 
 Use these mutating flags one at a time when debugging live state.
+
+## Project audit
+
+Run a broad, non-mutating repo/runtime audit:
+
+```bash
+modules/programs/ai/dev/audit-ai-project.sh
+```
+
+This checks smoke prerequisites, script syntax, queue health, expected timers, legacy active-surface files, suspicious compatibility references, and clipboard handling. It copies the full audit log with `wl-copy < "$LOG"`.
