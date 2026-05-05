@@ -86,6 +86,25 @@ def test_active_state_facts() -> None:
         assert facts["desktop_verdict"] == "distracted"
 
 
+
+def test_anki_totals_due_shape() -> None:
+    with tempfile.TemporaryDirectory(prefix="ai-agent-context-anki-totals-") as tmp:
+        ai_dir = Path(tmp) / "AI"
+
+        write_json(ai_dir / "state/anki/status.json", {
+            "available": True,
+            "totals": {
+                "due": 6,
+                "review_due": 6,
+            },
+        })
+
+        context = build_agent_context(ai_dir, now_epoch=NOW)
+        facts = context["derived_facts"]
+
+        assert facts["anki_due"] == 6
+
+
 def test_recent_snooze_and_terminal_recovery() -> None:
     with tempfile.TemporaryDirectory(prefix="ai-agent-context-recent-") as tmp:
         ai_dir = Path(tmp) / "AI"
@@ -160,6 +179,7 @@ def main() -> None:
     tests = [
         test_empty_context,
         test_active_state_facts,
+        test_anki_totals_due_shape,
         test_recent_snooze_and_terminal_recovery,
         test_event_tails_are_bounded_and_sorted,
         test_write_agent_context,

@@ -251,3 +251,25 @@ suggested policy or feature change
 ```
 
 The system must not silently rewrite policies, enable services, add actions, or change autonomy levels.
+
+### `recovery_proposals.py`
+
+Pure recovery proposal construction for deterministic and future LLM/agent producers.
+
+Responsibilities:
+
+```text
+consume agent_context.py derived facts
+produce agent_recovery_proposal.v1 candidate proposals
+produce explainable reason and blocker codes
+avoid all vault writes, phone writes, action files, app launches, and LLM calls
+```
+
+This keeps `recovery-trigger` as orchestration glue instead of the owner of proposal logic.
+
+### Recovery proposal smoke test
+
+```zsh
+PYTHONPATH=modules/programs/ai/python nix run nixpkgs#python3 -- modules/programs/ai/tests/recovery_proposals_smoke.py
+```
+

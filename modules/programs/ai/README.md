@@ -2930,3 +2930,12 @@ Recommended near-term sequence:
 7. Add feature proposal schema.
 8. Promote capabilities only after tests, gates, and user approval.
 ```
+
+### Additional recovery proposal smoke test
+
+The shared deterministic recovery proposal builder has its own smoke test:
+
+```zsh
+PYTHONPATH=modules/programs/ai/python nix run nixpkgs#python3 -- modules/programs/ai/tests/recovery_proposals_smoke.py
+```
+

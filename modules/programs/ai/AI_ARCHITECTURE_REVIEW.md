@@ -738,3 +738,19 @@ This preserves the main design invariant:
 adaptive proposals may become smarter over time;
 execution authority remains explicit, deterministic, and auditable.
 ```
+
+### shared deterministic recovery proposal builder
+
+`recovery-trigger` now uses `agent_context.py` as its fact source and `recovery_proposals.py` as a pure deterministic proposal builder before passing the candidate proposal to `proposal_gate.py`.
+
+This keeps deterministic recovery triggering aligned with the future LLM/agent path:
+
+```text
+agent_context.py
+  -> proposal producer
+       recovery_proposals.py now
+       shadow-mode LLM later
+  -> proposal_gate.py
+```
+
+`recovery-trigger` should remain orchestration glue: it may call the context builder, call the pure proposal builder, call the gate, and write accepted phone outputs. It should not own duplicate fact parsing or proposal safety logic.

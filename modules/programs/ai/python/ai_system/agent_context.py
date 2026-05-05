@@ -142,6 +142,12 @@ def anki_due_count(anki: dict[str, Any]) -> int:
             if value > 0:
                 return value
 
+    totals = anki.get("totals")
+    if isinstance(totals, dict):
+        total_due = anki_due_count(totals)
+        if total_due > 0:
+            return total_due
+
     for key in ["counts", "due_counts", "deck_counts"]:
         value = anki.get(key)
         if isinstance(value, dict):

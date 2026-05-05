@@ -290,6 +290,29 @@ def test_trigger_gates_clear_writes_nudge() -> None:
     assert nudge["actions"][0]["action"] == "start_recovery_target"
 
 
+
+def test_trigger_uses_agent_context_due_shape() -> None:
+    with tempfile.TemporaryDirectory(prefix="ai-trigger-agent-context-") as tmp:
+        ai_dir = Path(tmp) / "AI"
+        setup_trigger(ai_dir, due=0)
+
+        # This shape is understood by agent_context.py. The old trigger-local
+        # parser only looked under totals, so this proves the trigger consumes
+        # the shared context contract instead of duplicate local derivation.
+        write_json(ai_dir / "state/anki/status.json", {
+            "available": True,
+            "due": 4,
+        })
+
+        result = run_json(TRIGGER, ai_dir, "--dry-run")
+        decision = result["decision"]
+
+        assert decision["facts"]["anki_due"] == 4
+        assert decision["decision"] == "write_nudge", decision
+        assert decision["validation_result"]["ok"] is True
+        assert decision["agent_context"]["source"] == "agent_context.py"
+
+
 def test_trigger_blocks() -> None:
     cases = [
         ("active_nudge", {"nudge_active": True}, "active_nudge"),
@@ -323,6 +346,7 @@ def main() -> None:
         test_manager_terminal_no_churn,
         test_trigger_due_zero_skips,
         test_trigger_gates_clear_writes_nudge,
+        test_trigger_uses_agent_context_due_shape,
         test_trigger_blocks,
     ]
 
