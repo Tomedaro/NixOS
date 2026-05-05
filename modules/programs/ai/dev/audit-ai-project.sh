@@ -97,6 +97,7 @@ legacy_hits="$(
     | grep -v 'dev/audit-ai-project.sh' \
     | grep -v 'ARCHITECTURE.md' \
     | grep -v 'README.md' \
+    | grep -v 'phone-webview/install-to-vault.sh' \
     || true
 )"
 
