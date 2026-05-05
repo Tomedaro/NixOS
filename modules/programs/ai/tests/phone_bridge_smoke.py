@@ -5,10 +5,37 @@ import json
 import os
 import tempfile
 from pathlib import Path
+import subprocess
+import sys
 
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 PHONE_BRIDGE = REPO_ROOT / "modules/programs/ai/phone-bridge/phone_bridge.py"
+PYTHON_LIB = REPO_ROOT / "modules/programs/ai/python"
+
+
+def run_bridge(
+    ai_dir: Path,
+    *args: str,
+    extra_env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    env = os.environ.copy()
+    existing_pythonpath = env.get("PYTHONPATH", "")
+    env.update({
+        "AI_DIR": str(ai_dir),
+        "PYTHONPATH": str(PYTHON_LIB) + ((f":{existing_pythonpath}") if existing_pythonpath else ""),
+    })
+    if extra_env:
+        env.update(extra_env)
+
+    return subprocess.run(
+        [sys.executable, str(PHONE_BRIDGE), *args],
+        cwd=REPO_ROOT,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
 
 
 def write_json(path: Path, data: dict) -> None:
@@ -140,12 +167,49 @@ def test_misrouted_action_is_failed() -> None:
         assert "misrouted action file" in errors[0].read_text(encoding="utf-8")
 
 
+
+def test_once_mode_processes_and_exits() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        ai_dir = Path(tmp) / "AI"
+        raw_dir = ai_dir / "inbox/from-phone/events"
+        raw_dir.mkdir(parents=True)
+
+        event_path = raw_dir / "1777998500_opened_ankidroid.json"
+        write_json(event_path, {
+            "schema_version": "event.v1",
+            "source": "tasker",
+            "device": "phone",
+            "event": "opened_ankidroid",
+            "message": "Once mode smoke",
+            "timestamp_epoch": "1777998500",
+            "tasker_date": "05-05-2026",
+            "tasker_time": "18.28",
+        })
+
+        proc = run_bridge(
+            ai_dir,
+            "--once",
+            extra_env={
+                "STABILITY_SECONDS": "0",
+                "CREATE_TEMPLATES": "0",
+            },
+        )
+
+        assert proc.returncode == 0, proc.stderr
+        assert "processed 1 phone event(s)" in proc.stdout
+        assert not event_path.exists(), "raw event should be moved out of inbox"
+
+        events = read_jsonl(ai_dir / "events/phone/2026-05-05.jsonl")
+        assert len(events) == 1
+        assert events[0]["message"] == "Once mode smoke"
+
 def main() -> None:
     tests = [
         test_valid_phone_event_is_processed,
         test_literal_tasker_variable_filename_is_failed,
         test_literal_tasker_variable_timestamp_is_failed,
         test_misrouted_action_is_failed,
+        test_once_mode_processes_and_exits,
     ]
 
     for test in tests:

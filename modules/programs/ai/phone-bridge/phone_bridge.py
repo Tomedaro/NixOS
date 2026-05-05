@@ -371,10 +371,22 @@ def tick():
     return processed_count
 
 
+def run_once():
+    count = tick()
+    print(f"processed {count} phone event(s)", flush=True)
+    return count
+
+
 def main():
+    once = "--once" in sys.argv[1:]
+
     print("Phone bridge started", flush=True)
     print(f"AI_DIR={AI_DIR}", flush=True)
     print(f"RAW_EVENTS_DIR={RAW_EVENTS_DIR}", flush=True)
+
+    if once:
+        run_once()
+        return
 
     while True:
         try:
