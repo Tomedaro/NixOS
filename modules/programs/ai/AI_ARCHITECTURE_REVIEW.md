@@ -285,6 +285,25 @@ The deterministic gate should validate this before anything reaches the phone.
 
 ---
 
+### recovery-trigger proposal gate wiring
+
+`recovery-trigger` now routes its deterministic recovery proposal through `proposal_gate.py` before writing any phone nudge.
+
+This means deterministic and future LLM/agent proposals share the same validation boundary:
+
+```text
+facts/context
+  -> proposal producer
+       deterministic recovery-trigger now
+       LLM/agent later
+  -> proposal_gate.py
+  -> normalized safe phone_nudge
+  -> phone outbox
+  -> action-bridge after user action
+```
+
+The trigger still remains disabled by default. This change only unifies the safety path.
+
 ### deterministic proposal validation gate
 
 Future LLM/agent recovery proposals should pass through a pure validation gate before any phone nudge or action file is written.

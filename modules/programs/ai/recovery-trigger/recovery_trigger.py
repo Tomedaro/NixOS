@@ -7,6 +7,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 from ai_system.recovery_targets import get_recovery_target, recovery_target_action
+from ai_system.proposal_gate import validate_recovery_proposal
 from ai_system.io_utils import atomic_write_json, atomic_write_text, read_json, read_jsonl
 from ai_system.time_utils import get_timezone, now_iso as shared_now_iso, today as shared_today
 
@@ -328,9 +329,43 @@ def build_decision():
     else:
         blocked.append(f"desktop_verdict_{verdict}")
 
-    decision = "write_nudge" if not blocked else "skip"
-    confidence = 0.72 if decision == "write_nudge" else 0.0
     nudge_id = f"n-recovery-trigger-anki-{epoch_now()}"
+
+    # The deterministic trigger now produces the same proposal shape a future
+    # LLM/agent should produce. The proposal gate is the authority boundary.
+    candidate_proposal = {
+        "schema_version": "agent_recovery_proposal.v1",
+        "source": "deterministic-v0",
+        "decision": "write_nudge",
+        "target_id": target["target_id"],
+        "target_name": target["display_name"],
+        "confidence": 0.72,
+        "reason_codes": reason_codes,
+        "blocked_reasons": blocked,
+        "message": target["nudge_message"],
+        "recommended_next_action": target["recommended_next_action"],
+        "allowed_actions": [
+            "start_recovery_target",
+            "snooze_nudge",
+        ],
+        "cooldown_seconds": SNOOZE_COOLDOWN_SECONDS,
+    }
+
+    validation_result = validate_recovery_proposal(candidate_proposal, facts)
+    normalized = validation_result.get("normalized") if validation_result.get("ok") else None
+
+    if validation_result.get("ok") and isinstance(normalized, dict) and normalized.get("decision") == "write_nudge":
+        decision = "write_nudge"
+        confidence = normalized.get("confidence", 0.72)
+        final_blocked = []
+    else:
+        decision = "skip"
+        confidence = 0.0
+        validation_details = validation_result.get("details", {})
+        final_blocked = list(validation_details.get("blocked_reasons") or blocked)
+
+        if validation_result.get("reason") and validation_result.get("reason") not in final_blocked:
+            final_blocked.append(str(validation_result.get("reason")))
 
     return {
         "schema_version": "recovery_trigger_decision.v1",
@@ -342,24 +377,23 @@ def build_decision():
         "target_name": target["display_name"],
         "confidence": confidence,
         "reason_codes": reason_codes,
-        "blocked_reasons": blocked,
+        "blocked_reasons": final_blocked,
         "cooldowns": {
             "snooze_cooldown_seconds": SNOOZE_COOLDOWN_SECONDS,
             "recent_recovery_cooldown_seconds": RECENT_RECOVERY_COOLDOWN_SECONDS,
         },
         "facts": facts,
         "proposal": {
+            "schema_version": candidate_proposal["schema_version"],
             "nudge_id": nudge_id,
-            "message": target["nudge_message"],
-            "recommended_next_action": target["recommended_next_action"],
-            "actions": [
-                "start_recovery_target",
-                "snooze_nudge"
-            ]
+            "message": candidate_proposal["message"],
+            "recommended_next_action": candidate_proposal["recommended_next_action"],
+            "actions": candidate_proposal["allowed_actions"],
         },
+        "validation_result": validation_result,
         "agent_notes": {
-            "future_llm_role": "An LLM agent may later fill the same decision schema with richer context, target choice, tone, and confidence.",
-            "execution_gate": "This deterministic trigger only writes a nudge when all safety gates pass."
+            "future_llm_role": "An LLM agent may later fill agent_recovery_proposal.v1 with richer context, target choice, tone, and confidence.",
+            "execution_gate": "Deterministic and future LLM proposals must pass proposal_gate.py before a nudge can be written."
         }
     }
 
@@ -404,6 +438,12 @@ def write_status(decision, wrote_nudge=False):
         json.dumps(decision.get("facts", {}), indent=2, ensure_ascii=False),
         "```",
         "",
+        "## Proposal validation",
+        "",
+        "```json",
+        json.dumps(decision.get("validation_result", {}), indent=2, ensure_ascii=False),
+        "```",
+        "",
     ])
 
     atomic_write_text(STATUS_MD, "\n".join(lines))
@@ -424,7 +464,12 @@ def run_once(dry_run=False):
 
     if decision.get("decision") == "write_nudge":
         now_text = decision["evaluated_at"]
-        nudge = make_nudge(now_text, decision["proposal"]["nudge_id"])
+        normalized = decision.get("validation_result", {}).get("normalized", {})
+        nudge = dict(normalized.get("phone_nudge", {}))
+        nudge["nudge_id"] = decision["proposal"]["nudge_id"]
+        nudge["created_at"] = now_text
+        nudge["updated_at"] = now_text
+
         question = make_inactive_question(now_text)
         write_phone_outputs(nudge, question, now_text)
         wrote_nudge = True
