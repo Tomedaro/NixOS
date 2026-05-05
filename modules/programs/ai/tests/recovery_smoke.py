@@ -104,6 +104,13 @@ def recovery_state(start_epoch: int, status: str = "active") -> dict:
         "source": "test",
         "device": "phone",
         "action_id": "smoke-test",
+        "intervention": {
+            "schema_version": "intervention_ref.v1",
+            "intervention_id": f"i-recovery-smoke-{start_epoch}",
+            "kind": "recovery_nudge",
+            "source": "test",
+            "nudge_id": f"n-recovery-smoke-{start_epoch}",
+        },
         "target": {
             "target_id": "anki",
             "name": "Anki",
@@ -132,6 +139,9 @@ def recovery_state(start_epoch: int, status: str = "active") -> dict:
             "time": clock(start_epoch),
             "processed_at": iso(start_epoch),
             "recovery_id": f"recovery-anki-smoke-{start_epoch}",
+            "intervention_id": f"i-recovery-smoke-{start_epoch}",
+            "intervention_kind": "recovery_nudge",
+            "nudge_id": f"n-recovery-smoke-{start_epoch}",
             "target_id": "anki",
             "target_name": "Anki",
         },
@@ -171,6 +181,10 @@ def test_manager_old_quick_exit() -> None:
     recovery = manager_status(Path(os.environ["TEST_AI_DIR"]))
     assert recovery["status"] == "possible_abort", recovery["status"]
     assert recovery["lifecycle"]["rapid_exit_detected"] is True
+    intervention_id = recovery["intervention"]["intervention_id"]
+    assert recovery["lifecycle"]["intervention_id"] == intervention_id
+    assert recovery["classification"]["intervention_id"] == intervention_id
+    assert recovery["last_lifecycle_event"]["intervention_id"] == intervention_id
 
 
 def test_manager_success_still_open() -> None:
@@ -184,6 +198,10 @@ def test_manager_success_still_open() -> None:
     recovery = manager_status(Path(os.environ["TEST_AI_DIR"]))
     assert recovery["status"] == "possible_success", recovery["status"]
     assert recovery["lifecycle"]["total_observed_dwell_seconds"] >= 300
+    intervention_id = recovery["intervention"]["intervention_id"]
+    assert recovery["lifecycle"]["intervention_id"] == intervention_id
+    assert recovery["classification"]["intervention_id"] == intervention_id
+    assert recovery["last_lifecycle_event"]["intervention_id"] == intervention_id
 
 
 def test_manager_terminal_no_churn() -> None:

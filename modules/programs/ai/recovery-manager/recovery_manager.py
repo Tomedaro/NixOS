@@ -177,6 +177,37 @@ def target_id_for(recovery):
     return str(target.get("target_id") or "").strip().lower()
 
 
+def intervention_ref_for(recovery):
+    intervention = recovery.get("intervention", {})
+    if not isinstance(intervention, dict):
+        intervention = {}
+
+    last_event = recovery.get("last_event", {})
+    if not isinstance(last_event, dict):
+        last_event = {}
+
+    intervention_id = str(
+        intervention.get("intervention_id")
+        or last_event.get("intervention_id")
+        or ""
+    ).strip()
+
+    if not intervention_id:
+        return {}
+
+    return {
+        "schema_version": "intervention_ref.v1",
+        "intervention_id": intervention_id,
+        "kind": str(
+            intervention.get("kind")
+            or last_event.get("intervention_kind")
+            or "recovery_nudge"
+        ).strip(),
+        "source": str(intervention.get("source") or last_event.get("source") or "").strip(),
+        "nudge_id": str(intervention.get("nudge_id") or last_event.get("nudge_id") or "").strip(),
+    }
+
+
 
 def phone_events_for_dates(start_epoch, end_epoch=None):
     if start_epoch <= 0:
@@ -203,6 +234,7 @@ def phone_events_for_dates(start_epoch, end_epoch=None):
 
 def relevant_events(recovery):
     target_id = target_id_for(recovery)
+    intervention = intervention_ref_for(recovery)
     names = target_event_names(target_id)
     wanted = set(names.get("opened", set())) | set(names.get("closed", set()))
     start_epoch = recovery_start_epoch(recovery)
@@ -304,6 +336,7 @@ def classify(recovery):
         return recovery, None, "missing_start_time"
 
     target_id = target_id_for(recovery)
+    intervention = intervention_ref_for(recovery)
     names = target_event_names(target_id)
     opened_names = set(names.get("opened", set()))
     closed_names = set(names.get("closed", set()))
@@ -351,6 +384,8 @@ def classify(recovery):
 
     lifecycle = {
         "target_id": target_id,
+        "intervention_id": intervention.get("intervention_id", ""),
+        "intervention_kind": intervention.get("kind", ""),
         "target_opened": saw_open,
         "event_count": event_count,
         "flapping_count": flapping_count,
@@ -368,6 +403,8 @@ def classify(recovery):
     }
 
     recovery["lifecycle"] = lifecycle
+    if intervention:
+        recovery["intervention"] = intervention
     recovery["updated_at"] = now_iso()
 
     status_changed = new_status != old_status
@@ -377,6 +414,8 @@ def classify(recovery):
         "previous_status": old_status,
         "reason": reason,
         "classified_at": recovery["updated_at"],
+        "intervention_id": intervention.get("intervention_id", ""),
+        "intervention_kind": intervention.get("kind", ""),
         "thresholds": {
             "open_grace_seconds": OPEN_GRACE_SECONDS,
             "no_launch_expire_seconds": NO_LAUNCH_EXPIRE_SECONDS,
@@ -404,6 +443,9 @@ def classify(recovery):
         "time": now().strftime("%H:%M:%S"),
         "processed_at": recovery["updated_at"],
         "recovery_id": recovery.get("recovery_id", ""),
+        "intervention_id": intervention.get("intervention_id", ""),
+        "intervention_kind": intervention.get("kind", ""),
+        "nudge_id": intervention.get("nudge_id", ""),
         "target_id": target_id,
         "target_name": target.get("name", ""),
         "previous_status": old_status,
@@ -427,6 +469,7 @@ def write_status(recovery, message):
         "status": recovery.get("status", "missing"),
         "message": message,
         "recovery_id": recovery.get("recovery_id", ""),
+        "intervention": recovery.get("intervention", {}),
         "target": recovery.get("target", {}),
         "goal": recovery.get("goal", {}),
         "classification": recovery.get("classification", {}),
@@ -439,6 +482,7 @@ def write_status(recovery, message):
     goal = data.get("goal", {})
     classification = data.get("classification", {})
     lifecycle = data.get("lifecycle", {})
+    intervention = data.get("intervention", {})
 
     lines = [
         "# Recovery Status",
@@ -447,6 +491,7 @@ def write_status(recovery, message):
         f"Status: `{data['status']}`",
         f"Message: {message}",
         f"Recovery ID: `{data.get('recovery_id', '')}`",
+        f"Intervention ID: `{intervention.get('intervention_id', '')}`",
         f"Target: {target.get('name') or target.get('target_id', '')}",
         f"Goal: {goal.get('text', '')}",
         "",
