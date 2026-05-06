@@ -8,22 +8,20 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-DEFAULT_AI_DIR = Path(
-    os.environ.get("AI_DIR", "/home/daniil/Sync/Perseverance.Gu/AI")
-).expanduser()
+from ai_system.io_utils import atomic_write_json
+from ai_system.obsidian_contracts import (
+    DEFAULT_AI_DIR,
+    bounded_text as contract_bounded_text,
+    utc_now,
+)
 
 MAX_MESSAGE_CHARS = 2000
 MAX_SELECTED_TEXT_CHARS = 1200
 MAX_NOTE_PATH_CHARS = 300
-
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(microsecond=0)
 
 
 def epoch_millis(dt: datetime) -> int:
@@ -31,12 +29,7 @@ def epoch_millis(dt: datetime) -> int:
 
 
 def clip_text(value: Any, limit: int) -> str:
-    text = str(value or "").replace("\r\n", "\n")
-    if len(text) <= limit:
-        return text
-
-    suffix = "...[truncated]"
-    return text[: max(0, limit - len(suffix))] + suffix
+    return contract_bounded_text(value, max_len=limit)
 
 
 def normalize_ids(values: list[str] | None) -> list[str]:
@@ -109,15 +102,6 @@ def build_intent(
         intent["requested_action"] = action
 
     return intent
-
-
-def atomic_write_json(path: Path, data: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(f".{path.name}.tmp-{os.getpid()}")
-    tmp.write_text(
-        json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
-    tmp.replace(path)
 
 
 def write_intent(ai_dir: str | Path, intent: dict[str, Any]) -> Path:

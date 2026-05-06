@@ -9,17 +9,16 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from ai_system.io_utils import atomic_write_json, atomic_write_text
-
-DEFAULT_AI_DIR = Path(
-    os.environ.get("AI_DIR", "/home/daniil/Sync/Perseverance.Gu/AI")
-).expanduser()
+from ai_system.obsidian_contracts import (
+    DEFAULT_AI_DIR,
+    bounded_text as contract_bounded_text,
+    utc_now,
+)
 
 MAX_TEXT_PREVIEW_CHARS = 1200
 MAX_TASKS = 25
@@ -29,14 +28,11 @@ MAX_GOAL_IDS = 32
 
 
 def now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return utc_now().isoformat(timespec="seconds")
 
 
 def bounded_str(value: Any, *, max_chars: int = 300) -> str:
-    text = str(value or "").strip()
-    if len(text) <= max_chars:
-        return text
-    return text[: max_chars - 1].rstrip() + "…"
+    return contract_bounded_text(value, max_len=max_chars, suffix="…")
 
 
 def bounded_str_list(value: Any, *, limit: int, max_chars: int = 160) -> list[str]:

@@ -9,40 +9,27 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from ai_system.agent_context import build_agent_context
-
-DEFAULT_AI_DIR = Path(
-    os.environ.get("AI_DIR", "/home/daniil/Sync/Perseverance.Gu/AI")
-).expanduser()
-
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(microsecond=0)
+from ai_system.io_utils import atomic_write_json, atomic_write_text
+from ai_system.obsidian_contracts import (
+    DEFAULT_AI_DIR,
+    PROPOSAL_EXECUTION_POLICY,
+    bounded_text as contract_bounded_text,
+    read_json_object,
+    utc_now,
+)
 
 
 def clip_text(value: Any, limit: int) -> str:
-    text = str(value or "").replace("\r\n", "\n")
-    if len(text) <= limit:
-        return text
-
-    suffix = "...[truncated]"
-    return text[: max(0, limit - len(suffix))] + suffix
+    return contract_bounded_text(value, max_len=limit)
 
 
 def read_json(path: Path) -> dict[str, Any]:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        return {}
-    except Exception:
-        return {}
-
-    return data if isinstance(data, dict) else {}
+    return read_json_object(path, missing_ok=True, default={})
 
 
 def pending_intent_files(ai_dir: Path) -> list[Path]:
@@ -324,22 +311,11 @@ def build_proposal(
             intent.get("task_ids") if isinstance(intent.get("task_ids"), list) else []
         ),
         "suggested_actions": suggested_actions,
-        "execution_policy": "proposal_only_no_direct_execution",
+        "execution_policy": PROPOSAL_EXECUTION_POLICY,
         "context_refs": context_refs,
     }
     proposal["markdown"] = build_markdown(proposal)
     return proposal
-
-
-def atomic_write_text(path: Path, text: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(f".{path.name}.tmp-{os.getpid()}")
-    tmp.write_text(text, encoding="utf-8")
-    tmp.replace(path)
-
-
-def atomic_write_json(path: Path, data: dict[str, Any]) -> None:
-    atomic_write_text(path, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
 
 
 def write_proposal(ai_dir: Path, proposal: dict[str, Any]) -> dict[str, Path]:
