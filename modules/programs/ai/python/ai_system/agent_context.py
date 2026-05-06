@@ -12,6 +12,7 @@ This module must remain non-executing:
 
 from __future__ import annotations
 
+from ai_system.context_providers import build_context_provider_snapshot
 import argparse
 import json
 import os
@@ -20,19 +21,32 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from ai_system.io_utils import atomic_write_json, atomic_write_text, read_json, read_jsonl
+from ai_system.io_utils import (
+    atomic_write_json,
+    atomic_write_text,
+    read_json,
+    read_jsonl,
+)
 from ai_system.time_utils import get_timezone
 from ai_system.interaction_lifecycle import clear_reason_for_active_nudge
 
 
-DEFAULT_AI_DIR = Path(os.environ.get("AI_DIR", "/home/daniil/Sync/Perseverance.Gu/AI")).expanduser()
+DEFAULT_AI_DIR = Path(
+    os.environ.get("AI_DIR", "/home/daniil/Sync/Perseverance.Gu/AI")
+).expanduser()
 DEFAULT_TIMEZONE = os.environ.get("AI_AGENT_CONTEXT_TIMEZONE", "Europe/Paris")
 
 ACTIVE_SESSION_STATUSES = {"active", "running", "started"}
 ACTIVE_NUDGE_STATUSES = {"active"}
 ACTIVE_QUESTION_STATUSES = {"active", "pending"}
 ACTIVE_RECOVERY_STATUSES = {"active", "observing"}
-TERMINAL_RECOVERY_STATUSES = {"possible_success", "possible_abort", "expired", "cancelled", "completed"}
+TERMINAL_RECOVERY_STATUSES = {
+    "possible_success",
+    "possible_abort",
+    "expired",
+    "cancelled",
+    "completed",
+}
 
 
 def current_epoch() -> int:
@@ -57,7 +71,9 @@ def parse_epoch(value: Any) -> int:
         pass
 
     try:
-        return int(datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp())
+        return int(
+            datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp()
+        )
     except Exception:
         return 0
 
@@ -101,82 +117,84 @@ def active_recovery(recovery: dict[str, Any]) -> bool:
 
 
 def normalize_active_nudge_candidate(value: Any) -> dict[str, Any]:
-   candidate = safe_dict(value)
-   if safe_status(candidate) not in ACTIVE_NUDGE_STATUSES:
-       return {}
+    candidate = safe_dict(value)
+    if safe_status(candidate) not in ACTIVE_NUDGE_STATUSES:
+        return {}
 
-   normalized = dict(candidate)
+    normalized = dict(candidate)
 
-   # interaction-state.json historically stores compact active_nudge objects.
-   # Lifecycle helpers expect the full phone_interaction nudge shape.
-   normalized.setdefault("schema_version", "phone_interaction.v1")
-   normalized.setdefault("kind", "nudge")
+    # interaction-state.json historically stores compact active_nudge objects.
+    # Lifecycle helpers expect the full phone_interaction nudge shape.
+    normalized.setdefault("schema_version", "phone_interaction.v1")
+    normalized.setdefault("kind", "nudge")
 
-   return normalized
+    return normalized
 
 
 def merge_active_nudge_candidates(
-   current: dict[str, Any],
-   compact: dict[str, Any],
+    current: dict[str, Any],
+    compact: dict[str, Any],
 ) -> dict[str, Any]:
-   merged = dict(current)
+    merged = dict(current)
 
-   for key, value in compact.items():
-       if value in (None, "", []):
-           continue
-       merged[key] = value
+    for key, value in compact.items():
+        if value in (None, "", []):
+            continue
+        merged[key] = value
 
-   return merged
+    return merged
 
 
 def active_nudge_candidates(
-   nudge: dict[str, Any],
-   interaction_state: dict[str, Any],
+    nudge: dict[str, Any],
+    interaction_state: dict[str, Any],
 ) -> list[dict[str, Any]]:
-   current = normalize_active_nudge_candidate(nudge)
-   compact = normalize_active_nudge_candidate(interaction_state.get("active_nudge"))
+    current = normalize_active_nudge_candidate(nudge)
+    compact = normalize_active_nudge_candidate(interaction_state.get("active_nudge"))
 
-   current_id = current.get("nudge_id")
-   compact_id = compact.get("nudge_id")
+    current_id = current.get("nudge_id")
+    compact_id = compact.get("nudge_id")
 
-   if current and compact and current_id and current_id == compact_id:
-       return [merge_active_nudge_candidates(current, compact)]
+    if current and compact and current_id and current_id == compact_id:
+        return [merge_active_nudge_candidates(current, compact)]
 
-   candidates: list[dict[str, Any]] = []
-   if current:
-       candidates.append(current)
-   if compact:
-       candidates.append(compact)
+    candidates: list[dict[str, Any]] = []
+    if current:
+        candidates.append(current)
+    if compact:
+        candidates.append(compact)
 
-   return candidates
+    return candidates
 
 
 def active_nudge_clear_reason(
-   nudge: dict[str, Any],
-   interaction_state: dict[str, Any],
+    nudge: dict[str, Any],
+    interaction_state: dict[str, Any],
 ) -> str | None:
-   saw_expired_reason: str | None = None
+    saw_expired_reason: str | None = None
 
-   for candidate in active_nudge_candidates(nudge, interaction_state):
-       clear_reason = clear_reason_for_active_nudge({"active_nudge": candidate})
-       if clear_reason:
-           saw_expired_reason = saw_expired_reason or clear_reason
-           continue
-       return None
+    for candidate in active_nudge_candidates(nudge, interaction_state):
+        clear_reason = clear_reason_for_active_nudge({"active_nudge": candidate})
+        if clear_reason:
+            saw_expired_reason = saw_expired_reason or clear_reason
+            continue
+        return None
 
-   return saw_expired_reason
+    return saw_expired_reason
 
 
 def active_nudge(nudge: dict[str, Any], interaction_state: dict[str, Any]) -> bool:
-   for candidate in active_nudge_candidates(nudge, interaction_state):
-       clear_reason = clear_reason_for_active_nudge({"active_nudge": candidate})
-       if not clear_reason:
-           return True
+    for candidate in active_nudge_candidates(nudge, interaction_state):
+        clear_reason = clear_reason_for_active_nudge({"active_nudge": candidate})
+        if not clear_reason:
+            return True
 
-   return False
+    return False
 
 
-def active_question(question: dict[str, Any], interaction_state: dict[str, Any]) -> bool:
+def active_question(
+    question: dict[str, Any], interaction_state: dict[str, Any]
+) -> bool:
     if safe_status(question) in ACTIVE_QUESTION_STATUSES:
         return True
 
@@ -277,7 +295,14 @@ def compact_event(event: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def read_recent_events(events_dir: Path, *, limit: int = 25, days: int = 2, now_epoch: int | None = None, tz=None) -> list[dict[str, Any]]:
+def read_recent_events(
+    events_dir: Path,
+    *,
+    limit: int = 25,
+    days: int = 2,
+    now_epoch: int | None = None,
+    tz=None,
+) -> list[dict[str, Any]]:
     events_dir = Path(events_dir)
 
     if not events_dir.exists():
@@ -290,7 +315,9 @@ def read_recent_events(events_dir: Path, *, limit: int = 25, days: int = 2, now_
         now_epoch = current_epoch()
 
     allowed_dates = {
-        (datetime.fromtimestamp(now_epoch, tz) - timedelta(days=offset)).strftime("%Y-%m-%d")
+        (datetime.fromtimestamp(now_epoch, tz) - timedelta(days=offset)).strftime(
+            "%Y-%m-%d"
+        )
         for offset in range(max(1, days))
     }
 
@@ -309,15 +336,21 @@ def read_recent_events(events_dir: Path, *, limit: int = 25, days: int = 2, now_
     return [compact_event(event) for event in events[-limit:]]
 
 
-def latest_event_named(events: list[dict[str, Any]], names: set[str]) -> dict[str, Any] | None:
+def latest_event_named(
+    events: list[dict[str, Any]], names: set[str]
+) -> dict[str, Any] | None:
     for event in sorted(events, key=event_epoch, reverse=True):
-        event_name = str(event.get("event") or event.get("event_type") or event.get("action") or "").strip()
+        event_name = str(
+            event.get("event") or event.get("event_type") or event.get("action") or ""
+        ).strip()
         if event_name in names:
             return event
     return None
 
 
-def recent_snooze(actions: list[dict[str, Any]], now_epoch: int, cooldown_seconds: int) -> tuple[bool, int | None, dict[str, Any] | None]:
+def recent_snooze(
+    actions: list[dict[str, Any]], now_epoch: int, cooldown_seconds: int
+) -> tuple[bool, int | None, dict[str, Any] | None]:
     event = latest_event_named(actions, {"snooze_nudge", "nudge_snoozed"})
     if not event:
         return False, None, None
@@ -330,7 +363,9 @@ def recent_snooze(actions: list[dict[str, Any]], now_epoch: int, cooldown_second
     return age < cooldown_seconds, age, event
 
 
-def recent_terminal_recovery(recovery: dict[str, Any], now_epoch: int, cooldown_seconds: int) -> tuple[bool, int | None]:
+def recent_terminal_recovery(
+    recovery: dict[str, Any], now_epoch: int, cooldown_seconds: int
+) -> tuple[bool, int | None]:
     status = safe_status(recovery)
     if status not in TERMINAL_RECOVERY_STATUSES:
         return False, None
@@ -343,26 +378,32 @@ def recent_terminal_recovery(recovery: dict[str, Any], now_epoch: int, cooldown_
 
     last_lifecycle = recovery.get("last_lifecycle_event")
     if isinstance(last_lifecycle, dict):
-        candidates.extend([
-            last_lifecycle.get("processed_at"),
-            last_lifecycle.get("timestamp"),
-            last_lifecycle.get("timestamp_epoch"),
-        ])
+        candidates.extend(
+            [
+                last_lifecycle.get("processed_at"),
+                last_lifecycle.get("timestamp"),
+                last_lifecycle.get("timestamp_epoch"),
+            ]
+        )
 
     classification = recovery.get("classification")
     if isinstance(classification, dict):
-        candidates.extend([
-            classification.get("classified_at"),
-            classification.get("updated_at"),
-        ])
+        candidates.extend(
+            [
+                classification.get("classified_at"),
+                classification.get("updated_at"),
+            ]
+        )
 
-    candidates.extend([
-        recovery.get("classified_at"),
-        recovery.get("processed_at"),
-        recovery.get("timestamp"),
-        recovery.get("timestamp_epoch"),
-        recovery.get("updated_at"),
-    ])
+    candidates.extend(
+        [
+            recovery.get("classified_at"),
+            recovery.get("processed_at"),
+            recovery.get("timestamp"),
+            recovery.get("timestamp_epoch"),
+            recovery.get("updated_at"),
+        ]
+    )
 
     epoch = 0
     for item in candidates:
@@ -406,7 +447,9 @@ def build_derived_facts(
     return {
         "has_active_session": active_session(session),
         "has_active_nudge": active_nudge(current_nudge, interaction_state),
-        "active_nudge_clear_reason": active_nudge_clear_reason(current_nudge, interaction_state),
+        "active_nudge_clear_reason": active_nudge_clear_reason(
+            current_nudge, interaction_state
+        ),
         "has_active_question": active_question(current_question, interaction_state),
         "has_active_recovery": active_recovery(recovery),
         "recent_terminal_recovery": recovery_recent,
@@ -453,8 +496,12 @@ def build_agent_context(
     desktop = safe_dict(read_json(state_dir / "desktop" / "now.json", {}))
     recovery = safe_dict(read_json(state_dir / "recovery" / "current.json", {}))
     current_nudge = safe_dict(read_json(outbox_to_phone_dir / "current-nudge.json", {}))
-    current_question = safe_dict(read_json(outbox_to_phone_dir / "current-question.json", {}))
-    interaction_state = safe_dict(read_json(outbox_to_phone_dir / "interaction-state.json", {}))
+    current_question = safe_dict(
+        read_json(outbox_to_phone_dir / "current-question.json", {})
+    )
+    interaction_state = safe_dict(
+        read_json(outbox_to_phone_dir / "interaction-state.json", {})
+    )
 
     recent_actions = read_recent_events(
         events_dir / "actions",
@@ -492,7 +539,7 @@ def build_agent_context(
         recent_recovery_cooldown_seconds=recent_recovery_cooldown_seconds,
     )
 
-    return {
+    context = {
         "schema_version": "agent_context.v1",
         "generated_at": iso_from_epoch(now_epoch, tz),
         "timestamp_epoch": now_epoch,
@@ -524,8 +571,25 @@ def build_agent_context(
         },
     }
 
+    try:
+        context["context_hub"] = build_context_provider_snapshot(
+            ai_dir, now_epoch=now_epoch
+        )
+    except Exception as exc:
+        context["context_hub"] = {
+            "schema_version": "context_hub.v1",
+            "available": False,
+            "providers": [],
+            "facts": {},
+            "warnings": [{"provider": "context_hub", "warning": str(exc)}],
+        }
 
-def write_agent_context(ai_dir: str | Path | None = None, **kwargs: Any) -> dict[str, Any]:
+    return context
+
+
+def write_agent_context(
+    ai_dir: str | Path | None = None, **kwargs: Any
+) -> dict[str, Any]:
     ai_dir = Path(ai_dir or DEFAULT_AI_DIR).expanduser()
     context = build_agent_context(ai_dir, **kwargs)
 
@@ -560,11 +624,23 @@ def write_agent_context(ai_dir: str | Path | None = None, **kwargs: Any) -> dict
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build local AI agent context pack")
-    parser.add_argument("--ai-dir", default=str(DEFAULT_AI_DIR), help="AI directory inside the vault")
-    parser.add_argument("--dry-run", action="store_true", help="Print context JSON without writing")
-    parser.add_argument("--write", action="store_true", help="Write state/agent/context.json and status.md")
-    parser.add_argument("--event-limit", type=int, default=25, help="Max recent events per stream")
-    parser.add_argument("--recent-days", type=int, default=2, help="Recent event date window")
+    parser.add_argument(
+        "--ai-dir", default=str(DEFAULT_AI_DIR), help="AI directory inside the vault"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Print context JSON without writing"
+    )
+    parser.add_argument(
+        "--write",
+        action="store_true",
+        help="Write state/agent/context.json and status.md",
+    )
+    parser.add_argument(
+        "--event-limit", type=int, default=25, help="Max recent events per stream"
+    )
+    parser.add_argument(
+        "--recent-days", type=int, default=2, help="Recent event date window"
+    )
     return parser.parse_args()
 
 
