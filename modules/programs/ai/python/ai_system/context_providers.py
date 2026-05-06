@@ -341,6 +341,77 @@ def activitywatch_provider(ai_dir: Path) -> dict[str, Any]:
     )
 
 
+def compact_obsidian_intent(intent: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": "obsidian_intent_context.v1",
+        "intent_id": str(intent.get("intent_id") or ""),
+        "kind": str(intent.get("kind") or ""),
+        "status": str(intent.get("status") or ""),
+        "created_at": str(intent.get("created_at") or ""),
+        "timestamp_epoch": intent.get("timestamp_epoch"),
+        "surface": str(intent.get("surface") or ""),
+        "mode": str(intent.get("mode") or ""),
+        "note_path": str(intent.get("note_path") or ""),
+        "message_preview": str(intent.get("message_preview") or ""),
+        "requested_action": str(intent.get("requested_action") or ""),
+        "goal_ids": (
+            intent.get("goal_ids") if isinstance(intent.get("goal_ids"), list) else []
+        ),
+        "task_ids": (
+            intent.get("task_ids") if isinstance(intent.get("task_ids"), list) else []
+        ),
+        "execution_policy": str(intent.get("execution_policy") or ""),
+    }
+
+
+def obsidian_intent_provider(ai_dir: Path) -> dict[str, Any]:
+    inbox = ai_dir / "inbox" / "obsidian" / "messages"
+
+    if not inbox.exists():
+        return provider_unavailable(
+            "obsidian_intent",
+            "no Obsidian intent inbox found yet",
+            source_paths=[str(inbox)],
+        )
+
+    files = sorted(
+        inbox.glob("*.json"),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+
+    recent: list[dict[str, Any]] = []
+    source_paths: list[str] = []
+
+    for path in files[:5]:
+        data = read_json(path)
+        if not data:
+            continue
+
+        recent.append(compact_obsidian_intent(data))
+        source_paths.append(str(path))
+
+    if not recent:
+        return provider_unavailable(
+            "obsidian_intent",
+            "no pending Obsidian intents found",
+            source_paths=[str(inbox)],
+        )
+
+    return provider_result(
+        "obsidian_intent",
+        available=True,
+        facts={
+            "schema_version": "obsidian_intent_provider.v1",
+            "pending_count_seen": len(recent),
+            "latest": recent[0],
+            "recent": recent,
+        },
+        freshness="pending_queue",
+        source_paths=source_paths,
+    )
+
+
 def build_context_provider_snapshot(
     ai_dir: str | Path,
     *,
@@ -354,6 +425,7 @@ def build_context_provider_snapshot(
         recovery_provider(root),
         intervention_provider(root),
         obsidian_provider(root),
+        obsidian_intent_provider(root),
         activitywatch_provider(root),
     ]
 
