@@ -67,6 +67,7 @@ tests=(
   modules/programs/ai/tests/obsidian_context_smoke.py
   modules/programs/ai/tests/obsidian_ingress_smoke.py
   modules/programs/ai/tests/obsidian_intent_planner_smoke.py
+  modules/programs/ai/tests/llm_proposal_contract_smoke.py
   modules/programs/ai/tests/obsidian_proposal_action_smoke.py
   modules/programs/ai/tests/obsidian_approval_bridge_smoke.py
   modules/programs/ai/tests/obsidian_task_draft_smoke.py
