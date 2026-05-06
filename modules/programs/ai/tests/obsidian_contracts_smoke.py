@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 import json
+import json
 import sys
+import tempfile
 import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(REPO_ROOT / "modules/programs/ai/python"))
 
+from ai_system.io_utils import atomic_write_json, atomic_write_text  # noqa: E402
 from ai_system.obsidian_contracts import (
     DIRECT_EXECUTION_FIELDS,
+    PLANNER_EXECUTION_POLICY,
     PROPOSAL_EXECUTION_POLICY,
     bounded_line,
     bounded_list,
@@ -94,6 +98,30 @@ def test_policy_constant() -> None:
     assert PROPOSAL_EXECUTION_POLICY == "proposal_only_no_direct_execution"
 
 
+def test_planner_policy_constant() -> None:
+    assert PLANNER_EXECUTION_POLICY == "planner_must_decide_no_direct_execution"
+
+
+def test_atomic_write_text_replaces_existing_file_and_cleans_temp() -> None:
+    with tempfile.TemporaryDirectory(prefix="ai-atomic-write-") as tmp:
+        path = Path(tmp) / "state" / "status.md"
+        path.parent.mkdir(parents=True)
+        path.write_text("old", encoding="utf-8")
+
+        atomic_write_text(path, "new")
+        assert path.read_text(encoding="utf-8") == "new"
+        assert not list(path.parent.glob(f".{path.name}.*.tmp"))
+
+
+def test_atomic_write_json_replaces_existing_file() -> None:
+    with tempfile.TemporaryDirectory(prefix="ai-atomic-json-") as tmp:
+        path = Path(tmp) / "state" / "status.json"
+        atomic_write_json(path, {"ok": True})
+
+        data = json.loads(path.read_text(encoding="utf-8"))
+        assert data == {"ok": True}
+
+
 def run_all() -> None:
     tests = [
         test_bounds_are_stable,
@@ -102,6 +130,9 @@ def run_all() -> None:
         test_empty_dict_policy_is_explicit,
         test_json_object_reader,
         test_policy_constant,
+        test_planner_policy_constant,
+        test_atomic_write_text_replaces_existing_file_and_cleans_temp,
+        test_atomic_write_json_replaces_existing_file,
     ]
 
     for test in tests:

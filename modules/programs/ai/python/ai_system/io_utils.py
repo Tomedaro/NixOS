@@ -1,13 +1,31 @@
 import json
+import os
+import tempfile
 from pathlib import Path
 
 
 def atomic_write_text(path, text):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(str(text), encoding="utf-8")
-    tmp.replace(path)
+
+    fd, tmp_name = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=str(path.parent),
+        text=True,
+    )
+    tmp = Path(tmp_name)
+
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(str(text))
+        tmp.replace(path)
+    except Exception:
+        try:
+            tmp.unlink()
+        except FileNotFoundError:
+            pass
+        raise
 
 
 def atomic_write_json(path, data):
@@ -43,6 +61,7 @@ def append_jsonl(path, event):
         handle.write(json.dumps(event, ensure_ascii=False, sort_keys=True))
         handle.write("\n")
 
+
 def read_jsonl(path):
     path = Path(path)
 
@@ -68,4 +87,3 @@ def read_jsonl(path):
         return []
 
     return events
-

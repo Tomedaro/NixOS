@@ -18,6 +18,7 @@ DEFAULT_AI_DIR = Path(
 ).expanduser()
 
 PROPOSAL_EXECUTION_POLICY = "proposal_only_no_direct_execution"
+PLANNER_EXECUTION_POLICY = "planner_must_decide_no_direct_execution"
 
 TRUNCATED_SUFFIX = "...[truncated]"
 
