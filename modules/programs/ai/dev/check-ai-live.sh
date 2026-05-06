@@ -323,12 +323,12 @@ print_unit_group "recovery" 'recovery|recovery-manager|recovery-trigger'
 print_unit_group "intervention outcomes" 'intervention|outcome'
 
 list_queue "pending phone telemetry inbox" "$AI_DIR/inbox/from-phone/events" 1 40
-list_queue "failed phone telemetry newest" "$AI_DIR/inbox/from-phone/failed" 3 20
-list_queue "processed phone telemetry newest" "$AI_DIR/inbox/from-phone/processed" 3 20
+list_queue "failed phone telemetry newest" "$AI_DIR/inbox/from-phone/failed" 3 12
+list_queue "processed phone telemetry newest" "$AI_DIR/inbox/from-phone/processed" 3 12
 report_malformed_processed_phone_telemetry
 list_queue "pending action inbox" "$AI_DIR/inbox/actions" 1 40
-list_queue "failed actions newest" "$AI_DIR/inbox/actions-failed" 3 20
-list_queue "processed actions newest" "$AI_DIR/inbox/actions-processed" 3 20
+list_queue "failed actions newest" "$AI_DIR/inbox/actions-failed" 3 6
+list_queue "processed actions newest" "$AI_DIR/inbox/actions-processed" 3 6
 
 if [ "$VERBOSE" -eq 1 ]; then
  echo
