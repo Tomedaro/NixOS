@@ -17,9 +17,20 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from ai_system.obsidian_contracts import (
+    DIRECT_EXECUTION_FIELDS,
+    PROPOSAL_EXECUTION_POLICY,
+    as_dict,
+    bounded_line,
+    bounded_list,
+    bounded_text,
+    contains_direct_execution as contract_contains_direct_execution,
+    read_json_object,
+    utc_now,
+)
 
 MAX_TEXT = 2000
 MAX_MESSAGE = 4000
@@ -41,23 +52,6 @@ ALLOWED_ACTION_TYPES = {
     "select_existing_task",
     "ask_clarifying_question",
     "draft_action_proposal",
-}
-
-DIRECT_EXECUTION_FIELDS = {
-    "shell_command",
-    "command",
-    "exec",
-    "executable",
-    "desktop_command",
-    "launch_task",
-    "android_package",
-    "uri_to_open",
-    "url_to_open",
-    "write_path",
-    "delete_path",
-    "move_path",
-    "edits_obsidian_now",
-    "writes_live_action_queue",
 }
 
 NOISY_CONTEXT_KEY_MARKERS = (
@@ -84,44 +78,19 @@ SAFE_CONTEXT_FACTS = {
 }
 
 
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(microsecond=0)
-
-
-def bounded_text(value: Any, *, max_len: int = MAX_TEXT) -> str:
-    text = str(value or "").replace("\x00", "").replace("\r\n", "\n").strip()
-    if len(text) <= max_len:
-        return text
-
-    suffix = "...[truncated]"
-    return text[: max(0, max_len - len(suffix))].rstrip() + suffix
-
-
-def bounded_line(value: Any, *, max_len: int = MAX_LABEL) -> str:
-    return bounded_text(value, max_len=max_len).replace("\n", " ").strip()
-
-
-def bounded_list(values: Any, *, max_items: int = MAX_LIST_ITEMS) -> list[str]:
-    if not isinstance(values, list):
-        return []
-
-    out: list[str] = []
-    for value in values[:max_items]:
-        text = bounded_line(value, max_len=MAX_ID)
-        if text:
-            out.append(text)
-    return out
-
-
-def as_dict(value: Any) -> dict[str, Any]:
-    return value if isinstance(value, dict) else {}
-
-
 def read_json(path: Path) -> dict[str, Any]:
-    data = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict):
-        raise ValueError(f"{path} must contain a JSON object")
-    return data
+    return read_json_object(
+        path,
+        object_error=f"{path} must contain a JSON object",
+    )
+
+
+def contains_direct_execution(value: Any) -> list[str]:
+    return contract_contains_direct_execution(
+        value,
+        max_items=MAX_LIST_ITEMS,
+        ignore_empty_dict=True,
+    )
 
 
 def is_noisy_context_key(key: str) -> bool:
@@ -166,30 +135,6 @@ def remove_unsafe_large_fields(value: Any) -> Any:
         return value
 
     return bounded_text(value, max_len=MAX_TEXT)
-
-
-def contains_direct_execution(value: Any) -> list[str]:
-    found: list[str] = []
-
-    def walk(item: Any, prefix: str = "") -> None:
-        if isinstance(item, dict):
-            for key, child in item.items():
-                key_text = str(key)
-                path = f"{prefix}.{key_text}" if prefix else key_text
-                if key_text in DIRECT_EXECUTION_FIELDS and child not in (
-                    None,
-                    "",
-                    [],
-                    {},
-                ):
-                    found.append(path)
-                walk(child, path)
-        elif isinstance(item, list):
-            for index, child in enumerate(item[:MAX_LIST_ITEMS]):
-                walk(child, f"{prefix}[{index}]")
-
-    walk(value)
-    return found
 
 
 def compact_intent(intent: dict[str, Any]) -> dict[str, Any]:
@@ -452,7 +397,7 @@ def sanitize_llm_obsidian_proposal(
         "goal_ids": goal_ids,
         "task_ids": intent_ref["task_ids"],
         "suggested_actions": actions,
-        "execution_policy": "proposal_only_no_direct_execution",
+        "execution_policy": PROPOSAL_EXECUTION_POLICY,
         "context_refs": (
             compact_context_for_llm(context)
             if isinstance(context, dict)

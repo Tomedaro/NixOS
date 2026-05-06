@@ -13,17 +13,21 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
-import re
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from ai_system.io_utils import atomic_write_json, atomic_write_text
-
-DEFAULT_AI_DIR = Path(
-    os.environ.get("AI_DIR", "/home/daniil/Sync/Perseverance.Gu/AI")
-).expanduser()
+from ai_system.obsidian_contracts import (
+    DEFAULT_AI_DIR,
+    as_dict,
+    bounded_line as contract_bounded_line,
+    bounded_list as contract_bounded_list,
+    bounded_text,
+    contains_direct_execution as contract_contains_direct_execution,
+    now_iso_and_epoch,
+    read_json_object,
+    slug as contract_slug,
+)
 
 MAX_ID = 160
 MAX_TITLE = 180
@@ -43,60 +47,25 @@ ALLOWED_STATUSES = {"todo", "doing", "waiting", "done", "cancelled"}
 ALLOWED_PRIORITIES = {"low", "normal", "medium", "high"}
 ALLOWED_ENERGIES = {"low", "medium", "high", "unknown"}
 
-DIRECT_EXECUTION_FIELDS = {
-    "shell_command",
-    "command",
-    "exec",
-    "executable",
-    "launch_task",
-    "android_package",
-    "desktop_command",
-}
-
-
-def now_iso_and_epoch() -> tuple[str, int]:
-    now = datetime.now(timezone.utc).replace(microsecond=0)
-    return now.isoformat(), int(now.timestamp())
-
-
-def bounded_text(value: Any, *, max_len: int = MAX_TEXT) -> str:
-    text = str(value or "").replace("\x00", "").replace("\r\n", "\n").strip()
-    if len(text) <= max_len:
-        return text
-    return text[: max_len - len("...[truncated]")].rstrip() + "...[truncated]"
-
 
 def bounded_line(value: Any, *, max_len: int = MAX_TITLE) -> str:
-    return bounded_text(value, max_len=max_len).replace("\n", " ").strip()
+    return contract_bounded_line(value, max_len=max_len)
 
 
 def bounded_list(values: Any, *, max_items: int = MAX_LIST_ITEMS) -> list[str]:
-    if not isinstance(values, list):
-        return []
-
-    out: list[str] = []
-    for value in values[:max_items]:
-        text = bounded_line(value, max_len=MAX_ID)
-        if text:
-            out.append(text)
-    return out
+    return contract_bounded_list(values, max_items=max_items, max_len=MAX_ID)
 
 
 def slug(value: Any) -> str:
-    text = bounded_line(value, max_len=MAX_ID).lower()
-    text = re.sub(r"[^a-z0-9_.-]+", "-", text).strip("-")
-    return text or "task"
+    return contract_slug(value, max_len=MAX_ID, fallback="task")
 
 
 def read_json(path: Path) -> dict[str, Any]:
-    data = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict):
-        raise ValueError("input must be a JSON object")
-    return data
+    return read_json_object(path, object_error="input must be a JSON object")
 
 
-def as_dict(value: Any) -> dict[str, Any]:
-    return value if isinstance(value, dict) else {}
+def contains_direct_execution(value: Any) -> list[str]:
+    return contract_contains_direct_execution(value, max_items=MAX_LIST_ITEMS)
 
 
 def is_approved(payload: dict[str, Any]) -> bool:
@@ -137,25 +106,6 @@ def extract_proposal(payload: dict[str, Any]) -> dict[str, Any]:
             return candidate
 
     return {}
-
-
-def contains_direct_execution(value: Any) -> list[str]:
-    found: list[str] = []
-
-    def walk(item: Any, prefix: str = "") -> None:
-        if isinstance(item, dict):
-            for key, child in item.items():
-                key_text = str(key)
-                path = f"{prefix}.{key_text}" if prefix else key_text
-                if key_text in DIRECT_EXECUTION_FIELDS and child not in (None, "", []):
-                    found.append(path)
-                walk(child, path)
-        elif isinstance(item, list):
-            for index, child in enumerate(item[:MAX_LIST_ITEMS]):
-                walk(child, f"{prefix}[{index}]")
-
-    walk(value)
-    return found
 
 
 def extract_task_candidate(proposal: dict[str, Any]) -> dict[str, Any]:
