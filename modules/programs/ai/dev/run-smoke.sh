@@ -64,6 +64,7 @@ tests=(
   modules/programs/ai/tests/interaction_lifecycle_smoke.py
   modules/programs/ai/tests/interaction_surface_smoke.py
   modules/programs/ai/tests/obsidian_interaction_smoke.py
+  modules/programs/ai/tests/obsidian_contracts_smoke.py
   modules/programs/ai/tests/obsidian_context_smoke.py
   modules/programs/ai/tests/obsidian_ingress_smoke.py
   modules/programs/ai/tests/obsidian_intent_planner_smoke.py
