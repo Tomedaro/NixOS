@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import json
-import json
 import sys
-import tempfile
 import tempfile
 from pathlib import Path
 

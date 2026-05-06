@@ -13,9 +13,9 @@ from pathlib import Path
 from typing import Any
 
 from ai_system.io_utils import atomic_write_json
-from ai_system.obsidian_contracts import PLANNER_EXECUTION_POLICY
 from ai_system.obsidian_contracts import (
     DEFAULT_AI_DIR,
+    PLANNER_EXECUTION_POLICY,
     bounded_text as contract_bounded_text,
     utc_now,
 )

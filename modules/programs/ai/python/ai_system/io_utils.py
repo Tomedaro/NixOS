@@ -4,6 +4,28 @@ import tempfile
 from pathlib import Path
 
 
+def _fsync_parent_dir(path: Path) -> None:
+    """Best-effort fsync for the directory entry after atomic replace.
+
+    This matters for crash consistency on Unix-like filesystems. Some filesystems
+    or platforms do not support directory fsync, so keep this non-fatal.
+    """
+    if os.name == "nt":
+        return
+
+    try:
+        dir_fd = os.open(path.parent, os.O_RDONLY)
+    except OSError:
+        return
+
+    try:
+        os.fsync(dir_fd)
+    except OSError:
+        pass
+    finally:
+        os.close(dir_fd)
+
+
 def atomic_write_text(path, text):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -19,7 +41,11 @@ def atomic_write_text(path, text):
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
             handle.write(str(text))
-        tmp.replace(path)
+            handle.flush()
+            os.fsync(handle.fileno())
+
+        os.replace(tmp, path)
+        _fsync_parent_dir(path)
     except Exception:
         try:
             tmp.unlink()
