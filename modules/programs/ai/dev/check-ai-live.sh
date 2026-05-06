@@ -15,12 +15,13 @@ PROCESS_ACTIONS=0
 RUN_RECOVERY=0
 RUN_TRIGGER=0
 RUN_OUTCOMES=0
+VERBOSE=0
 
 usage() {
   cat <<'USAGE'
 Usage: modules/programs/ai/dev/check-ai-live.sh [options]
 
-Default mode is inspect-only, except phone-bridge --once is run because it is passive and already safe.
+Default mode is compact and inspect-only, except phone-bridge --once is run because it is passive and already safe.
 
 Options:
   --process-actions   Run the installed action bridge with --once if found.
@@ -135,27 +136,40 @@ unit_exec_bin() {
 }
 
 print_unit_group() {
-  local title="$1"
-  local pattern="$2"
+ local title="$1"
+ local pattern="$2"
 
-  echo
-  echo "===== $title unit candidates ====="
+ echo
+ echo "===== $title units ====="
 
-  mapfile -t units < <(find_units "$pattern")
-  if [ "${#units[@]}" -eq 0 ]; then
-    echo "none found"
-    return 0
-  fi
+ mapfile -t units < <(find_units "$pattern")
+ if [ "${#units[@]}" -eq 0 ]; then
+   echo "none found"
+   return 0
+ fi
 
-  printf '%s\n' "${units[@]}"
+ local unit
+ local active
+ local enabled
 
-  for unit in "${units[@]}"; do
-    echo
-    echo "----- unit: $unit -----"
-    systemctl --user status "$unit" --no-pager || true
-    echo
-    systemctl --user cat "$unit" --no-pager || true
-  done
+ for unit in "${units[@]}"; do
+   active="$(systemctl --user is-active "$unit" 2>/dev/null || true)"
+   enabled="$(systemctl --user is-enabled "$unit" 2>/dev/null || true)"
+   printf '%-42s active=%-12s enabled=%s\n' "$unit" "${active:-unknown}" "${enabled:-unknown}"
+ done
+
+ if [ "$VERBOSE" -eq 0 ]; then
+   echo "use --verbose to show full systemctl status/cat output"
+   return 0
+ fi
+
+ for unit in "${units[@]}"; do
+   echo
+   echo "----- unit: $unit -----"
+   systemctl --user status "$unit" --no-pager || true
+   echo
+   systemctl --user cat "$unit" --no-pager || true
+ done
 }
 
 run_first_unit_once() {
@@ -205,8 +219,7 @@ list_queue() {
    return 0
  fi
 
- find "$dir" -maxdepth "$depth" -type f -printf '%T@ %p
-' 2>/dev/null | sort -n | tail -n "$limit" || true
+ find "$dir" -maxdepth "$depth" -type f -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -n "$limit" || true
 }
 
 report_malformed_processed_phone_telemetry() {
@@ -221,10 +234,9 @@ report_malformed_processed_phone_telemetry() {
 
  local hits
  local malformed_token
- malformed_token="%"
+ malformed_token="$(printf '\045')"
  malformed_token="${malformed_token}ai_event_epoch"
- hits="$(find "$dir" -type f -name "*${malformed_token}*" -printf '%T@ %p
-' 2>/dev/null | sort -n || true)"
+ hits="$(find "$dir" -type f -name "*${malformed_token}*" -printf '%T@ %p\n' 2>/dev/null | sort -n || true)"
  if [ -z "$hits" ]; then
    echo "none"
    return 0
@@ -232,6 +244,57 @@ report_malformed_processed_phone_telemetry() {
 
  echo "$hits"
  echo "WARN: malformed phone telemetry remains in processed; delete or move it to failed."
+}
+
+show_compact_state() {
+ echo
+ echo "===== compact materialized state ====="
+
+ local interaction_state="$AI_DIR/outbox/to-phone/interaction-state.json"
+ local recovery_state="$AI_DIR/state/recovery/current.json"
+ local intervention_stats="$AI_DIR/state/interventions/stats.json"
+
+ if [ -f "$interaction_state" ] && command -v jq >/dev/null 2>&1; then
+   jq -r '"interaction_state updated_at=\(.updated_at // "unknown") active_nudge=\(.active_nudge.status // "none") nudge_id=\(.active_nudge.nudge_id // "none") active_question=\(if .active_question == null then "none" else "present" end)"' "$interaction_state" 2>/dev/null || true
+ elif [ -f "$interaction_state" ]; then
+   echo "interaction_state present: $interaction_state"
+ else
+   echo "interaction_state missing: $interaction_state"
+ fi
+
+ if [ -f "$recovery_state" ] && command -v jq >/dev/null 2>&1; then
+   jq -r '"recovery status=\(.status // "unknown") target=\(.target.target_id // "unknown") updated_at=\(.updated_at // "unknown")"' "$recovery_state" 2>/dev/null || true
+ elif [ -f "$recovery_state" ]; then
+   echo "recovery_state present: $recovery_state"
+ else
+   echo "recovery_state missing: $recovery_state"
+ fi
+
+ if [ -f "$intervention_stats" ] && command -v jq >/dev/null 2>&1; then
+   jq -r '"interventions total=\(.total // 0) shown=\(.shown_count // 0) acted=\(.acted_count // 0) success=\(.success_count // 0)"' "$intervention_stats" 2>/dev/null || true
+ elif [ -f "$intervention_stats" ]; then
+   echo "intervention_stats present: $intervention_stats"
+ else
+   echo "intervention_stats missing: $intervention_stats"
+ fi
+}
+
+show_status_heads() {
+ echo
+ echo "===== status markdown summary ====="
+ local path
+ for path in \
+   "$AI_DIR/state/recovery/status.md" \
+   "$AI_DIR/state/interventions/status.md" \
+   "$AI_DIR/state/recovery-trigger/status.md"
+ do
+   if [ -f "$path" ]; then
+     echo "--- $path ---"
+     sed -n '1,40p' "$path"
+   else
+     echo "missing: $path"
+   fi
+ done
 }
 
 count_pending_json() {
@@ -267,18 +330,23 @@ list_queue "pending action inbox" "$AI_DIR/inbox/actions" 1 40
 list_queue "failed actions newest" "$AI_DIR/inbox/actions-failed" 3 20
 list_queue "processed actions newest" "$AI_DIR/inbox/actions-processed" 3 20
 
-echo
-echo "===== current materialized state ====="
-json_or_cat "$AI_DIR/outbox/to-phone/interaction-state.json"
-json_or_cat "$AI_DIR/outbox/to-phone/current-nudge.json"
-json_or_cat "$AI_DIR/state/recovery/current.json"
-json_or_cat "$AI_DIR/state/interventions/stats.json"
+if [ "$VERBOSE" -eq 1 ]; then
+ echo
+ echo "===== current materialized state ====="
+ json_or_cat "$AI_DIR/outbox/to-phone/interaction-state.json"
+ json_or_cat "$AI_DIR/outbox/to-phone/current-nudge.json"
+ json_or_cat "$AI_DIR/state/recovery/current.json"
+ json_or_cat "$AI_DIR/state/interventions/stats.json"
 
-echo
-echo "===== status markdown ====="
-status_md_or_missing "$AI_DIR/state/recovery/status.md"
-status_md_or_missing "$AI_DIR/state/interventions/status.md"
-status_md_or_missing "$AI_DIR/state/recovery-trigger/status.md"
+ echo
+ echo "===== status markdown ====="
+ status_md_or_missing "$AI_DIR/state/recovery/status.md"
+ status_md_or_missing "$AI_DIR/state/interventions/status.md"
+ status_md_or_missing "$AI_DIR/state/recovery-trigger/status.md"
+else
+ show_compact_state
+ show_status_heads
+fi
 
 run_first_unit_once "phone bridge --once" 'phone.*bridge|phone-bridge' --once
 
