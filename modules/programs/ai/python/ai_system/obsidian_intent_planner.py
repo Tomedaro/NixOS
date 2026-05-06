@@ -104,6 +104,52 @@ def infer_proposal_kind(intent: dict[str, Any], context_refs: dict[str, Any]) ->
     return "clarify_or_plan"
 
 
+def candidate_obsidian_tasks(
+    context_refs: dict[str, Any],
+    goal_ids: list[Any],
+) -> list[dict[str, Any]]:
+    obsidian = (
+        context_refs.get("obsidian")
+        if isinstance(context_refs.get("obsidian"), dict)
+        else {}
+    )
+    tasks = obsidian.get("open_tasks")
+    if not isinstance(tasks, list):
+        return []
+
+    wanted_goals = {str(goal) for goal in goal_ids if str(goal)}
+    candidates: list[dict[str, Any]] = []
+
+    for task in tasks:
+        if not isinstance(task, dict):
+            continue
+
+        status = str(task.get("status") or "").lower()
+        if status in {"done", "cancelled", "canceled"}:
+            continue
+
+        task_goal = str(task.get("goal_id") or "")
+        if wanted_goals and task_goal and task_goal not in wanted_goals:
+            continue
+
+        candidates.append(task)
+
+    priority_rank = {"high": 0, "medium": 1, "normal": 2, "low": 3}
+
+    def rank(task: dict[str, Any]) -> tuple[int, str]:
+        priority = str(task.get("priority") or "normal").lower()
+        return (priority_rank.get(priority, 2), str(task.get("text") or ""))
+
+    return sorted(candidates, key=rank)
+
+
+def first_task_text(tasks: list[dict[str, Any]]) -> str:
+    if not tasks:
+        return ""
+
+    return clip_text(tasks[0].get("text") or tasks[0].get("title") or "", 180)
+
+
 def build_markdown(proposal: dict[str, Any]) -> str:
     actions = proposal.get("suggested_actions") or []
 
@@ -187,24 +233,52 @@ def build_proposal(
         ]
     elif proposal_kind == "next_goal_step":
         goal_text = ", ".join(str(goal) for goal in goal_ids) or "current goal"
-        summary = f"Pick a small next step for {goal_text}"
-        message_markdown = (
-            f"Based on your Obsidian intent, the useful next move is a tiny step tied to "
-            f"`{goal_text}`.\n\n"
-            f"Message: {message or 'No message body provided.'}"
-        )
-        suggested_actions = [
-            {
-                "type": "suggest_next_step",
-                "label": "Choose one 5-15 minute next action",
-                "requires_approval": False,
-            },
-            {
-                "type": "draft_task",
-                "label": "Draft an Obsidian task, do not write it yet",
-                "requires_approval": True,
-            },
-        ]
+        task_candidates = candidate_obsidian_tasks(context_refs, goal_ids)
+        chosen_task = first_task_text(task_candidates)
+
+        if chosen_task:
+            summary = chosen_task
+            message_markdown = (
+                f"Your next useful action for `{goal_text}` is:\n\n"
+                f"**{chosen_task}**\n\n"
+                "This was selected from the current Obsidian task context, not invented."
+            )
+            suggested_actions = [
+                {
+                    "type": "suggest_next_step",
+                    "label": chosen_task,
+                    "requires_approval": False,
+                },
+                {
+                    "type": "draft_task",
+                    "label": chosen_task,
+                    "requires_approval": True,
+                    "title": chosen_task,
+                    "goal_id": str(goal_ids[0]) if goal_ids else "",
+                    "priority": str(task_candidates[0].get("priority") or "normal"),
+                    "estimated_minutes": task_candidates[0].get("estimated_minutes")
+                    or 15,
+                },
+            ]
+        else:
+            summary = f"Pick a small next step for {goal_text}"
+            message_markdown = (
+                f"Based on your Obsidian intent, the useful next move is a tiny step tied to "
+                f"`{goal_text}`.\n\n"
+                f"Message: {message or 'No message body provided.'}"
+            )
+            suggested_actions = [
+                {
+                    "type": "suggest_next_step",
+                    "label": "Choose one 5-15 minute next action",
+                    "requires_approval": False,
+                },
+                {
+                    "type": "draft_task",
+                    "label": "Draft an Obsidian task, do not write it yet",
+                    "requires_approval": True,
+                },
+            ]
     elif proposal_kind == "next_task_step":
         summary = "Pick a next task from Obsidian context"
         message_markdown = (

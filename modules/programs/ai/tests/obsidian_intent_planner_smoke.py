@@ -103,9 +103,70 @@ def test_no_pending_intent_is_nonfatal() -> None:
         assert result["status"] == "no_pending_intent"
 
 
+def test_goal_message_prefers_concrete_matching_obsidian_task() -> None:
+    from datetime import datetime, timezone
+
+    from ai_system.obsidian_intent_planner import build_proposal
+
+    intent = {
+        "schema_version": "obsidian_intent.v1",
+        "intent_id": "intent-stem-stuck",
+        "kind": "message",
+        "status": "pending",
+        "message": "I feel stuck. Help me choose one useful next action for STEM study.",
+        "goal_ids": ["stem-study"],
+        "note_path": "Goals/Today.md",
+    }
+
+    context = {
+        "schema_version": "agent_context.v1",
+        "generated_at": "2026-05-06T18:24:01+02:00",
+        "context_hub": {
+            "schema_version": "context_hub.v1",
+            "facts": {
+                "interaction": {},
+                "obsidian_intent": {},
+                "recovery": {},
+                "obsidian": {
+                    "schema_version": "obsidian_context.v1",
+                    "open_tasks": [
+                        {
+                            "text": "Read unrelated language article",
+                            "status": "todo",
+                            "priority": "low",
+                            "goal_id": "language-learning",
+                        },
+                        {
+                            "text": "Do one linear algebra exercise",
+                            "status": "todo",
+                            "priority": "high",
+                            "goal_id": "stem-study",
+                        },
+                    ],
+                },
+            },
+        },
+    }
+
+    proposal = build_proposal(
+        intent,
+        context,
+        now=datetime(2026, 5, 6, 16, 24, 1, tzinfo=timezone.utc),
+    )
+
+    assert proposal["proposal_kind"] == "next_goal_step"
+    assert proposal["summary"] == "Do one linear algebra exercise"
+    assert proposal["suggested_actions"][0]["label"] == "Do one linear algebra exercise"
+    assert proposal["suggested_actions"][1]["type"] == "draft_task"
+    assert proposal["suggested_actions"][1]["title"] == "Do one linear algebra exercise"
+    assert proposal["suggested_actions"][1]["goal_id"] == "stem-study"
+    assert proposal["execution_policy"] == "proposal_only_no_direct_execution"
+
+
 def run_all() -> None:
     tests = [
         test_goal_message_builds_next_step_proposal,
+        test_goal_message_prefers_concrete_matching_obsidian_task,
         test_action_request_stays_review_only,
         test_run_planner_writes_current_proposal,
         test_no_pending_intent_is_nonfatal,
