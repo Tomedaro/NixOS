@@ -136,7 +136,7 @@ for dir in \
 do
   echo "--- $dir ---"
   if [ -d "$dir" ]; then
-    find "$dir" -type f -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -40 || true
+    find "$dir" -type f -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -n 20 || true
   else
     echo "missing"
   fi

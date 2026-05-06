@@ -193,18 +193,45 @@ run_first_unit_once() {
 }
 
 list_queue() {
-  local title="$1"
-  local dir="$2"
-  local depth="${3:-1}"
+ local title="$1"
+ local dir="$2"
+ local depth="${3:-1}"
+ local limit="${4:-40}"
 
-  echo
-  echo "===== $title ====="
-  if [ ! -d "$dir" ]; then
-    echo "missing: $dir"
-    return 0
-  fi
+ echo
+ echo "===== $title ====="
+ if [ ! -d "$dir" ]; then
+   echo "missing: $dir"
+   return 0
+ fi
 
-  find "$dir" -maxdepth "$depth" -type f -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -40 || true
+ find "$dir" -maxdepth "$depth" -type f -printf '%T@ %p
+' 2>/dev/null | sort -n | tail -n "$limit" || true
+}
+
+report_malformed_processed_phone_telemetry() {
+ local dir="$AI_DIR/inbox/from-phone/processed"
+
+ echo
+ echo "===== malformed processed phone telemetry ====="
+ if [ ! -d "$dir" ]; then
+   echo "missing: $dir"
+   return 0
+ fi
+
+ local hits
+ local malformed_token
+ malformed_token="%"
+ malformed_token="${malformed_token}ai_event_epoch"
+ hits="$(find "$dir" -type f -name "*${malformed_token}*" -printf '%T@ %p
+' 2>/dev/null | sort -n || true)"
+ if [ -z "$hits" ]; then
+   echo "none"
+   return 0
+ fi
+
+ echo "$hits"
+ echo "WARN: malformed phone telemetry remains in processed; delete or move it to failed."
 }
 
 count_pending_json() {
@@ -232,12 +259,13 @@ print_unit_group "action bridge" 'action.*bridge|ai-action|action-bridge'
 print_unit_group "recovery" 'recovery|recovery-manager|recovery-trigger'
 print_unit_group "intervention outcomes" 'intervention|outcome'
 
-list_queue "pending phone telemetry inbox" "$AI_DIR/inbox/from-phone/events" 1
-list_queue "failed phone telemetry newest" "$AI_DIR/inbox/from-phone/failed" 3
-list_queue "processed phone telemetry newest" "$AI_DIR/inbox/from-phone/processed" 3
-list_queue "pending action inbox" "$AI_DIR/inbox/actions" 1
-list_queue "failed actions newest" "$AI_DIR/inbox/actions-failed" 3
-list_queue "processed actions newest" "$AI_DIR/inbox/actions-processed" 3
+list_queue "pending phone telemetry inbox" "$AI_DIR/inbox/from-phone/events" 1 40
+list_queue "failed phone telemetry newest" "$AI_DIR/inbox/from-phone/failed" 3 20
+list_queue "processed phone telemetry newest" "$AI_DIR/inbox/from-phone/processed" 3 20
+report_malformed_processed_phone_telemetry
+list_queue "pending action inbox" "$AI_DIR/inbox/actions" 1 40
+list_queue "failed actions newest" "$AI_DIR/inbox/actions-failed" 3 20
+list_queue "processed actions newest" "$AI_DIR/inbox/actions-processed" 3 20
 
 echo
 echo "===== current materialized state ====="
@@ -286,8 +314,8 @@ fi
 
 echo
 echo "===== live queues after check ====="
-list_queue "pending phone telemetry inbox after" "$AI_DIR/inbox/from-phone/events" 1
-list_queue "pending action inbox after" "$AI_DIR/inbox/actions" 1
+list_queue "pending phone telemetry inbox after" "$AI_DIR/inbox/from-phone/events" 1 40
+list_queue "pending action inbox after" "$AI_DIR/inbox/actions" 1 40
 
 echo
 echo "===== git status after live AI check ====="
