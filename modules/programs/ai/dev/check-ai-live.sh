@@ -10,6 +10,8 @@ export PAGER=cat
 export NO_COLOR=1
 
 AI_DIR="${AI_DIR:-/home/daniil/Sync/Perseverance.Gu/AI}"
+PYTHON_LIB="$REPO_ROOT/modules/programs/ai/python"
+export PYTHONPATH="$PYTHON_LIB${PYTHONPATH:+:$PYTHONPATH}"
 
 PROCESS_ACTIONS=0
 RUN_RECOVERY=0
@@ -28,11 +30,13 @@ Options:
   --run-recovery      Run the installed recovery manager with --once if found.
   --run-trigger       Run the installed recovery trigger with --once if found.
   --run-outcomes      Run the installed intervention outcome reporter if found.
+  --verbose, -v       Show full systemd status/cat output and materialized JSON.
   --help              Show this help.
 
 The mutating options are explicit on purpose. They may process real live queue/state.
 USAGE
 }
+
 
 for arg in "$@"; do
   case "$arg" in
@@ -47,6 +51,9 @@ for arg in "$@"; do
       ;;
     --run-outcomes)
       RUN_OUTCOMES=1
+      ;;
+    --verbose|-v)
+      VERBOSE=1
       ;;
     --help|-h)
       usage
@@ -313,6 +320,25 @@ show_compact_state() {
  fi
 }
 
+
+
+report_interaction_surface() {
+ echo
+ echo "===== interaction surface ====="
+
+ local helper="$SCRIPT_DIR/interaction_surface.py"
+ if [ ! -f "$helper" ]; then
+   echo "missing: $helper"
+   return 0
+ fi
+
+ if command -v python3 >/dev/null 2>&1; then
+   python3 "$helper" "$AI_DIR"
+ else
+   nix shell nixpkgs#python3 -c python3 "$helper" "$AI_DIR"
+ fi
+}
+
 show_status_heads() {
  echo
  echo "===== status markdown summary ====="
@@ -371,6 +397,8 @@ report_malformed_processed_phone_telemetry
 list_queue "pending action inbox" "$AI_DIR/inbox/actions" 1 40
 list_queue "failed actions newest" "$AI_DIR/inbox/actions-failed" 3 6
 list_queue "processed actions newest" "$AI_DIR/inbox/actions-processed" 3 6
+
+report_interaction_surface
 
 if [ "$VERBOSE" -eq 1 ]; then
  echo
