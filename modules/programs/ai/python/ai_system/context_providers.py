@@ -1,7 +1,8 @@
 """Read-only context providers for the local AI context hub.
 
-Providers normalize local state into facts for planners/LLMs. They must not write
-files, clear interactions, enqueue actions, or classify lifecycle outcomes.
+Providers normalize local state into bounded facts for planners/LLMs. They must
+not write files, clear interactions, enqueue actions, or classify lifecycle
+outcomes.
 """
 
 from __future__ import annotations
@@ -38,11 +39,115 @@ def first_readable_json(paths: list[Path]) -> tuple[Path | None, dict[str, Any]]
     return None, {}
 
 
+def as_dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def as_int(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+
+    try:
+        return int(value)
+    except Exception:
+        return None
+
+
 def status_from_compact(value: Any) -> str:
     if not isinstance(value, dict):
         return "none"
 
     return str(value.get("status") or "present")
+
+
+def compact_recovery_facts(data: dict[str, Any]) -> dict[str, Any]:
+    target = as_dict(data.get("target"))
+    lifecycle = as_dict(data.get("lifecycle"))
+    classification = as_dict(data.get("classification"))
+    last_lifecycle_event = as_dict(data.get("last_lifecycle_event"))
+    last_event = last_lifecycle_event or as_dict(data.get("last_event"))
+
+    target_id = (
+        data.get("target_id")
+        or target.get("target_id")
+        or lifecycle.get("target_id")
+        or last_event.get("target_id")
+        or ""
+    )
+
+    return {
+        "schema_version": "recovery_context.v1",
+        "status": str(data.get("status") or ""),
+        "recovery_id": str(data.get("recovery_id") or ""),
+        "target_id": str(target_id),
+        "target_name": str(target.get("name") or last_event.get("target_name") or ""),
+        "started_at": str(data.get("started_at") or ""),
+        "updated_at": str(data.get("updated_at") or ""),
+        "classification_status": str(classification.get("status") or ""),
+        "classification_reason": str(classification.get("reason") or ""),
+        "evidence_quality": str(lifecycle.get("evidence_quality") or ""),
+        "event_count": as_int(lifecycle.get("event_count")),
+        "flapping_count": as_int(lifecycle.get("flapping_count")),
+        "rapid_exit_detected": bool(lifecycle.get("rapid_exit_detected", False)),
+        "total_observed_dwell_seconds": as_int(
+            lifecycle.get("total_observed_dwell_seconds")
+        ),
+        "longest_observed_dwell_seconds": as_int(
+            lifecycle.get("longest_observed_dwell_seconds")
+        ),
+        "last_event": str(
+            last_event.get("event")
+            or last_event.get("event_type")
+            or last_event.get("action")
+            or ""
+        ),
+        "last_event_at": str(
+            last_event.get("timestamp")
+            or last_event.get("processed_at")
+            or data.get("updated_at")
+            or ""
+        ),
+    }
+
+
+def compact_intervention_facts(data: dict[str, Any]) -> dict[str, Any]:
+    keys = [
+        "schema_version",
+        "total",
+        "shown_count",
+        "acted_count",
+        "started_count",
+        "terminal_count",
+        "success_count",
+        "action_rate",
+        "start_rate",
+        "terminal_success_rate",
+        "by_outcome",
+    ]
+
+    return {key: data[key] for key in keys if key in data}
+
+
+def compact_anki_facts(data: dict[str, Any]) -> dict[str, Any]:
+    keys = [
+        "updated_at",
+        "due",
+        "total_due",
+        "new_count",
+        "learning_count",
+        "review_count",
+        "deck_count",
+        "deck",
+        "decks",
+        "status",
+    ]
+
+    facts = {key: data[key] for key in keys if key in data}
+
+    if not facts and data:
+        facts["available_keys"] = sorted(str(key) for key in data.keys())[:20]
+
+    return facts
 
 
 def interaction_provider(ai_dir: Path) -> dict[str, Any]:
@@ -134,7 +239,7 @@ def anki_provider(ai_dir: Path) -> dict[str, Any]:
     return provider_result(
         "anki",
         available=True,
-        facts=data,
+        facts=compact_anki_facts(data),
         freshness="from_state",
         source_paths=[str(path)],
     )
@@ -157,25 +262,10 @@ def recovery_provider(ai_dir: Path) -> dict[str, Any]:
             source_paths=[str(path) for path in paths],
         )
 
-    facts = {
-        "status": data.get("status", ""),
-        "target_id": (
-            data.get("target_id")
-            or (data.get("target") if isinstance(data.get("target"), str) else "")
-            or (
-                data.get("target", {}).get("target_id")
-                if isinstance(data.get("target"), dict)
-                else ""
-            )
-        ),
-        "updated_at": data.get("updated_at", ""),
-        "raw": data,
-    }
-
     return provider_result(
         "recovery",
         available=True,
-        facts=facts,
+        facts=compact_recovery_facts(data),
         freshness="from_state",
         source_paths=[str(path)],
     )
@@ -199,7 +289,7 @@ def intervention_provider(ai_dir: Path) -> dict[str, Any]:
     return provider_result(
         "interventions",
         available=True,
-        facts=data,
+        facts=compact_intervention_facts(data),
         freshness="from_state",
         source_paths=[str(path)],
     )

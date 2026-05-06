@@ -113,11 +113,65 @@ def test_context_hub_is_nonfatal_without_provider_files() -> None:
         assert "activitywatch" in hub["facts"]
 
 
+def test_recovery_provider_uses_compact_facts_without_raw() -> None:
+    with tempfile.TemporaryDirectory(prefix="ai-context-hub-recovery-") as tmp:
+        ai_dir = Path(tmp) / "AI"
+
+        write_json(
+            ai_dir / "state/recovery/current.json",
+            {
+                "schema_version": "recovery_session.v1",
+                "recovery_id": "recovery-anki-test",
+                "status": "possible_success",
+                "started_at": "2026-05-06T12:00:00+00:00",
+                "updated_at": "2026-05-06T12:05:24+00:00",
+                "target": {
+                    "target_id": "anki",
+                    "name": "Anki",
+                },
+                "classification": {
+                    "status": "possible_success",
+                    "reason": "observed_target_dwell_reached_success_threshold",
+                },
+                "lifecycle": {
+                    "target_id": "anki",
+                    "event_count": 1,
+                    "flapping_count": 0,
+                    "evidence_quality": "normal",
+                    "rapid_exit_detected": False,
+                    "total_observed_dwell_seconds": 324,
+                    "longest_observed_dwell_seconds": 324,
+                },
+                "last_lifecycle_event": {
+                    "event": "recovery_possible_success",
+                    "timestamp": "2026-05-06T12:05:24+00:00",
+                    "target_id": "anki",
+                },
+                "large_raw_payload_that_should_not_leak": {
+                    "intervals": [{"x": "y"} for _ in range(50)],
+                },
+            },
+        )
+
+        context = build_agent_context(ai_dir, now_epoch=1778072400)
+        recovery = context["context_hub"]["facts"]["recovery"]
+
+        assert recovery["schema_version"] == "recovery_context.v1"
+        assert recovery["status"] == "possible_success"
+        assert recovery["target_id"] == "anki"
+        assert recovery["target_name"] == "Anki"
+        assert recovery["total_observed_dwell_seconds"] == 324
+        assert recovery["last_event"] == "recovery_possible_success"
+        assert "raw" not in recovery
+        assert "large_raw_payload_that_should_not_leak" not in recovery
+
+
 def run_all() -> None:
     tests = [
         test_context_hub_attaches_provider_snapshot,
         test_obsidian_provider_accepts_future_context_file,
         test_context_hub_is_nonfatal_without_provider_files,
+        test_recovery_provider_uses_compact_facts_without_raw,
     ]
 
     for test in tests:
