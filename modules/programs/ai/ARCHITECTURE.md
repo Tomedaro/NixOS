@@ -239,3 +239,24 @@ Every runtime contract change should include a smoke/regression test. The minimu
 ### Documentation expectations
 
 Architecture docs should describe current contracts and invariants, not preserve every historical implementation. Old standalone architecture/protocol docs can be deleted once their live invariants are consolidated into `ARCHITECTURE.md` and `README.md`.
+
+## Observation, proposal, and diagnostic boundaries
+
+The AI system is intentionally split into read-only observation, proposal generation,
+validation, and explicit mutation.
+
+- ActivityWatch, phone telemetry, and other runtime signals are observation inputs.
+  They should describe what happened; they should not directly create commands.
+- `agent_context.py` is the shared read-only context builder. It may aggregate facts
+  from local state and event logs, but it should not write nudges, actions, or
+  lifecycle outcomes.
+- LLM and deterministic recovery components may propose interventions. Proposals
+  must remain declarative and pass `proposal_gate.py` before anything phone-visible
+  is written.
+- `action-bridge` owns intentional user actions from `AI/inbox/actions`.
+- `recovery-manager` owns recovery lifecycle classification from observed evidence.
+- Dev diagnostics, including `check-ai-live.sh` and `interaction_surface.py`, are
+  read-only by default. They may explain stale or inconsistent interaction state,
+  but they should not silently repair or clear it.
+- Any live mutation in dev tools should stay behind explicit flags, matching the
+  inspect-first Nix/Linux operator workflow.
