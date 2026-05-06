@@ -10,43 +10,27 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from ai_system.io_utils import atomic_write_json, atomic_write_text
-
-DEFAULT_AI_DIR = Path(
-    os.environ.get("AI_DIR", "/home/daniil/Sync/Perseverance.Gu/AI")
-).expanduser()
+from ai_system.obsidian_contracts import (
+    DEFAULT_AI_DIR,
+    bounded_text as contract_bounded_text,
+    read_json_object,
+    utc_now,
+)
 
 MAX_TEXT = 4000
 MAX_ACTIONS = 8
 
 
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(microsecond=0)
-
-
 def clip_text(value: Any, limit: int = MAX_TEXT) -> str:
-    text = str(value or "").replace("\x00", "").strip()
-    if len(text) <= limit:
-        return text
-
-    suffix = "...[truncated]"
-    return text[: max(0, limit - len(suffix))] + suffix
+    return contract_bounded_text(value, max_len=limit)
 
 
 def read_json(path: Path) -> dict[str, Any]:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        return {}
-    except Exception:
-        return {}
-
-    return data if isinstance(data, dict) else {}
+    return read_json_object(path, missing_ok=True, default={})
 
 
 def latest_action_file(ai_dir: Path) -> Path | None:
