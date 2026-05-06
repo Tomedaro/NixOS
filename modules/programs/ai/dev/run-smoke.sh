@@ -60,6 +60,7 @@ tests=(
   modules/programs/ai/tests/phone_bridge_smoke.py
   modules/programs/ai/tests/action_bridge_smoke.py
   modules/programs/ai/tests/agent_context_smoke.py
+  modules/programs/ai/tests/interaction_lifecycle_smoke.py
   modules/programs/ai/tests/proposal_gate_smoke.py
   modules/programs/ai/tests/recovery_proposals_smoke.py
   modules/programs/ai/tests/recovery_smoke.py

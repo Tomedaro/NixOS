@@ -22,6 +22,7 @@ from typing import Any
 
 from ai_system.io_utils import atomic_write_json, atomic_write_text, read_json, read_jsonl
 from ai_system.time_utils import get_timezone
+from ai_system.interaction_lifecycle import clear_reason_for_active_nudge
 
 
 DEFAULT_AI_DIR = Path(os.environ.get("AI_DIR", "/home/daniil/Sync/Perseverance.Gu/AI")).expanduser()
@@ -99,15 +100,80 @@ def active_recovery(recovery: dict[str, Any]) -> bool:
     return safe_status(recovery) in ACTIVE_RECOVERY_STATUSES
 
 
+def normalize_active_nudge_candidate(value: Any) -> dict[str, Any]:
+   candidate = safe_dict(value)
+   if safe_status(candidate) not in ACTIVE_NUDGE_STATUSES:
+       return {}
+
+   normalized = dict(candidate)
+
+   # interaction-state.json historically stores compact active_nudge objects.
+   # Lifecycle helpers expect the full phone_interaction nudge shape.
+   normalized.setdefault("schema_version", "phone_interaction.v1")
+   normalized.setdefault("kind", "nudge")
+
+   return normalized
+
+
+def merge_active_nudge_candidates(
+   current: dict[str, Any],
+   compact: dict[str, Any],
+) -> dict[str, Any]:
+   merged = dict(current)
+
+   for key, value in compact.items():
+       if value in (None, "", []):
+           continue
+       merged[key] = value
+
+   return merged
+
+
+def active_nudge_candidates(
+   nudge: dict[str, Any],
+   interaction_state: dict[str, Any],
+) -> list[dict[str, Any]]:
+   current = normalize_active_nudge_candidate(nudge)
+   compact = normalize_active_nudge_candidate(interaction_state.get("active_nudge"))
+
+   current_id = current.get("nudge_id")
+   compact_id = compact.get("nudge_id")
+
+   if current and compact and current_id and current_id == compact_id:
+       return [merge_active_nudge_candidates(current, compact)]
+
+   candidates: list[dict[str, Any]] = []
+   if current:
+       candidates.append(current)
+   if compact:
+       candidates.append(compact)
+
+   return candidates
+
+
+def active_nudge_clear_reason(
+   nudge: dict[str, Any],
+   interaction_state: dict[str, Any],
+) -> str | None:
+   saw_expired_reason: str | None = None
+
+   for candidate in active_nudge_candidates(nudge, interaction_state):
+       clear_reason = clear_reason_for_active_nudge({"active_nudge": candidate})
+       if clear_reason:
+           saw_expired_reason = saw_expired_reason or clear_reason
+           continue
+       return None
+
+   return saw_expired_reason
+
+
 def active_nudge(nudge: dict[str, Any], interaction_state: dict[str, Any]) -> bool:
-    if safe_status(nudge) in ACTIVE_NUDGE_STATUSES:
-        return True
+   for candidate in active_nudge_candidates(nudge, interaction_state):
+       clear_reason = clear_reason_for_active_nudge({"active_nudge": candidate})
+       if not clear_reason:
+           return True
 
-    active = interaction_state.get("active_nudge")
-    if isinstance(active, dict) and safe_status(active) in ACTIVE_NUDGE_STATUSES:
-        return True
-
-    return False
+   return False
 
 
 def active_question(question: dict[str, Any], interaction_state: dict[str, Any]) -> bool:
@@ -340,6 +406,7 @@ def build_derived_facts(
     return {
         "has_active_session": active_session(session),
         "has_active_nudge": active_nudge(current_nudge, interaction_state),
+        "active_nudge_clear_reason": active_nudge_clear_reason(current_nudge, interaction_state),
         "has_active_question": active_question(current_question, interaction_state),
         "has_active_recovery": active_recovery(recovery),
         "recent_terminal_recovery": recovery_recent,

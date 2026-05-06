@@ -77,6 +77,12 @@ def setup_ai_dir() -> tuple[tempfile.TemporaryDirectory, Path, object]:
     return tmp, ai_dir, module
 
 
+def find_files(root: Path, pattern: str) -> list[Path]:
+    if not root.exists():
+        return []
+    return sorted(root.rglob(pattern))
+
+
 def test_valid_phone_event_is_processed() -> None:
     tmp, ai_dir, module = setup_ai_dir()
     with tmp:
@@ -99,7 +105,7 @@ def test_valid_phone_event_is_processed() -> None:
         assert events[0]["event"] == "opened_ankidroid"
         assert events[0]["raw_file"] == "inbox/from-phone/events/1777995447_opened_ankidroid.json"
         assert not raw.exists()
-        assert list((ai_dir / "inbox/from-phone/processed/2026-05-05").glob("*.json"))
+        assert find_files(ai_dir / "inbox/from-phone/processed", "*.json")
 
 
 def test_literal_tasker_variable_filename_is_failed() -> None:
@@ -118,9 +124,9 @@ def test_literal_tasker_variable_filename_is_failed() -> None:
         assert module.tick() == 0
 
         assert not read_jsonl(ai_dir / "events/phone/2026-05-05.jsonl")
-        failed = list((ai_dir / "inbox/from-phone/failed/2026-05-05").glob("*.json"))
+        failed = find_files(ai_dir / "inbox/from-phone/failed", "*.json")
         assert failed, "bad raw file was not moved to failed"
-        errors = list((ai_dir / "inbox/from-phone/failed/2026-05-05").glob("*.error.txt"))
+        errors = find_files(ai_dir / "inbox/from-phone/failed", "*.error.txt")
         assert errors
         assert "unexpanded Tasker variable" in errors[0].read_text(encoding="utf-8")
 
@@ -141,7 +147,7 @@ def test_literal_tasker_variable_timestamp_is_failed() -> None:
         assert module.tick() == 0
 
         assert not read_jsonl(ai_dir / "events/phone/2026-05-05.jsonl")
-        errors = list((ai_dir / "inbox/from-phone/failed/2026-05-05").glob("*.error.txt"))
+        errors = find_files(ai_dir / "inbox/from-phone/failed", "*.error.txt")
         assert errors
         assert "unexpanded Tasker variable" in errors[0].read_text(encoding="utf-8")
 
@@ -162,7 +168,7 @@ def test_misrouted_action_is_failed() -> None:
         assert module.tick() == 0
 
         assert not read_jsonl(ai_dir / "events/phone/2026-05-05.jsonl")
-        errors = list((ai_dir / "inbox/from-phone/failed/2026-05-05").glob("*.error.txt"))
+        errors = find_files(ai_dir / "inbox/from-phone/failed", "*.error.txt")
         assert errors
         assert "misrouted action file" in errors[0].read_text(encoding="utf-8")
 

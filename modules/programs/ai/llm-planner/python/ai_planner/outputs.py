@@ -9,6 +9,7 @@ from ai_planner.io_utils import (
     read_text,
     today,
 )
+from ai_system.interaction_lifecycle import clear_reason_for_active_nudge
 
 
 def write_context_files(config, context, markdown):
@@ -213,10 +214,18 @@ def _existing_active_question(config):
 
 def _existing_active_nudge(config):
     existing = read_json(config.outbox_to_phone_dir / "current-nudge.json", {})
-    if isinstance(existing, dict) and existing.get("status") == "active":
-        return existing
+    if not isinstance(existing, dict):
+        return {}
 
-    return {}
+    if existing.get("status") != "active":
+        return {}
+
+    clear_reason = clear_reason_for_active_nudge({"active_nudge": existing})
+    if clear_reason:
+        print(f"expired active nudge ignored: {clear_reason}")
+        return {}
+
+    return existing
 
 
 def current_question_is_active(config):
@@ -485,11 +494,19 @@ def _compact_nudge(payload):
         return None
 
     return {
+        "schema_version": payload.get("schema_version", "phone_interaction.v1"),
+        "kind": "nudge",
         "nudge_id": payload.get("nudge_id", ""),
         "status": payload.get("status", "active"),
+        "created_at": payload.get("created_at", ""),
+        "updated_at": payload.get("updated_at", ""),
+        "source": payload.get("source", "llm-planner"),
+        "planner_mode": payload.get("planner_mode", "block-plan"),
         "urgency": payload.get("urgency", "normal"),
         "message": payload.get("message", ""),
         "recommended_next_action": payload.get("recommended_next_action", ""),
+        "target_id": payload.get("target_id", ""),
+        "target_name": payload.get("target_name", ""),
         "actions": payload.get("actions", []),
     }
 

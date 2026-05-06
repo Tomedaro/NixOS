@@ -195,6 +195,44 @@ def test_write_agent_context() -> None:
         assert (ai_dir / "state/agent/status.md").exists()
 
 
+
+def test_stale_active_nudge_is_not_blocking() -> None:
+   with tempfile.TemporaryDirectory(prefix="ai-agent-context-stale-nudge-") as tmp:
+       ai_dir = Path(tmp) / "AI"
+
+       write_json(ai_dir / "outbox/to-phone/current-nudge.json", {
+           "schema_version": "phone_interaction.v1",
+           "kind": "nudge",
+           "status": "active",
+           "nudge_id": "n-stale",
+           "created_at": "2026-05-05T19:00:00+02:00",
+           "updated_at": "2026-05-05T21:10:00+02:00",
+           "source": "llm-planner",
+           "planner_mode": "help-now",
+           "message": "old",
+       })
+
+       write_json(ai_dir / "outbox/to-phone/interaction-state.json", {
+           "schema_version": "phone_interaction_state.v1",
+           "updated_at": "2026-05-05T21:10:00+02:00",
+           "source": "llm-planner",
+           "planner_mode": "help-now",
+           "active_nudge": {
+               "nudge_id": "n-stale",
+               "status": "active",
+               "source": "llm-planner",
+               "planner_mode": "help-now",
+           },
+           "active_question": None,
+       })
+
+       context = build_agent_context(ai_dir=ai_dir, now_epoch=1778008200)
+       facts = context["derived_facts"]
+
+       assert facts["has_active_nudge"] is False
+       assert facts.get("active_nudge_clear_reason") == "expired_help-now_nudge"
+
+
 def main() -> None:
     tests = [
         test_empty_context,
@@ -203,6 +241,7 @@ def main() -> None:
         test_recent_snooze_and_terminal_recovery,
         test_event_tails_are_bounded_and_sorted,
         test_legacy_anki_status_fallback,
+        test_stale_active_nudge_is_not_blocking,
         test_write_agent_context,
     ]
 
@@ -211,6 +250,7 @@ def main() -> None:
         print(f"PASS {test.__name__}")
 
     print("ALL PASS")
+
 
 
 if __name__ == "__main__":
