@@ -9,18 +9,27 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
+from ai_system.io_utils import append_jsonl, atomic_write_json, atomic_write_text
 from ai_system.recovery_targets import get_recovery_target
 
 
-AI_DIR = Path(os.environ.get("AI_DIR", "/home/daniil/Sync/Perseverance.Gu/AI")).expanduser()
-TASKNOTES_DIR = Path(os.environ.get("TASKNOTES_DIR", "/home/daniil/Sync/Perseverance.Gu/TaskNotes")).expanduser()
-AI_SESSION_BIN = os.environ.get("AI_SESSION_BIN", "/run/current-system/sw/bin/ai-session")
+AI_DIR = Path(
+    os.environ.get("AI_DIR", "/home/daniil/Sync/Perseverance.Gu/AI")
+).expanduser()
+TASKNOTES_DIR = Path(
+    os.environ.get("TASKNOTES_DIR", "/home/daniil/Sync/Perseverance.Gu/TaskNotes")
+).expanduser()
+AI_SESSION_BIN = os.environ.get(
+    "AI_SESSION_BIN", "/run/current-system/sw/bin/ai-session"
+)
 SYSTEMCTL = os.environ.get("SYSTEMCTL", "systemctl")
 
 STABILITY_SECONDS = int(os.environ.get("ACTION_STABILITY_SECONDS", "2"))
 AUTHORITY_LEVEL = int(os.environ.get("ACTION_AUTHORITY_LEVEL", "2"))
 TRIGGER_HELP_NOW = os.environ.get("TRIGGER_HELP_NOW", "1") == "1"
-TRIGGER_HELP_NOW_SERVICE = os.environ.get("TRIGGER_HELP_NOW_SERVICE", "llm-planner-help-now.service")
+TRIGGER_HELP_NOW_SERVICE = os.environ.get(
+    "TRIGGER_HELP_NOW_SERVICE", "llm-planner-help-now.service"
+)
 
 TIMEZONE = ZoneInfo(os.environ.get("ACTION_BRIDGE_TIMEZONE", "Europe/Paris"))
 
@@ -97,17 +106,6 @@ def ensure_dirs():
         path.mkdir(parents=True, exist_ok=True)
 
 
-def atomic_write_text(path, text):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(text, encoding="utf-8")
-    tmp.replace(path)
-
-
-def atomic_write_json(path, data):
-    atomic_write_text(path, json.dumps(data, indent=2, ensure_ascii=False))
-
-
 def read_json(path, default=None):
     if default is None:
         default = {}
@@ -119,13 +117,6 @@ def read_json(path, default=None):
         return {"error": str(error)}
 
     return default
-
-
-def append_jsonl(path, event):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(event, ensure_ascii=False, sort_keys=True))
-        handle.write("\n")
 
 
 def write_status(status, message="", details=None):
@@ -272,7 +263,11 @@ def base_event(action, path, action_id):
     event["source"] = source
     event["device"] = device
     event["timestamp_epoch"] = epoch
-    event["timestamp"] = str(action.get("timestamp") or action.get("created_at") or dt.isoformat(timespec="seconds"))
+    event["timestamp"] = str(
+        action.get("timestamp")
+        or action.get("created_at")
+        or dt.isoformat(timespec="seconds")
+    )
     event["date"] = str(action.get("date") or dt.strftime("%Y-%m-%d"))
     event["time"] = str(action.get("time") or dt.strftime("%H:%M:%S"))
     event["processed_at"] = now_iso()
@@ -358,9 +353,15 @@ def handle_start_session(action):
     ]
 
     add_optional(args, "--project", action.get("project"))
-    add_optional(args, "--duration", action.get("duration", action.get("duration_minutes")))
+    add_optional(
+        args, "--duration", action.get("duration", action.get("duration_minutes"))
+    )
     add_optional(args, "--strictness", action.get("strictness"))
-    add_optional(args, "--language-level", action.get("language_level", action.get("languageLevel")))
+    add_optional(
+        args,
+        "--language-level",
+        action.get("language_level", action.get("languageLevel")),
+    )
     add_optional(args, "--proof", action.get("proof"))
 
     repeated_flags = [
@@ -397,7 +398,9 @@ def handle_check_in(action, path, action_id):
     event["event"] = "check_in"
     event["event_type"] = "check_in"
     event["answer"] = str(action.get("answer", "")).strip()
-    event["answer_label"] = str(action.get("answer_label") or action.get("label") or event.get("answer", "")).strip()
+    event["answer_label"] = str(
+        action.get("answer_label") or action.get("label") or event.get("answer", "")
+    ).strip()
     event["free_text"] = str(action.get("free_text") or action.get("note") or "")
 
     atomic_write_json(LAST_ANSWER_JSON, event)
@@ -453,9 +456,14 @@ def target_for_proposal(action, proposal_name):
 
 def handle_promote_task_proposal(action, path, action_id):
     if AUTHORITY_LEVEL < 2:
-        raise PermissionError("promote_task_proposal requires ACTION_AUTHORITY_LEVEL >= 2")
+        raise PermissionError(
+            "promote_task_proposal requires ACTION_AUTHORITY_LEVEL >= 2"
+        )
 
-    proposal_name = slugify(action.get("proposal") or action.get("proposal_id") or "anki-recovery", "proposal")
+    proposal_name = slugify(
+        action.get("proposal") or action.get("proposal_id") or "anki-recovery",
+        "proposal",
+    )
     proposal_path = AI_DIR / "proposed-tasks" / f"{proposal_name}.md"
 
     if not proposal_path.exists():
@@ -470,10 +478,18 @@ def handle_promote_task_proposal(action, path, action_id):
     if target.exists() and not overwrite:
         raise FileExistsError(f"target exists and overwrite is false: {target}")
 
-    title = str(action.get("title") or title_from_markdown(proposal_text, proposal_name.replace("-", " ").title()))
+    title = str(
+        action.get("title")
+        or title_from_markdown(proposal_text, proposal_name.replace("-", " ").title())
+    )
     priority = str(action.get("priority") or priority_from_text(proposal_text))
     status = str(action.get("status", "todo"))
-    project = str(action.get("project", "Anki Recovery" if proposal_name == "anki-recovery" else "AI Proposals"))
+    project = str(
+        action.get(
+            "project",
+            "Anki Recovery" if proposal_name == "anki-recovery" else "AI Proposals",
+        )
+    )
     scheduled = str(action.get("scheduled", today()))
 
     body = []
@@ -494,7 +510,9 @@ def handle_promote_task_proposal(action, path, action_id):
     body.append("")
     body.append(f"# {title}")
     body.append("")
-    body.append(f"> Promoted from `{proposal_path.relative_to(AI_DIR)}` by action `{action_id}`.")
+    body.append(
+        f"> Promoted from `{proposal_path.relative_to(AI_DIR)}` by action `{action_id}`."
+    )
     body.append("")
     body.append(proposal_text)
 
@@ -545,7 +563,6 @@ def handle_submit_proof(action, path, action_id):
     }
 
 
-
 def compact_question(payload):
     if not isinstance(payload, dict) or payload.get("status") != "active":
         return None
@@ -573,7 +590,6 @@ def compact_nudge(payload):
         "recommended_next_action": payload.get("recommended_next_action", ""),
         "actions": payload.get("actions", []),
     }
-
 
 
 def intervention_id_from_action_or_nudge(action, current_nudge):
@@ -631,7 +647,9 @@ def write_interaction_state_from_current(
         "schema_version": "phone_interaction_state.v1",
         "updated_at": now_iso(),
         "source": source,
-        "planner_mode": question.get("planner_mode") or nudge.get("planner_mode") or existing.get("planner_mode", "unknown"),
+        "planner_mode": question.get("planner_mode")
+        or nudge.get("planner_mode")
+        or existing.get("planner_mode", "unknown"),
         "active_nudge": compact_nudge(nudge),
         "active_question": compact_question(question),
     }
@@ -718,12 +736,14 @@ def write_question_inactive(status, event):
     ]
 
     if event.get("free_text"):
-        lines.extend([
-            "## Free text",
-            "",
-            event.get("free_text", ""),
-            "",
-        ])
+        lines.extend(
+            [
+                "## Free text",
+                "",
+                event.get("free_text", ""),
+                "",
+            ]
+        )
 
     atomic_write_text(CURRENT_QUESTION_MD, "\n".join(lines))
 
@@ -757,17 +777,19 @@ def write_nudge_inactive(status, event):
 
     atomic_write_text(
         CURRENT_NUDGE_MD,
-        "\n".join([
-            "# Current Nudge",
-            "",
-            "Status: inactive",
-            f"Last status: {status}",
-            f"Nudge ID: {event.get('nudge_id', '')}",
-            f"Message: {existing.get('message', '')}",
-            f"Recommended next action: {existing.get('recommended_next_action', '')}",
-            f"Updated: {payload['updated_at']}",
-            "",
-        ]),
+        "\n".join(
+            [
+                "# Current Nudge",
+                "",
+                "Status: inactive",
+                f"Last status: {status}",
+                f"Nudge ID: {event.get('nudge_id', '')}",
+                f"Message: {existing.get('message', '')}",
+                f"Recommended next action: {existing.get('recommended_next_action', '')}",
+                f"Updated: {payload['updated_at']}",
+                "",
+            ]
+        ),
     )
 
 
@@ -805,19 +827,21 @@ def write_nudge_snoozed(event):
 
     atomic_write_text(
         CURRENT_NUDGE_MD,
-        "\n".join([
-            "# Current Nudge",
-            "",
-            "Status: inactive",
-            "Last status: snoozed",
-            f"Nudge ID: {event.get('nudge_id', '')}",
-            f"Snooze minutes: {event.get('snooze_minutes', 15)}",
-            f"Snoozed until: {event.get('snoozed_until', '')}",
-            f"Message: {existing.get('message', '')}",
-            f"Recommended next action: {existing.get('recommended_next_action', '')}",
-            f"Updated: {payload['updated_at']}",
-            "",
-        ]),
+        "\n".join(
+            [
+                "# Current Nudge",
+                "",
+                "Status: inactive",
+                "Last status: snoozed",
+                f"Nudge ID: {event.get('nudge_id', '')}",
+                f"Snooze minutes: {event.get('snooze_minutes', 15)}",
+                f"Snoozed until: {event.get('snoozed_until', '')}",
+                f"Message: {existing.get('message', '')}",
+                f"Recommended next action: {existing.get('recommended_next_action', '')}",
+                f"Updated: {payload['updated_at']}",
+                "",
+            ]
+        ),
     )
 
 
@@ -831,16 +855,19 @@ def handle_answer_question(action, path, action_id):
         pending_question = {}
 
     known_question_id = str(
-        current_question.get("question_id")
-        or pending_question.get("question_id")
-        or ""
+        current_question.get("question_id") or pending_question.get("question_id") or ""
     ).strip()
 
-    provided_question_id = str(action.get("question_id") or action.get("interaction_id") or "").strip()
+    provided_question_id = str(
+        action.get("question_id") or action.get("interaction_id") or ""
+    ).strip()
     question_id = provided_question_id or known_question_id
 
     answer = str(action.get("answer") or action.get("answer_id") or "").strip()
-    if not answer and not str(action.get("free_text") or action.get("note") or "").strip():
+    if (
+        not answer
+        and not str(action.get("free_text") or action.get("note") or "").strip()
+    ):
         raise ValueError("answer_question requires answer or free_text")
 
     answer_label = str(
@@ -855,8 +882,14 @@ def handle_answer_question(action, path, action_id):
     event["event_type"] = "answer_question"
     event["question_id"] = question_id
     event["known_question_id"] = known_question_id
-    event["question_id_mismatch"] = bool(provided_question_id and known_question_id and provided_question_id != known_question_id)
-    event["question"] = str(current_question.get("question") or pending_question.get("question") or "")
+    event["question_id_mismatch"] = bool(
+        provided_question_id
+        and known_question_id
+        and provided_question_id != known_question_id
+    )
+    event["question"] = str(
+        current_question.get("question") or pending_question.get("question") or ""
+    )
     event["answer"] = answer
     event["answer_label"] = answer_label
     event["free_text"] = str(action.get("free_text") or action.get("note") or "")
@@ -891,14 +924,21 @@ def handle_ack_nudge(action, path, action_id):
     if not isinstance(current_nudge, dict):
         current_nudge = {}
 
-    nudge_id = str(action.get("nudge_id") or action.get("interaction_id") or current_nudge.get("nudge_id") or "").strip()
+    nudge_id = str(
+        action.get("nudge_id")
+        or action.get("interaction_id")
+        or current_nudge.get("nudge_id")
+        or ""
+    ).strip()
 
     event = base_event(action, path, action_id)
     event["event"] = "ack_nudge"
     event["event_type"] = "ack_nudge"
     event["nudge_id"] = nudge_id
     event["message"] = str(current_nudge.get("message") or action.get("message") or "")
-    event["recommended_next_action"] = str(current_nudge.get("recommended_next_action") or "")
+    event["recommended_next_action"] = str(
+        current_nudge.get("recommended_next_action") or ""
+    )
     attach_intervention_ref(event, action, current_nudge)
 
     append_action_event(event)
@@ -943,12 +983,12 @@ def handle_snooze_nudge(action, path, action_id):
     ).strip()
 
     snooze_minutes = _bounded_snooze_minutes(
-        action.get("snooze_minutes")
-        or action.get("minutes")
-        or 15
+        action.get("snooze_minutes") or action.get("minutes") or 15
     )
 
-    snoozed_until = (now() + timedelta(minutes=snooze_minutes)).isoformat(timespec="seconds")
+    snoozed_until = (now() + timedelta(minutes=snooze_minutes)).isoformat(
+        timespec="seconds"
+    )
 
     event = base_event(action, path, action_id)
     event["event"] = "snooze_nudge"
@@ -998,12 +1038,12 @@ def handle_dismiss_question(action, path, action_id):
         pending_question = {}
 
     known_question_id = str(
-        current_question.get("question_id")
-        or pending_question.get("question_id")
-        or ""
+        current_question.get("question_id") or pending_question.get("question_id") or ""
     ).strip()
 
-    provided_question_id = str(action.get("question_id") or action.get("interaction_id") or "").strip()
+    provided_question_id = str(
+        action.get("question_id") or action.get("interaction_id") or ""
+    ).strip()
     question_id = provided_question_id or known_question_id
 
     event = base_event(action, path, action_id)
@@ -1011,8 +1051,14 @@ def handle_dismiss_question(action, path, action_id):
     event["event_type"] = "dismiss_question"
     event["question_id"] = question_id
     event["known_question_id"] = known_question_id
-    event["question_id_mismatch"] = bool(provided_question_id and known_question_id and provided_question_id != known_question_id)
-    event["question"] = str(current_question.get("question") or pending_question.get("question") or "")
+    event["question_id_mismatch"] = bool(
+        provided_question_id
+        and known_question_id
+        and provided_question_id != known_question_id
+    )
+    event["question"] = str(
+        current_question.get("question") or pending_question.get("question") or ""
+    )
     event["reason"] = str(action.get("reason") or "")
 
     append_action_event(event)
@@ -1073,23 +1119,24 @@ def write_nudge_recovery_started(event):
 
     atomic_write_text(
         CURRENT_NUDGE_MD,
-        "\n".join([
-            "# Current Nudge",
-            "",
-            "Status: inactive",
-            "Last status: recovery_started",
-            f"Nudge ID: {nudge_id}",
-            f"Recovery ID: {event.get('recovery_id', '')}",
-            f"Target: {event.get('target_name') or event.get('target_id', '')}",
-            f"Message: {existing.get('message', '')}",
-            f"Recommended next action: {existing.get('recommended_next_action', '')}",
-            f"Updated: {payload['updated_at']}",
-            "",
-        ]),
+        "\n".join(
+            [
+                "# Current Nudge",
+                "",
+                "Status: inactive",
+                "Last status: recovery_started",
+                f"Nudge ID: {nudge_id}",
+                f"Recovery ID: {event.get('recovery_id', '')}",
+                f"Target: {event.get('target_name') or event.get('target_id', '')}",
+                f"Message: {existing.get('message', '')}",
+                f"Recommended next action: {existing.get('recommended_next_action', '')}",
+                f"Updated: {payload['updated_at']}",
+                "",
+            ]
+        ),
     )
 
     return payload
-
 
 
 def known_recovery_target(target_id):
@@ -1097,7 +1144,9 @@ def known_recovery_target(target_id):
 
 
 def handle_start_recovery_target(action, path, action_id):
-    target_id = str(action.get("target_id") or action.get("target") or "anki").strip().lower()
+    target_id = (
+        str(action.get("target_id") or action.get("target") or "anki").strip().lower()
+    )
     target = known_recovery_target(target_id)
     current_nudge = read_json(CURRENT_NUDGE_JSON, {})
     if not isinstance(current_nudge, dict):
@@ -1110,16 +1159,23 @@ def handle_start_recovery_target(action, path, action_id):
         or "5 minutes"
     ).strip()
 
-    recovery_id = str(action.get("recovery_id") or f"recovery-{target['target_id']}-{int(time.time())}")
+    recovery_id = str(
+        action.get("recovery_id")
+        or f"recovery-{target['target_id']}-{int(time.time())}"
+    )
 
     event = base_event(action, path, action_id)
     event["event"] = "recovery_started"
     event["event_type"] = "recovery_started"
     event["recovery_id"] = recovery_id
     event["target_id"] = target["target_id"]
-    event["target_name"] = str(action.get("target_name") or target.get("display_name") or target["target_id"])
+    event["target_name"] = str(
+        action.get("target_name") or target.get("display_name") or target["target_id"]
+    )
     event["goal_text"] = goal_text
-    event["android_package"] = str(action.get("android_package") or target.get("android_package") or "")
+    event["android_package"] = str(
+        action.get("android_package") or target.get("android_package") or ""
+    )
     event["started_at"] = event.get("processed_at", now_iso())
     intervention_id = attach_intervention_ref(event, action, current_nudge)
 
@@ -1161,17 +1217,19 @@ def handle_start_recovery_target(action, path, action_id):
 
     atomic_write_text(
         RECOVERY_STATUS_MD,
-        "\n".join([
-            "# Recovery Status",
-            "",
-            f"Updated: {recovery_state['updated_at']}",
-            "Status: `active`",
-            f"Recovery ID: `{recovery_id}`",
-            f"Target: {event['target_name']}",
-            f"Goal: {goal_text}",
-            f"Android package: `{event['android_package']}`",
-            "",
-        ]),
+        "\n".join(
+            [
+                "# Recovery Status",
+                "",
+                f"Updated: {recovery_state['updated_at']}",
+                "Status: `active`",
+                f"Recovery ID: `{recovery_id}`",
+                f"Target: {event['target_name']}",
+                f"Goal: {goal_text}",
+                f"Android package: `{event['android_package']}`",
+                "",
+            ]
+        ),
     )
 
     append_jsonl(EVENTS_RECOVERY_DIR / f"{today()}.jsonl", event)
@@ -1217,9 +1275,13 @@ def handle_action(path):
     elif action_name in {"dismiss_question", "question_dismissed"}:
         result["dismiss_result"] = handle_dismiss_question(action, path, action_id)
     elif action_name in {"start_recovery_target", "start_recovery", "recovery_start"}:
-        result["recovery_result"] = handle_start_recovery_target(action, path, action_id)
+        result["recovery_result"] = handle_start_recovery_target(
+            action, path, action_id
+        )
     elif action_name in {"promote_task_proposal", "promote_proposal"}:
-        result["promotion_result"] = handle_promote_task_proposal(action, path, action_id)
+        result["promotion_result"] = handle_promote_task_proposal(
+            action, path, action_id
+        )
     elif action_name in {"submit_proof", "proof_submitted"}:
         result["proof_result"] = handle_submit_proof(action, path, action_id)
     else:
@@ -1232,7 +1294,10 @@ def process_all():
     ensure_dirs()
     create_templates()
 
-    paths = sorted([p for p in INBOX_DIR.glob("*.json") if p.is_file()], key=lambda p: p.stat().st_mtime)
+    paths = sorted(
+        [p for p in INBOX_DIR.glob("*.json") if p.is_file()],
+        key=lambda p: p.stat().st_mtime,
+    )
 
     if not paths:
         write_status("idle", "no pending actions")
@@ -1253,7 +1318,9 @@ def process_all():
             destination = move_unique(path, PROCESSED_DIR / today())
             result["processed_path"] = str(destination)
             processed.append(result)
-            print(f"processed action {result.get('action')} from {path.name}", flush=True)
+            print(
+                f"processed action {result.get('action')} from {path.name}", flush=True
+            )
         except Exception as error:
             try:
                 destination = move_unique(path, FAILED_DIR / today())
@@ -1262,10 +1329,12 @@ def process_all():
 
             atomic_write_text(Path(str(destination) + ".error.txt"), str(error) + "\n")
 
-            failed.append({
-                "path": str(destination),
-                "error": str(error),
-            })
+            failed.append(
+                {
+                    "path": str(destination),
+                    "error": str(error),
+                }
+            )
 
             print(f"failed action {path}: {error}", file=sys.stderr, flush=True)
 
@@ -1300,7 +1369,7 @@ def create_templates():
             "mode": "anki",
             "duration": 25,
             "strictness": 2,
-            "language_level": 1
+            "language_level": 1,
         },
         "end-completed.json": {
             "schema_version": "action.v1",
@@ -1308,7 +1377,7 @@ def create_templates():
             "source": "action-template",
             "device": "desktop",
             "status": "completed",
-            "reason": "Ended from action template"
+            "reason": "Ended from action template",
         },
         "check-in-overwhelmed.json": {
             "schema_version": "action.v1",
@@ -1317,7 +1386,7 @@ def create_templates():
             "device": "desktop",
             "answer": "overwhelmed",
             "answer_label": "Overwhelmed",
-            "free_text": ""
+            "free_text": "",
         },
         "promote-anki-recovery.json": {
             "schema_version": "action.v1",
@@ -1327,7 +1396,7 @@ def create_templates():
             "proposal": "anki-recovery",
             "target": "AI/anki-due-recovery.md",
             "overwrite": True,
-            "project": "Anki Recovery"
+            "project": "Anki Recovery",
         },
         "submit-proof.json": {
             "schema_version": "action.v1",
@@ -1335,7 +1404,7 @@ def create_templates():
             "source": "action-template",
             "device": "phone",
             "proof_id": "example-proof",
-            "message": "Proof submitted"
+            "message": "Proof submitted",
         },
         "answer-question.json": {
             "schema_version": "action.v1",
@@ -1345,14 +1414,14 @@ def create_templates():
             "question_id": "",
             "answer": "overwhelmed",
             "answer_label": "Overwhelmed",
-            "free_text": ""
+            "free_text": "",
         },
         "ack-nudge.json": {
             "schema_version": "action.v1",
             "action": "ack_nudge",
             "source": "action-template",
             "device": "phone",
-            "nudge_id": ""
+            "nudge_id": "",
         },
         "dismiss-question.json": {
             "schema_version": "action.v1",
@@ -1360,8 +1429,8 @@ def create_templates():
             "source": "action-template",
             "device": "phone",
             "question_id": "",
-            "reason": "Dismissed from template"
-        }
+            "reason": "Dismissed from template",
+        },
     }
 
     for filename, data in templates.items():
@@ -1371,14 +1440,17 @@ def create_templates():
 
     schema_path = SCHEMAS_DIR / "action.v1.example.json"
     if not schema_path.exists():
-        atomic_write_json(schema_path, {
-            "schema_version": "action.v1",
-            "action": "start_session|end_session|check_in|answer_question|ack_nudge|dismiss_question|promote_task_proposal|submit_proof",
-            "source": "obsidian|tasker|desktop-panel|llm-proposal|manual",
-            "device": "desktop|phone",
-            "created_at": "ISO-8601 timestamp",
-            "notes": "Drop action JSON files into AI/inbox/actions/."
-        })
+        atomic_write_json(
+            schema_path,
+            {
+                "schema_version": "action.v1",
+                "action": "start_session|end_session|check_in|answer_question|ack_nudge|dismiss_question|promote_task_proposal|submit_proof",
+                "source": "obsidian|tasker|desktop-panel|llm-proposal|manual",
+                "device": "desktop|phone",
+                "created_at": "ISO-8601 timestamp",
+                "notes": "Drop action JSON files into AI/inbox/actions/.",
+            },
+        )
 
 
 def main():

@@ -10,6 +10,8 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from ai_system.io_utils import atomic_write_json, atomic_write_text
+
 
 AI_DIR = Path(os.environ.get("AI_DIR", "~/Sync/Perseverance.Gu/AI")).expanduser()
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
@@ -26,17 +28,6 @@ def now_iso():
 
 def stamp():
     return now().strftime("%Y%m%d-%H%M%S")
-
-
-def atomic_write_text(path: Path, text: str):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(text, encoding="utf-8")
-    tmp.replace(path)
-
-
-def atomic_write_json(path: Path, data):
-    atomic_write_text(path, json.dumps(data, indent=2, ensure_ascii=False))
 
 
 def call_model(model, timeout, num_ctx, num_predict):
@@ -149,14 +140,16 @@ def markdown_report(results):
         meta = item.get("ollama_metadata", {})
         lines.append(
             "| "
-            + " | ".join([
-                str(item.get("model", "")),
-                "yes" if item.get("ok") else "no",
-                str(item.get("elapsed_seconds", "")),
-                "yes" if item.get("valid_json") else "no",
-                str(meta.get("eval_count", "")),
-                str(meta.get("done_reason", "")),
-            ])
+            + " | ".join(
+                [
+                    str(item.get("model", "")),
+                    "yes" if item.get("ok") else "no",
+                    str(item.get("elapsed_seconds", "")),
+                    "yes" if item.get("valid_json") else "no",
+                    str(meta.get("eval_count", "")),
+                    str(meta.get("done_reason", "")),
+                ]
+            )
             + " |"
         )
 
@@ -171,7 +164,9 @@ def markdown_report(results):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Benchmark local Ollama models for help-now planning.")
+    parser = argparse.ArgumentParser(
+        description="Benchmark local Ollama models for help-now planning."
+    )
     parser.add_argument(
         "--models",
         nargs="+",
@@ -205,11 +200,14 @@ def main():
     json_path = report_dir / f"ollama-models-{stamp()}.json"
     md_path = report_dir / f"ollama-models-{stamp()}.md"
 
-    atomic_write_json(json_path, {
-        "generated_at": now_iso(),
-        "ollama_url": OLLAMA_URL,
-        "results": results,
-    })
+    atomic_write_json(
+        json_path,
+        {
+            "generated_at": now_iso(),
+            "ollama_url": OLLAMA_URL,
+            "results": results,
+        },
+    )
     atomic_write_text(md_path, markdown_report(results))
 
     print("")

@@ -8,14 +8,19 @@ import time
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
+from ai_system.io_utils import append_jsonl, atomic_write_json, atomic_write_text
 from ai_system.recovery_targets import get_recovery_target
 
 
-AI_DIR = Path(os.environ.get("AI_DIR", "/home/daniil/Sync/Perseverance.Gu/AI")).expanduser()
+AI_DIR = Path(
+    os.environ.get("AI_DIR", "/home/daniil/Sync/Perseverance.Gu/AI")
+).expanduser()
 TIMEZONE = ZoneInfo(os.environ.get("RECOVERY_MANAGER_TIMEZONE", "Europe/Paris"))
 
 OPEN_GRACE_SECONDS = int(os.environ.get("RECOVERY_OPEN_GRACE_SECONDS", "30"))
-NO_LAUNCH_EXPIRE_SECONDS = int(os.environ.get("RECOVERY_NO_LAUNCH_EXPIRE_SECONDS", "900"))
+NO_LAUNCH_EXPIRE_SECONDS = int(
+    os.environ.get("RECOVERY_NO_LAUNCH_EXPIRE_SECONDS", "900")
+)
 RAPID_ABORT_SECONDS = int(os.environ.get("RECOVERY_RAPID_ABORT_SECONDS", "90"))
 SUCCESS_DWELL_SECONDS = int(os.environ.get("RECOVERY_SUCCESS_DWELL_SECONDS", "300"))
 
@@ -69,17 +74,6 @@ def ensure_dirs():
         path.mkdir(parents=True, exist_ok=True)
 
 
-def atomic_write_text(path, text):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(str(text), encoding="utf-8")
-    tmp.replace(path)
-
-
-def atomic_write_json(path, data):
-    atomic_write_text(path, json.dumps(data, indent=2, ensure_ascii=False))
-
-
 def read_json(path, default=None):
     if default is None:
         default = {}
@@ -92,13 +86,6 @@ def read_json(path, default=None):
         return {"error": f"error reading {path}: {error}"}
 
     return default
-
-
-def append_jsonl(path, event):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(event, ensure_ascii=False, sort_keys=True))
-        handle.write("\n")
 
 
 def read_jsonl(path):
@@ -128,7 +115,9 @@ def parse_epoch_from_iso(value):
         return 0
 
     try:
-        return int(datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp())
+        return int(
+            datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp()
+        )
     except Exception:
         return 0
 
@@ -143,7 +132,9 @@ def event_epoch(event):
 
 
 def event_name(event):
-    return str(event.get("event") or event.get("event_type") or event.get("type") or "").strip()
+    return str(
+        event.get("event") or event.get("event_type") or event.get("type") or ""
+    ).strip()
 
 
 def compact_event(event):
@@ -187,9 +178,7 @@ def intervention_ref_for(recovery):
         last_event = {}
 
     intervention_id = str(
-        intervention.get("intervention_id")
-        or last_event.get("intervention_id")
-        or ""
+        intervention.get("intervention_id") or last_event.get("intervention_id") or ""
     ).strip()
 
     if not intervention_id:
@@ -203,10 +192,13 @@ def intervention_ref_for(recovery):
             or last_event.get("intervention_kind")
             or "recovery_nudge"
         ).strip(),
-        "source": str(intervention.get("source") or last_event.get("source") or "").strip(),
-        "nudge_id": str(intervention.get("nudge_id") or last_event.get("nudge_id") or "").strip(),
+        "source": str(
+            intervention.get("source") or last_event.get("source") or ""
+        ).strip(),
+        "nudge_id": str(
+            intervention.get("nudge_id") or last_event.get("nudge_id") or ""
+        ).strip(),
     }
-
 
 
 def phone_events_for_dates(start_epoch, end_epoch=None):
@@ -225,8 +217,7 @@ def phone_events_for_dates(start_epoch, end_epoch=None):
         events.extend(read_jsonl(EVENTS_PHONE_DIR / f"{date}.jsonl"))
 
     events = [
-        event for event in events
-        if start_epoch - 5 <= event_epoch(event) <= end_epoch
+        event for event in events if start_epoch - 5 <= event_epoch(event) <= end_epoch
     ]
     events.sort(key=event_epoch)
     return events
@@ -272,13 +263,15 @@ def build_dwell(events, opened_names, closed_names, start_epoch):
                 if epoch - close_epoch <= OPEN_GRACE_SECONDS:
                     flapping_count += 1
                 else:
-                    intervals.append({
-                        "start": open_start,
-                        "end": close_epoch,
-                        "duration_seconds": max(0, close_epoch - open_start),
-                        "opened_event": compact_event(last_open_event),
-                        "closed_event": compact_event(last_close_event),
-                    })
+                    intervals.append(
+                        {
+                            "start": open_start,
+                            "end": close_epoch,
+                            "duration_seconds": max(0, close_epoch - open_start),
+                            "opened_event": compact_event(last_open_event),
+                            "closed_event": compact_event(last_close_event),
+                        }
+                    )
                     open_start = epoch
                     last_open_event = event
                 last_close_event = None
@@ -294,25 +287,31 @@ def build_dwell(events, opened_names, closed_names, start_epoch):
     if open_start is not None:
         if last_close_event is not None:
             close_epoch = event_epoch(last_close_event)
-            intervals.append({
-                "start": open_start,
-                "end": close_epoch,
-                "duration_seconds": max(0, close_epoch - open_start),
-                "opened_event": compact_event(last_open_event),
-                "closed_event": compact_event(last_close_event),
-            })
+            intervals.append(
+                {
+                    "start": open_start,
+                    "end": close_epoch,
+                    "duration_seconds": max(0, close_epoch - open_start),
+                    "opened_event": compact_event(last_open_event),
+                    "closed_event": compact_event(last_close_event),
+                }
+            )
         else:
-            intervals.append({
-                "start": open_start,
-                "end": current_epoch(),
-                "duration_seconds": max(0, current_epoch() - open_start),
-                "opened_event": compact_event(last_open_event),
-                "closed_event": {},
-                "still_open": True,
-            })
+            intervals.append(
+                {
+                    "start": open_start,
+                    "end": current_epoch(),
+                    "duration_seconds": max(0, current_epoch() - open_start),
+                    "opened_event": compact_event(last_open_event),
+                    "closed_event": {},
+                    "still_open": True,
+                }
+            )
 
     total_dwell = sum(int(item.get("duration_seconds", 0)) for item in intervals)
-    longest_dwell = max([int(item.get("duration_seconds", 0)) for item in intervals] or [0])
+    longest_dwell = max(
+        [int(item.get("duration_seconds", 0)) for item in intervals] or [0]
+    )
 
     return {
         "intervals": intervals,
@@ -320,7 +319,9 @@ def build_dwell(events, opened_names, closed_names, start_epoch):
         "longest_observed_dwell_seconds": longest_dwell,
         "flapping_count": flapping_count,
         "event_count": len(events),
-        "first_open_event": compact_event(next((e for e in events if event_name(e) in opened_names), {})),
+        "first_open_event": compact_event(
+            next((e for e in events if event_name(e) in opened_names), {})
+        ),
         "last_event": compact_event(events[-1]) if events else {},
     }
 
@@ -354,7 +355,9 @@ def classify(recovery):
     event_count = int(dwell.get("event_count", 0))
     flapping_count = int(dwell.get("flapping_count", 0))
 
-    rapid_exit_detected = bool(saw_open and total_dwell < RAPID_ABORT_SECONDS and age >= RAPID_ABORT_SECONDS)
+    rapid_exit_detected = bool(
+        saw_open and total_dwell < RAPID_ABORT_SECONDS and age >= RAPID_ABORT_SECONDS
+    )
 
     if saw_open and total_dwell >= SUCCESS_DWELL_SECONDS:
         new_status = "possible_success"
@@ -498,29 +501,33 @@ def write_status(recovery, message):
     ]
 
     if classification:
-        lines.extend([
-            "## Classification",
-            "",
-            f"Previous status: `{classification.get('previous_status', '')}`",
-            f"Reason: `{classification.get('reason', '')}`",
-            "",
-        ])
+        lines.extend(
+            [
+                "## Classification",
+                "",
+                f"Previous status: `{classification.get('previous_status', '')}`",
+                f"Reason: `{classification.get('reason', '')}`",
+                "",
+            ]
+        )
 
     if lifecycle:
-        lines.extend([
-            "## Lifecycle",
-            "",
-            f"Evidence quality: `{lifecycle.get('evidence_quality', '')}`",
-            f"Event count: `{lifecycle.get('event_count', 0)}`",
-            f"Flapping count: `{lifecycle.get('flapping_count', 0)}`",
-            f"Total observed dwell seconds: `{lifecycle.get('total_observed_dwell_seconds', 0)}`",
-            f"Longest observed dwell seconds: `{lifecycle.get('longest_observed_dwell_seconds', 0)}`",
-            "",
-            "```json",
-            json.dumps(lifecycle, indent=2, ensure_ascii=False),
-            "```",
-            "",
-        ])
+        lines.extend(
+            [
+                "## Lifecycle",
+                "",
+                f"Evidence quality: `{lifecycle.get('evidence_quality', '')}`",
+                f"Event count: `{lifecycle.get('event_count', 0)}`",
+                f"Flapping count: `{lifecycle.get('flapping_count', 0)}`",
+                f"Total observed dwell seconds: `{lifecycle.get('total_observed_dwell_seconds', 0)}`",
+                f"Longest observed dwell seconds: `{lifecycle.get('longest_observed_dwell_seconds', 0)}`",
+                "",
+                "```json",
+                json.dumps(lifecycle, indent=2, ensure_ascii=False),
+                "```",
+                "",
+            ]
+        )
 
     atomic_write_text(RECOVERY_STATUS_MD, "\n".join(lines))
 
@@ -537,12 +544,18 @@ def run_once(dry_run=False):
     updated, event, reason = classify(recovery)
 
     if dry_run:
-        print(json.dumps({
-            "dry_run": True,
-            "reason": reason,
-            "event": event,
-            "recovery": updated,
-        }, indent=2, ensure_ascii=False))
+        print(
+            json.dumps(
+                {
+                    "dry_run": True,
+                    "reason": reason,
+                    "event": event,
+                    "recovery": updated,
+                },
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
         return 0
 
     if event is None and reason == "terminal_status_unchanged":
@@ -564,8 +577,12 @@ def run_once(dry_run=False):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Recovery lifecycle classifier")
-    parser.add_argument("--once", action="store_true", help="Run one lifecycle classification pass")
-    parser.add_argument("--dry-run", action="store_true", help="Print result without writing files")
+    parser.add_argument(
+        "--once", action="store_true", help="Run one lifecycle classification pass"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Print result without writing files"
+    )
     return parser.parse_args()
 
 
