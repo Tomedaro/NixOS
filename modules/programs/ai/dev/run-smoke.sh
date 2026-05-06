@@ -71,6 +71,7 @@ tests=(
   modules/programs/ai/tests/obsidian_proposal_action_smoke.py
   modules/programs/ai/tests/obsidian_approval_bridge_smoke.py
   modules/programs/ai/tests/obsidian_task_draft_smoke.py
+  modules/programs/ai/tests/obsidian_agent_loop_smoke.py
   modules/programs/ai/tests/planner_outputs_smoke.py
   modules/programs/ai/tests/proposal_gate_smoke.py
   modules/programs/ai/tests/recovery_proposals_smoke.py
