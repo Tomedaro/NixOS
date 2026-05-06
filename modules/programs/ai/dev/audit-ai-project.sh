@@ -121,15 +121,22 @@ report_malformed_processed_phone_telemetry() {
 }
 
 status_md_summary() {
-  local path="$1"
-  local lines="${2:-36}"
+ local path="$1"
+ local lines="${2:-36}"
 
-  echo "--- $path ---"
-  if [ -f "$path" ]; then
-    sed -n "1,${lines}p" "$path"
-  else
-    echo "missing"
-  fi
+ if [ -f "$path" ]; then
+   case "$path" in
+     */state/recovery-trigger/status.md)
+       echo "--- $path (last-written; recovery trigger may be disabled) ---"
+       ;;
+     *)
+       echo "--- $path ---"
+       ;;
+   esac
+   sed -n "1,${lines}p" "$path"
+ else
+   echo "missing: $path"
+ fi
 }
 
 compact_json_state() {
@@ -167,6 +174,35 @@ compact_json_state() {
   else
     echo "intervention stats missing"
   fi
+}
+
+report_recovery_trigger_install_state() {
+ section "recovery trigger install state"
+
+ local units
+ units="$(
+   systemctl --user list-unit-files --all --no-legend 'ai-recovery-trigger.*' 2>/dev/null \
+     | awk '{print $1}' \
+     | sort -u \
+     || true
+ )"
+
+ if [ -z "$units" ]; then
+   echo "ai-recovery-trigger units: not installed"
+   echo "config implication: my.ai.recoveryTrigger is disabled or not switched into the current system"
+   echo "state/recovery-trigger/status.md, if present, is last-written state only"
+   return 0
+ fi
+
+ local unit
+ local active
+ local enabled
+ while IFS= read -r unit; do
+   [ -n "$unit" ] || continue
+   active="$(systemctl --user is-active "$unit" 2>/dev/null || true)"
+   enabled="$(systemctl --user is-enabled "$unit" 2>/dev/null || true)"
+   printf '%-42s active=%-12s enabled=%s\n' "$unit" "${active:-unknown}" "${enabled:-unknown}"
+ done <<< "$units"
 }
 
 section "repo"
@@ -283,6 +319,8 @@ report_malformed_processed_phone_telemetry
 list_queue "pending action inbox" "$AI_DIR/inbox/actions" 1 40
 list_queue "failed actions newest" "$AI_DIR/inbox/actions-failed" 3 12
 list_queue "processed actions newest" "$AI_DIR/inbox/actions-processed" 3 12
+
+report_recovery_trigger_install_state
 
 if [ "$VERBOSE" -eq 1 ]; then
   section "materialized state summary"

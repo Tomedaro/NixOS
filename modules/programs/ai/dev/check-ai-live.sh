@@ -103,7 +103,14 @@ json_or_cat() {
 status_md_or_missing() {
   local path="$1"
   if [ -f "$path" ]; then
-    echo "--- $path ---"
+    case "$path" in
+      */state/recovery-trigger/status.md)
+        echo "--- $path (last-written; recovery trigger may be disabled) ---"
+        ;;
+      *)
+        echo "--- $path ---"
+        ;;
+    esac
     sed -n '1,160p' "$path"
   else
     echo "missing: $path"
@@ -170,6 +177,33 @@ print_unit_group() {
    echo
    systemctl --user cat "$unit" --no-pager || true
  done
+}
+
+report_recovery_trigger_install_state() {
+echo
+echo "===== recovery trigger install state ====="
+
+mapfile -t units < <(
+  find_units 'ai-recovery-trigger|recovery-trigger' \
+    | grep --color=never -E '^ai-recovery-trigger\.(service|timer)$' \
+    || true
+)
+
+if [ "${#units[@]}" -eq 0 ]; then
+  echo "ai-recovery-trigger units: not installed"
+  echo "config implication: my.ai.recoveryTrigger is disabled or not switched into the current system"
+  echo "state/recovery-trigger/status.md, if present, is last-written state only"
+  return 0
+fi
+
+local unit
+local active
+local enabled
+for unit in "${units[@]}"; do
+  active="$(systemctl --user is-active "$unit" 2>/dev/null || true)"
+  enabled="$(systemctl --user is-enabled "$unit" 2>/dev/null || true)"
+  printf '%-42s active=%-12s enabled=%s\n' "$unit" "${active:-unknown}" "${enabled:-unknown}"
+done
 }
 
 run_first_unit_once() {
@@ -289,7 +323,14 @@ show_status_heads() {
    "$AI_DIR/state/recovery-trigger/status.md"
  do
    if [ -f "$path" ]; then
-     echo "--- $path ---"
+     case "$path" in
+       */state/recovery-trigger/status.md)
+         echo "--- $path (last-written; recovery trigger may be disabled) ---"
+         ;;
+       *)
+         echo "--- $path ---"
+         ;;
+     esac
      sed -n '1,40p' "$path"
    else
      echo "missing: $path"
@@ -320,6 +361,7 @@ echo "$AI_DIR"
 print_unit_group "phone bridge" 'phone.*bridge|phone-bridge'
 print_unit_group "action bridge" 'action.*bridge|ai-action|action-bridge'
 print_unit_group "recovery" 'recovery|recovery-manager|recovery-trigger'
+report_recovery_trigger_install_state
 print_unit_group "intervention outcomes" 'intervention|outcome'
 
 list_queue "pending phone telemetry inbox" "$AI_DIR/inbox/from-phone/events" 1 40
