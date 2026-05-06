@@ -12,6 +12,7 @@
     lm_sensors
     guvcview
     jq
+    sedutil
     bibata-cursors
     sddm-astronaut        # Overlayed
     pkgs.kdePackages.qtsvg
