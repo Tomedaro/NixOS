@@ -1,7 +1,39 @@
 import json
 import os
+import stat
 import tempfile
 from pathlib import Path
+
+
+def _default_file_mode() -> int:
+    """Return the normal creation mode for a regular file under current umask."""
+    current_umask = os.umask(0)
+    os.umask(current_umask)
+    return 0o666 & ~current_umask
+
+
+def _target_metadata(path: Path) -> tuple[int, int | None, int | None]:
+    """Return mode/uid/gid to apply to an atomic-write temp file.
+
+    Existing files keep their permission bits and ownership. New files use the
+    regular process umask-derived file mode instead of mkstemp's private 0600.
+    """
+    try:
+        current = path.stat()
+    except FileNotFoundError:
+        return _default_file_mode(), None, None
+
+    return stat.S_IMODE(current.st_mode), current.st_uid, current.st_gid
+
+
+def _try_fchown(fd: int, uid: int | None, gid: int | None) -> None:
+    if uid is None or gid is None or os.name == "nt":
+        return
+
+    try:
+        os.fchown(fd, uid, gid)
+    except OSError:
+        pass
 
 
 def _fsync_parent_dir(path: Path) -> None:
@@ -29,6 +61,7 @@ def _fsync_parent_dir(path: Path) -> None:
 def atomic_write_text(path, text):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    mode, uid, gid = _target_metadata(path)
 
     fd, tmp_name = tempfile.mkstemp(
         prefix=f".{path.name}.",
@@ -40,9 +73,12 @@ def atomic_write_text(path, text):
 
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            file_fd = handle.fileno()
             handle.write(str(text))
             handle.flush()
-            os.fsync(handle.fileno())
+            _try_fchown(file_fd, uid, gid)
+            os.fchmod(file_fd, mode)
+            os.fsync(file_fd)
 
         os.replace(tmp, path)
         _fsync_parent_dir(path)

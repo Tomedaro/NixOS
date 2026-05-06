@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import stat
 import sys
 import tempfile
 from pathlib import Path
@@ -120,6 +121,19 @@ def test_atomic_write_json_replaces_existing_file() -> None:
         assert data == {"ok": True}
 
 
+def test_atomic_write_text_preserves_existing_file_mode() -> None:
+    with tempfile.TemporaryDirectory(prefix="ai-atomic-mode-") as tmp:
+        path = Path(tmp) / "state" / "status.md"
+        path.parent.mkdir(parents=True)
+        path.write_text("old", encoding="utf-8")
+        path.chmod(0o644)
+
+        atomic_write_text(path, "new")
+
+        assert path.read_text(encoding="utf-8") == "new"
+        assert stat.S_IMODE(path.stat().st_mode) == 0o644
+
+
 def run_all() -> None:
     tests = [
         test_bounds_are_stable,
@@ -131,6 +145,7 @@ def run_all() -> None:
         test_planner_policy_constant,
         test_atomic_write_text_replaces_existing_file_and_cleans_temp,
         test_atomic_write_json_replaces_existing_file,
+        test_atomic_write_text_preserves_existing_file_mode,
     ]
 
     for test in tests:
