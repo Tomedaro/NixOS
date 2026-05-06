@@ -9,17 +9,17 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
-import re
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from ai_system.io_utils import atomic_write_json, atomic_write_text
-
-DEFAULT_AI_DIR = Path(
-    os.environ.get("AI_DIR", "/home/daniil/Sync/Perseverance.Gu/AI")
-).expanduser()
+from ai_system.obsidian_contracts import (
+    DEFAULT_AI_DIR,
+    bounded_text as contract_bounded_text,
+    now_iso_and_epoch,
+    read_json_object,
+    slug as contract_slug,
+)
 
 ALLOWED_DECISIONS = {
     "approve_proposal",
@@ -33,16 +33,13 @@ MAX_KIND = 80
 MAX_REASON_CODES = 12
 
 
-def now_iso_and_epoch() -> tuple[str, int]:
-    now = datetime.now(timezone.utc).replace(microsecond=0)
-    return now.isoformat(), int(now.timestamp())
-
-
 def bounded_text(value: Any, *, max_len: int = MAX_TEXT) -> str:
-    text = str(value or "").replace("\x00", "").strip()
-    if len(text) <= max_len:
-        return text
-    return text[: max_len - 1].rstrip() + "…"
+    return contract_bounded_text(
+        value,
+        max_len=max_len,
+        suffix="…",
+        normalize_newlines=False,
+    )
 
 
 def bounded_list(values: Any, *, max_items: int = MAX_REASON_CODES) -> list[str]:
@@ -58,16 +55,11 @@ def bounded_list(values: Any, *, max_items: int = MAX_REASON_CODES) -> list[str]
 
 
 def slug(value: Any) -> str:
-    text = bounded_text(value, max_len=MAX_ID).lower()
-    text = re.sub(r"[^a-z0-9_.-]+", "-", text).strip("-")
-    return text or "proposal"
+    return contract_slug(value, max_len=MAX_ID, fallback="proposal")
 
 
 def read_json(path: Path) -> dict[str, Any]:
-    data = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict):
-        raise ValueError("input must be a JSON object")
-    return data
+    return read_json_object(path, object_error="input must be a JSON object")
 
 
 def normalize_proposal_action(payload: dict[str, Any]) -> dict[str, Any]:
