@@ -212,15 +212,80 @@ def _existing_active_question(config):
     return {}
 
 
-def _existing_active_nudge(config):
+def _normalize_active_nudge_candidate(value):
+    if not isinstance(value, dict):
+        return {}
+
+    if value.get("status") != "active":
+        return {}
+
+    candidate = dict(value)
+    candidate.setdefault("schema_version", "phone_interaction.v1")
+    candidate.setdefault("kind", "nudge")
+    return candidate
+
+
+def _active_nudge_candidates(config):
+    candidates = []
+
+    current = read_json(config.outbox_to_phone_dir / "current-nudge.json", {})
+    current = _normalize_active_nudge_candidate(current)
+    if current:
+        candidates.append(current)
+
+    interaction_state = read_json(config.outbox_to_phone_dir / "interaction-state.json", {})
+    if isinstance(interaction_state, dict):
+        compact = _normalize_active_nudge_candidate(interaction_state.get("active_nudge"))
+        if compact:
+            # Compact interaction-state nudges historically missed lifecycle fields.
+            # Merge from current-nudge when both refer to the same nudge.
+            if current and compact.get("nudge_id") == current.get("nudge_id"):
+                merged = dict(current)
+                merged.update({key: value for key, value in compact.items() if value not in ("", None)})
+                compact = merged
+            candidates.append(compact)
+
+    return candidates
+
+
+def _active_nudge_clear_reason(config, generated_at):
+    saw_clear_reason = None
+
+    for candidate in _active_nudge_candidates(config):
+        clear_reason = clear_reason_for_active_nudge(
+            {"active_nudge": candidate},
+            now=generated_at,
+        )
+        if clear_reason:
+            saw_clear_reason = saw_clear_reason or clear_reason
+            continue
+
+        # Any still-valid active nudge means the lifecycle should remain active.
+        return None
+
+    return saw_clear_reason
+
+
+def _cleared_nudge_marker(reason, generated_at):
+    if not reason:
+        return None
+
+    return {
+        "reason": reason,
+        "cleared_at": generated_at,
+    }
+
+
+def _existing_active_nudge(config, generated_at=None):
     existing = read_json(config.outbox_to_phone_dir / "current-nudge.json", {})
-    if not isinstance(existing, dict):
+    existing = _normalize_active_nudge_candidate(existing)
+    if not existing:
         return {}
 
-    if existing.get("status") != "active":
-        return {}
-
-    clear_reason = clear_reason_for_active_nudge({"active_nudge": existing})
+    clear_reason = clear_reason_for_active_nudge(
+        {"active_nudge": existing},
+        now=generated_at,
+    )
     if clear_reason:
         print(f"expired active nudge ignored: {clear_reason}")
         return {}
@@ -299,7 +364,7 @@ def _build_question_payload(config, ask, generated_at):
     }
 
 
-def _build_nudge_payload(config, result, generated_at):
+def _build_nudge_payload(config, result, generated_at, clear_reason=None):
     nudge = result.get("phone_nudge", {})
     if not isinstance(nudge, dict):
         nudge = {}
@@ -312,9 +377,11 @@ def _build_nudge_payload(config, result, generated_at):
         urgency = "normal"
 
     enabled = _as_bool(nudge.get("enabled")) and bool(message)
+    if clear_reason is None:
+        clear_reason = _active_nudge_clear_reason(config, generated_at)
 
     if not enabled:
-        return {
+        payload = {
             "schema_version": "phone_interaction.v1",
             "kind": "nudge",
             "status": "inactive",
@@ -327,7 +394,13 @@ def _build_nudge_payload(config, result, generated_at):
             "actions": [],
         }
 
-    existing = _existing_active_nudge(config)
+        marker = _cleared_nudge_marker(clear_reason, generated_at)
+        if marker:
+            payload["last_cleared_nudge"] = marker
+
+        return payload
+
+    existing = _existing_active_nudge(config, generated_at)
     same_nudge = (
         existing.get("message") == message
         and existing.get("recommended_next_action") == recommended_next_action
@@ -489,6 +562,10 @@ def _compact_question(payload):
     }
 
 
+def _planner_mode_from_payload(payload):
+    return payload.get("planner_mode") or "block-plan"
+
+
 def _compact_nudge(payload):
     if payload.get("status") != "active":
         return None
@@ -511,7 +588,11 @@ def _compact_nudge(payload):
     }
 
 
-def _write_interaction_state(config, question_payload, nudge_payload, generated_at):
+def _write_interaction_state(config, question_payload, nudge_payload, generated_at, nudge_clear_reason=None):
+    clear_reason = nudge_clear_reason
+    if clear_reason is None:
+        clear_reason = _active_nudge_clear_reason(config, generated_at)
+
     state = {
         "schema_version": "phone_interaction_state.v1",
         "updated_at": generated_at,
@@ -520,6 +601,12 @@ def _write_interaction_state(config, question_payload, nudge_payload, generated_
         "active_nudge": _compact_nudge(nudge_payload),
         "active_question": _compact_question(question_payload),
     }
+
+    marker = nudge_payload.get("last_cleared_nudge")
+    if not isinstance(marker, dict):
+        marker = _cleared_nudge_marker(clear_reason, generated_at)
+    if marker:
+        state["last_cleared_nudge"] = marker
 
     atomic_write_json(config.outbox_to_phone_dir / "interaction-state.json", state)
 
@@ -532,15 +619,16 @@ def write_machine_outputs(config, result):
         metadata = {}
 
     generated_at = metadata.get("generated_at") or now_iso(config)
+    nudge_clear_reason = _active_nudge_clear_reason(config, generated_at)
 
     ask = result.get("ask_user", {})
     question_payload = _build_question_payload(config, ask, generated_at)
     _write_question_outputs(config, question_payload)
 
-    nudge_payload = _build_nudge_payload(config, result, generated_at)
+    nudge_payload = _build_nudge_payload(config, result, generated_at, nudge_clear_reason)
     _write_nudge_outputs(config, nudge_payload)
 
-    _write_interaction_state(config, question_payload, nudge_payload, generated_at)
+    _write_interaction_state(config, question_payload, nudge_payload, generated_at, nudge_clear_reason)
 
 
 def write_error_file(config, error):
