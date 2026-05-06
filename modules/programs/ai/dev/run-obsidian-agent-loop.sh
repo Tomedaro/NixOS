@@ -7,6 +7,8 @@ PYTHON_LIB="$REPO_ROOT/modules/programs/ai/python"
 AI_DIR="${AI_DIR:-/home/daniil/Sync/Perseverance.Gu/AI}"
 WRITE_CONTEXT=0
 WRITE_PROPOSAL=0
+BRIDGE_APPROVED_PROPOSAL=0
+WRITE_TASK_DRAFT=0
 VERBOSE=0
 
 export PYTHONPATH="$PYTHON_LIB${PYTHONPATH:+:$PYTHONPATH}"
@@ -27,6 +29,9 @@ Default mode is non-mutating:
 Options:
   --write-context      Write state/agent/context.json and status.md.
   --write-proposal     Write outbox/to-obsidian/current-proposal.* from latest pending intent.
+  --bridge-approved-proposal
+                       Consume explicit approval and write reviewed Obsidian artifact.
+  --write-task-draft   From explicit approval, write reviewable TaskNotes draft.
   --verbose, -v        Print fuller JSON output.
   --help, -h           Show help.
 USAGE
@@ -36,6 +41,8 @@ for arg in "$@"; do
   case "$arg" in
     --write-context) WRITE_CONTEXT=1 ;;
     --write-proposal) WRITE_PROPOSAL=1 ;;
+    --bridge-approved-proposal) BRIDGE_APPROVED_PROPOSAL=1 ;;
+    --write-task-draft) WRITE_TASK_DRAFT=1; BRIDGE_APPROVED_PROPOSAL=1 ;;
     --verbose|-v) VERBOSE=1 ;;
     --help|-h) usage; exit 0 ;;
     *) echo "unknown argument: $arg" >&2; usage >&2; exit 2 ;;
@@ -96,6 +103,8 @@ section "Obsidian agent loop policy"
 echo "AI_DIR=$AI_DIR"
 echo "write_context=$WRITE_CONTEXT"
 echo "write_proposal=$WRITE_PROPOSAL"
+echo "bridge_approved_proposal=$BRIDGE_APPROVED_PROPOSAL"
+echo "write_task_draft=$WRITE_TASK_DRAFT"
 echo "writes_live_action_queue=false"
 echo "edits_obsidian_now=false"
 echo "auto_approval=false"
@@ -107,6 +116,7 @@ latest_action="$(latest_json_in "$AI_DIR/inbox/obsidian/actions" || true)"
 json_summary "latest intent" "${latest_intent:-$AI_DIR/inbox/obsidian/messages/<none>}"
 json_summary "latest proposal action" "${latest_action:-$AI_DIR/inbox/obsidian/actions/<none>}"
 json_summary "current proposal" "$AI_DIR/outbox/to-obsidian/current-proposal.json"
+json_summary "current approved proposal" "$AI_DIR/outbox/to-obsidian/current-approved-proposal.json"
 json_summary "current task draft" "$AI_DIR/outbox/to-obsidian/current-task-draft.json"
 
 section "agent context"
@@ -146,6 +156,68 @@ if [ "$WRITE_PROPOSAL" -eq 1 ]; then
   json_summary "written current proposal" "$AI_DIR/outbox/to-obsidian/current-proposal.json"
 else
   run_python -m ai_system.obsidian_intent_planner --ai-dir "$AI_DIR" --dry-run
+fi
+
+
+section "approval bridge"
+if [ "$BRIDGE_APPROVED_PROPOSAL" -eq 1 ]; then
+  run_python -m ai_system.obsidian_approval_bridge --ai-dir "$AI_DIR" --write --dry-run
+else
+  echo "skipped; pass --bridge-approved-proposal after explicit approval"
+fi
+
+section "task draft"
+if [ "$WRITE_TASK_DRAFT" -eq 1 ]; then
+  run_python - "$AI_DIR" <<'PYTASK'
+import json
+import sys
+from pathlib import Path
+
+from ai_system.obsidian_approval_bridge import run_bridge
+from ai_system.obsidian_task_draft import write_task_draft
+
+root = Path(sys.argv[1]).expanduser()
+bridge = run_bridge(root, write=True)
+
+if bridge.get("status") in {"no_proposal_action", "proposal_not_found", "rejected"}:
+    print(json.dumps(bridge, indent=2, ensure_ascii=False, sort_keys=True))
+    raise SystemExit(1)
+
+proposal = {}
+reviewed = bridge.get("reviewed_proposal")
+if isinstance(reviewed, dict):
+    proposal_path = reviewed.get("proposal_path")
+    if proposal_path:
+        proposal = json.loads(Path(proposal_path).read_text(encoding="utf-8"))
+
+if not proposal:
+    current = root / "outbox/to-obsidian/current-proposal.json"
+    proposal = json.loads(current.read_text(encoding="utf-8"))
+
+payload = {
+    "schema_version": "obsidian_approval_bridge_result.v1",
+    "approved": True,
+    "decision": "approve_proposal",
+    "proposal": proposal,
+    "approval": {
+        "approved": True,
+        "decision": "approve_proposal",
+    },
+    "bridge_result": bridge,
+}
+
+result = write_task_draft(payload, ai_dir=root)
+print(json.dumps(result, indent=2, ensure_ascii=False, sort_keys=True))
+PYTASK
+
+  if [ ! -f "$AI_DIR/outbox/to-obsidian/current-task-draft.json" ]; then
+    echo "ERROR: --write-task-draft did not create current-task-draft.json" >&2
+    exit 1
+  fi
+
+  json_summary "written current task draft" "$AI_DIR/outbox/to-obsidian/current-task-draft.json"
+else
+  echo "skipped; pass --write-task-draft after explicit approval"
 fi
 
 section "next explicit stages"

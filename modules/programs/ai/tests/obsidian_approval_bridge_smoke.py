@@ -86,7 +86,15 @@ def test_approved_proposal_writes_reviewed_artifact_only() -> None:
         reviewed_path = (
             ai_dir / "outbox/to-obsidian/approved-proposals/proposal-intent-1.json"
         )
+        current_path = ai_dir / "outbox/to-obsidian/current-approved-proposal.json"
+        current_md = ai_dir / "outbox/to-obsidian/current-approved-proposal.md"
+
+        assert current_path.exists()
+        assert current_md.exists()
+
         reviewed = json.loads(reviewed_path.read_text(encoding="utf-8"))
+        current = json.loads(current_path.read_text(encoding="utf-8"))
+        assert current["proposal_id"] == "proposal-intent-1"
 
         assert reviewed["schema_version"] == "obsidian_reviewed_proposal.v1"
         assert reviewed["proposal_id"] == "proposal-intent-1"
