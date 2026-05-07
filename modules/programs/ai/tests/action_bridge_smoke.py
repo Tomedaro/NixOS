@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import importlib.util
 import json
 import os
 import subprocess
@@ -59,7 +60,9 @@ def run_action_bridge(ai_dir: Path, tasknotes_dir: Path) -> subprocess.Completed
 
     shared_python = str(REPO / "modules/programs/ai/python")
     old_pythonpath = env.get("PYTHONPATH", "")
-    env["PYTHONPATH"] = shared_python if not old_pythonpath else shared_python + ":" + old_pythonpath
+    env["PYTHONPATH"] = (
+        shared_python if not old_pythonpath else shared_python + ":" + old_pythonpath
+    )
 
     return subprocess.run(
         [sys.executable, str(ACTION_BRIDGE)],
@@ -94,19 +97,25 @@ def setup_base(ai_dir: Path) -> None:
     ]:
         (ai_dir / rel).mkdir(parents=True, exist_ok=True)
 
-    write_json(ai_dir / "state/session/current.json", {
-        "session_id": "old-completed-session",
-        "status": "completed",
-        "task": "Old task",
-        "project": "Old project",
-        "mode": "old",
-    })
+    write_json(
+        ai_dir / "state/session/current.json",
+        {
+            "session_id": "old-completed-session",
+            "status": "completed",
+            "task": "Old task",
+            "project": "Old project",
+            "mode": "old",
+        },
+    )
 
-    write_json(ai_dir / "outbox/to-phone/interaction-state.json", {
-        "schema_version": "phone_interaction_state.v1",
-        "active_nudge": None,
-        "active_question": None,
-    })
+    write_json(
+        ai_dir / "outbox/to-phone/interaction-state.json",
+        {
+            "schema_version": "phone_interaction_state.v1",
+            "active_nudge": None,
+            "active_question": None,
+        },
+    )
 
 
 def action_file(ai_dir: Path, name: str, payload: dict) -> Path:
@@ -123,9 +132,9 @@ def action_file(ai_dir: Path, name: str, payload: dict) -> Path:
 
 
 def assert_bridge_ok(proc: subprocess.CompletedProcess) -> None:
-    assert proc.returncode == 0, (
-        f"action bridge failed\nSTDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
-    )
+    assert (
+        proc.returncode == 0
+    ), f"action bridge failed\nSTDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
 
 
 def latest_action_events(ai_dir: Path) -> list[dict]:
@@ -142,31 +151,41 @@ def test_ack_nudge() -> None:
         tasknotes_dir = Path(tmp) / "TaskNotes"
         setup_base(ai_dir)
 
-        write_json(ai_dir / "outbox/to-phone/current-nudge.json", {
-            "schema_version": "phone_interaction.v1",
-            "kind": "nudge",
-            "status": "active",
-            "nudge_id": "n-ack-smoke",
-            "intervention_id": "i-ack-smoke",
-            "message": "Smoke nudge",
-            "recommended_next_action": "Acknowledge this.",
-            "actions": [{"action": "ack_nudge", "label": "Done"}],
-        })
+        write_json(
+            ai_dir / "outbox/to-phone/current-nudge.json",
+            {
+                "schema_version": "phone_interaction.v1",
+                "kind": "nudge",
+                "status": "active",
+                "nudge_id": "n-ack-smoke",
+                "intervention_id": "i-ack-smoke",
+                "message": "Smoke nudge",
+                "recommended_next_action": "Acknowledge this.",
+                "actions": [{"action": "ack_nudge", "label": "Done"}],
+            },
+        )
 
-        write_json(ai_dir / "outbox/to-phone/interaction-state.json", {
-            "active_nudge": {"nudge_id": "n-ack-smoke", "status": "active"},
-            "active_question": None,
-        })
+        write_json(
+            ai_dir / "outbox/to-phone/interaction-state.json",
+            {
+                "active_nudge": {"nudge_id": "n-ack-smoke", "status": "active"},
+                "active_question": None,
+            },
+        )
 
-        action_file(ai_dir, "1000_ack_nudge.json", {
-            "schema_version": "action.v1",
-            "action": "ack_nudge",
-            "source": "test",
-            "device": "phone",
-            "nudge_id": "n-ack-smoke",
-            "message": "Smoke nudge",
-            "timestamp_epoch": int(time.time()),
-        })
+        action_file(
+            ai_dir,
+            "1000_ack_nudge.json",
+            {
+                "schema_version": "action.v1",
+                "action": "ack_nudge",
+                "source": "test",
+                "device": "phone",
+                "nudge_id": "n-ack-smoke",
+                "message": "Smoke nudge",
+                "timestamp_epoch": int(time.time()),
+            },
+        )
 
         proc = run_action_bridge(ai_dir, tasknotes_dir)
         assert_bridge_ok(proc)
@@ -177,7 +196,8 @@ def test_ack_nudge() -> None:
 
         events = latest_action_events(ai_dir)
         ack_events = [
-            e for e in events
+            e
+            for e in events
             if e.get("event") == "ack_nudge" and e.get("nudge_id") == "n-ack-smoke"
         ]
         assert ack_events
@@ -194,27 +214,36 @@ def test_snooze_nudge() -> None:
         tasknotes_dir = Path(tmp) / "TaskNotes"
         setup_base(ai_dir)
 
-        write_json(ai_dir / "outbox/to-phone/current-nudge.json", {
-            "schema_version": "phone_interaction.v1",
-            "kind": "nudge",
-            "status": "active",
-            "nudge_id": "n-snooze-smoke",
-            "intervention_id": "i-snooze-smoke",
-            "message": "Smoke snooze nudge",
-            "recommended_next_action": "Snooze this.",
-            "actions": [{"action": "snooze_nudge", "label": "Not now", "snooze_minutes": 15}],
-        })
+        write_json(
+            ai_dir / "outbox/to-phone/current-nudge.json",
+            {
+                "schema_version": "phone_interaction.v1",
+                "kind": "nudge",
+                "status": "active",
+                "nudge_id": "n-snooze-smoke",
+                "intervention_id": "i-snooze-smoke",
+                "message": "Smoke snooze nudge",
+                "recommended_next_action": "Snooze this.",
+                "actions": [
+                    {"action": "snooze_nudge", "label": "Not now", "snooze_minutes": 15}
+                ],
+            },
+        )
 
-        action_file(ai_dir, "1000_snooze_nudge.json", {
-            "schema_version": "action.v1",
-            "action": "snooze_nudge",
-            "source": "test",
-            "device": "phone",
-            "nudge_id": "n-snooze-smoke",
-            "snooze_minutes": 15,
-            "reason": "smoke",
-            "timestamp_epoch": int(time.time()),
-        })
+        action_file(
+            ai_dir,
+            "1000_snooze_nudge.json",
+            {
+                "schema_version": "action.v1",
+                "action": "snooze_nudge",
+                "source": "test",
+                "device": "phone",
+                "nudge_id": "n-snooze-smoke",
+                "snooze_minutes": 15,
+                "reason": "smoke",
+                "timestamp_epoch": int(time.time()),
+            },
+        )
 
         proc = run_action_bridge(ai_dir, tasknotes_dir)
         assert_bridge_ok(proc)
@@ -231,12 +260,16 @@ def test_snooze_nudge() -> None:
 
         events = latest_action_events(ai_dir)
         snooze_events = [
-            e for e in events
+            e
+            for e in events
             if e.get("event") == "snooze_nudge" and e.get("snooze_minutes") == 15
         ]
         assert snooze_events
         assert snooze_events[-1]["intervention_id"] == "i-snooze-smoke"
-        assert interaction_state["last_nudge_snooze"]["intervention_id"] == "i-snooze-smoke"
+        assert (
+            interaction_state["last_nudge_snooze"]["intervention_id"]
+            == "i-snooze-smoke"
+        )
 
 
 def test_start_recovery_target_consumes_nudge() -> None:
@@ -245,31 +278,38 @@ def test_start_recovery_target_consumes_nudge() -> None:
         tasknotes_dir = Path(tmp) / "TaskNotes"
         setup_base(ai_dir)
 
-        write_json(ai_dir / "outbox/to-phone/current-nudge.json", {
-            "schema_version": "phone_interaction.v1",
-            "kind": "nudge",
-            "status": "active",
-            "nudge_id": "n-recovery-smoke",
-            "intervention_id": "i-recovery-smoke",
-            "planner_mode": "recovery",
-            "message": "Start Anki.",
-            "recommended_next_action": "Tap Start Anki.",
-            "actions": [{"action": "start_recovery_target", "label": "Start Anki"}],
-        })
+        write_json(
+            ai_dir / "outbox/to-phone/current-nudge.json",
+            {
+                "schema_version": "phone_interaction.v1",
+                "kind": "nudge",
+                "status": "active",
+                "nudge_id": "n-recovery-smoke",
+                "intervention_id": "i-recovery-smoke",
+                "planner_mode": "recovery",
+                "message": "Start Anki.",
+                "recommended_next_action": "Tap Start Anki.",
+                "actions": [{"action": "start_recovery_target", "label": "Start Anki"}],
+            },
+        )
 
-        action_file(ai_dir, "1000_start_recovery_target.json", {
-            "schema_version": "action.v1",
-            "action": "start_recovery_target",
-            "source": "test",
-            "device": "phone",
-            "nudge_id": "n-recovery-smoke",
-            "target_id": "anki",
-            "target_name": "Anki",
-            "goal_text": "5 minutes in AnkiDroid",
-            "stop_condition": "Stay in AnkiDroid for 5 minutes, then stop.",
-            "android_package": "com.ichi2.anki",
-            "timestamp_epoch": int(time.time()),
-        })
+        action_file(
+            ai_dir,
+            "1000_start_recovery_target.json",
+            {
+                "schema_version": "action.v1",
+                "action": "start_recovery_target",
+                "source": "test",
+                "device": "phone",
+                "nudge_id": "n-recovery-smoke",
+                "target_id": "anki",
+                "target_name": "Anki",
+                "goal_text": "5 minutes in AnkiDroid",
+                "stop_condition": "Stay in AnkiDroid for 5 minutes, then stop.",
+                "android_package": "com.ichi2.anki",
+                "timestamp_epoch": int(time.time()),
+            },
+        )
 
         proc = run_action_bridge(ai_dir, tasknotes_dir)
         assert_bridge_ok(proc)
@@ -286,8 +326,10 @@ def test_start_recovery_target_consumes_nudge() -> None:
 
         recovery_events = read_jsonl(ai_dir / f"events/recovery/{today()}.jsonl")
         recovery_started = [
-            e for e in recovery_events
-            if e.get("event") == "recovery_started" and e.get("nudge_id") == "n-recovery-smoke"
+            e
+            for e in recovery_events
+            if e.get("event") == "recovery_started"
+            and e.get("nudge_id") == "n-recovery-smoke"
         ]
         assert recovery_started
         assert recovery_started[-1]["intervention_id"] == "i-recovery-smoke"
@@ -302,36 +344,44 @@ def test_answer_question() -> None:
         tasknotes_dir = Path(tmp) / "TaskNotes"
         setup_base(ai_dir)
 
-        write_json(ai_dir / "outbox/to-phone/current-question.json", {
-            "schema_version": "phone_interaction.v1",
-            "kind": "question",
-            "status": "active",
-            "question_id": "q-answer-smoke",
-            "question": "What is blocking you?",
-            "answer_options": [
-                {"id": "overwhelmed", "label": "Overwhelmed"}
-            ],
-            "free_text_allowed": True,
-            "response_action": "answer_question",
-        })
+        write_json(
+            ai_dir / "outbox/to-phone/current-question.json",
+            {
+                "schema_version": "phone_interaction.v1",
+                "kind": "question",
+                "status": "active",
+                "question_id": "q-answer-smoke",
+                "question": "What is blocking you?",
+                "answer_options": [{"id": "overwhelmed", "label": "Overwhelmed"}],
+                "free_text_allowed": True,
+                "response_action": "answer_question",
+            },
+        )
 
-        write_json(ai_dir / "state/llm/pending-question.json", {
-            "question_id": "q-answer-smoke",
-            "question": "What is blocking you?",
-            "status": "pending",
-        })
+        write_json(
+            ai_dir / "state/llm/pending-question.json",
+            {
+                "question_id": "q-answer-smoke",
+                "question": "What is blocking you?",
+                "status": "pending",
+            },
+        )
 
-        action_file(ai_dir, "1000_answer_question.json", {
-            "schema_version": "action.v1",
-            "action": "answer_question",
-            "source": "test",
-            "device": "phone",
-            "question_id": "q-answer-smoke",
-            "answer": "overwhelmed",
-            "answer_label": "Overwhelmed",
-            "free_text": "Smoke answer",
-            "timestamp_epoch": int(time.time()),
-        })
+        action_file(
+            ai_dir,
+            "1000_answer_question.json",
+            {
+                "schema_version": "action.v1",
+                "action": "answer_question",
+                "source": "test",
+                "device": "phone",
+                "question_id": "q-answer-smoke",
+                "answer": "overwhelmed",
+                "answer_label": "Overwhelmed",
+                "free_text": "Smoke answer",
+                "timestamp_epoch": int(time.time()),
+            },
+        )
 
         proc = run_action_bridge(ai_dir, tasknotes_dir)
         assert_bridge_ok(proc)
@@ -345,7 +395,11 @@ def test_answer_question() -> None:
         assert current_question["last_status"] == "answered"
 
         pending = read_json(ai_dir / "state/llm/pending-question.json", {})
-        assert pending == {} or pending.get("status") in {"inactive", "answered", "cleared"}
+        assert pending == {} or pending.get("status") in {
+            "inactive",
+            "answered",
+            "cleared",
+        }
 
 
 def test_dismiss_question() -> None:
@@ -354,32 +408,42 @@ def test_dismiss_question() -> None:
         tasknotes_dir = Path(tmp) / "TaskNotes"
         setup_base(ai_dir)
 
-        write_json(ai_dir / "outbox/to-phone/current-question.json", {
-            "schema_version": "phone_interaction.v1",
-            "kind": "question",
-            "status": "active",
-            "question_id": "q-dismiss-smoke",
-            "question": "Dismiss?",
-            "answer_options": [],
-            "free_text_allowed": True,
-            "response_action": "answer_question",
-        })
+        write_json(
+            ai_dir / "outbox/to-phone/current-question.json",
+            {
+                "schema_version": "phone_interaction.v1",
+                "kind": "question",
+                "status": "active",
+                "question_id": "q-dismiss-smoke",
+                "question": "Dismiss?",
+                "answer_options": [],
+                "free_text_allowed": True,
+                "response_action": "answer_question",
+            },
+        )
 
-        write_json(ai_dir / "state/llm/pending-question.json", {
-            "question_id": "q-dismiss-smoke",
-            "question": "Dismiss?",
-            "status": "pending",
-        })
+        write_json(
+            ai_dir / "state/llm/pending-question.json",
+            {
+                "question_id": "q-dismiss-smoke",
+                "question": "Dismiss?",
+                "status": "pending",
+            },
+        )
 
-        action_file(ai_dir, "1000_dismiss_question.json", {
-            "schema_version": "action.v1",
-            "action": "dismiss_question",
-            "source": "test",
-            "device": "phone",
-            "question_id": "q-dismiss-smoke",
-            "reason": "smoke",
-            "timestamp_epoch": int(time.time()),
-        })
+        action_file(
+            ai_dir,
+            "1000_dismiss_question.json",
+            {
+                "schema_version": "action.v1",
+                "action": "dismiss_question",
+                "source": "test",
+                "device": "phone",
+                "question_id": "q-dismiss-smoke",
+                "reason": "smoke",
+                "timestamp_epoch": int(time.time()),
+            },
+        )
 
         proc = run_action_bridge(ai_dir, tasknotes_dir)
         assert_bridge_ok(proc)
@@ -389,7 +453,54 @@ def test_dismiss_question() -> None:
         assert current_question["last_status"] == "dismissed"
 
         events = latest_action_events(ai_dir)
-        assert any(e.get("event") == "dismiss_question" and e.get("question_id") == "q-dismiss-smoke" for e in events)
+        assert any(
+            e.get("event") == "dismiss_question"
+            and e.get("question_id") == "q-dismiss-smoke"
+            for e in events
+        )
+
+
+def test_process_lock_is_non_blocking() -> None:
+    with tempfile.TemporaryDirectory(prefix="ai-action-bridge-lock-") as tmp:
+        ai_dir = Path(tmp) / "AI"
+
+        old_ai_dir = os.environ.get("AI_DIR")
+        os.environ["AI_DIR"] = str(ai_dir)
+
+        try:
+            shared_python = str(REPO / "modules/programs/ai/python")
+            if shared_python not in sys.path:
+                sys.path.insert(0, shared_python)
+
+            module_path = REPO / "modules/programs/ai/action-bridge/action_bridge.py"
+            spec = importlib.util.spec_from_file_location(
+                "action_bridge_lock_smoke",
+                module_path,
+            )
+            assert spec is not None
+            assert spec.loader is not None
+
+            action_bridge = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(action_bridge)
+
+            action_bridge.ensure_dirs()
+
+            first = action_bridge.acquire_process_lock()
+            assert first is not None
+
+            second = action_bridge.acquire_process_lock()
+            assert second is None
+
+            action_bridge.release_process_lock(first)
+
+            third = action_bridge.acquire_process_lock()
+            assert third is not None
+            action_bridge.release_process_lock(third)
+        finally:
+            if old_ai_dir is None:
+                os.environ.pop("AI_DIR", None)
+            else:
+                os.environ["AI_DIR"] = old_ai_dir
 
 
 def main() -> None:
@@ -399,6 +510,7 @@ def main() -> None:
         test_start_recovery_target_consumes_nudge,
         test_answer_question,
         test_dismiss_question,
+        test_process_lock_is_non_blocking,
     ]
 
     for test in tests:
