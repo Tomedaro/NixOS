@@ -176,6 +176,23 @@ compact_json_state() {
   fi
 }
 
+
+report_interaction_surface() {
+  section "interaction surface"
+
+  local helper="$SCRIPT_DIR/interaction_surface.py"
+  if [ ! -f "$helper" ]; then
+    echo "missing: $helper"
+    return 0
+  fi
+
+  if command -v python3 >/dev/null 2>&1; then
+    python3 "$helper" "$AI_DIR"
+  else
+    nix shell nixpkgs#python3 -c python3 "$helper" "$AI_DIR"
+  fi
+}
+
 report_recovery_trigger_install_state() {
  section "recovery trigger install state"
 
@@ -429,6 +446,7 @@ list_queue "manual review actions newest" "$AI_DIR/inbox/actions-manual-review" 
 list_queue "processed actions newest" "$AI_DIR/inbox/actions-processed" 3 12
 
 report_recovery_trigger_install_state
+report_interaction_surface
 
 if [ "$VERBOSE" -eq 1 ]; then
   section "materialized state summary"
