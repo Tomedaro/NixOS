@@ -21,6 +21,8 @@ Before moving deeper into TaskNotes-heavy Phase 2, keep tightening contracts and
 - [ ] Keep `AI/inbox/from-obsidian/...` references removed or explicitly marked historical.
 - [ ] Decide whether Obsidian inbox readers need a nonzero stability delay, or whether all Obsidian writers are guaranteed atomic.
 - [ ] Update `TODO.md` Phase 1 status so completed Obsidian proposal/action/draft pieces are not treated as missing.
+- [ ] Decide and document the owner of phone interaction projection freshness: planner opportunistic cleanup, client TTL, or deterministic projection maintainer.
+- [ ] Add a deterministic non-LLM projection-refresh path if planner cadence is not enough.
 
 ## Near-term cleanup
 
@@ -30,16 +32,38 @@ Before moving deeper into TaskNotes-heavy Phase 2, keep tightening contracts and
 - [ ] Add status freshness language to service docs: status files are materialized views, not proof a producer is currently active.
 - [ ] Review `anki-bridge` direct TaskNotes mode; keep default behavior conservative until TaskNotes write schemas and gates are stronger.
 - [ ] Reduce hardcoded personal paths in docs where a config variable would communicate better.
-- [ ] Review interaction-surface stale-state behavior so expired materialized nudges cannot look live indefinitely.
+
+## Projection/cache freshness inventory
+
+Materialized files are caches/views. They are useful runtime surfaces, but they are not the durable source of truth.
+
+- [ ] Classify each materialized file by producer, consumer, freshness model, and stale-state risk.
+- [ ] Start with:
+  - `AI/outbox/to-phone/current-nudge.json`
+  - `AI/outbox/to-phone/current-question.json`
+  - `AI/outbox/to-phone/interaction-state.json`
+  - `AI/state/recovery/current.json`
+  - `AI/state/interventions/stats.json`
+  - `AI/state/recovery-trigger/status.md`
+- [ ] For each file, decide whether stale state is harmless, warning-only, or requires deterministic refresh.
+- [ ] Keep diagnostics explicit about whether they are showing durable events, live service state, or materialized views.
 
 ## Interaction lifecycle cleanup
 
 Known issue class: deterministic lifecycle logic can decide a nudge is expired before the phone-visible materialized files are cleared.
 
+Planner output already clears stale nudges opportunistically when the planner runs. That is useful, but the planner should not become the implicit lifecycle authority.
+
 Goals:
 
-- [ ] Keep diagnostics showing active nudge/question id, status, source, updated time, age, and stale reason.
-- [ ] Decide whether a passive non-mutating diagnostic should only warn, or whether a dedicated safe cleanup command should materialize inactive state.
+- [ ] Keep diagnostics showing active nudge/question id, status, source, updated time, age, consistency, and stale reason.
+- [ ] Keep `check-ai-live.sh` and `audit-ai-project.sh` read-only by default.
+- [ ] Decide whether stale interaction projection refresh belongs to:
+  - planner opportunistic output refresh;
+  - a deterministic projection maintainer;
+  - client-side TTL fallback;
+  - or a combination of the above.
+- [ ] If adding a maintainer, implement pure projection logic first, then a dry-run CLI, then an explicit `--write` mode.
 - [ ] Ensure phone/webview consumers can distinguish active, inactive, expired, and unknown state.
 - [ ] Avoid enabling more autonomous recovery nudges until stale materialized interaction behavior is boring and obvious.
 

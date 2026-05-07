@@ -197,6 +197,12 @@ state + events + outcomes
 
 Goal: make Obsidian the main place where you can talk to the system.
 
+### Phase 1.5 checkpoint
+
+Some Obsidian protocol pieces now exist in code and smoke tests. Before adding deeper TaskNotes behavior, reclassify this section into implemented, partial, open, and deferred items.
+
+Do not treat old unchecked bullets as proof that the feature is missing. Cross-check current code, smoke tests, and live diagnostics first.
+
 Create:
 
 * `AI/outbox/to-obsidian/current-interaction.json`
