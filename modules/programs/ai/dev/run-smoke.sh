@@ -61,6 +61,7 @@ tests=(
   modules/programs/ai/tests/action_bridge_smoke.py
   modules/programs/ai/tests/dialog_bridge_smoke.py
   modules/programs/ai/tests/session_manager_smoke.py
+  modules/programs/ai/tests/coach_daemon_smoke.py
   modules/programs/ai/tests/agent_context_smoke.py
   modules/programs/ai/tests/agent_context_hub_smoke.py
   modules/programs/ai/tests/interaction_lifecycle_smoke.py

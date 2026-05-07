@@ -5,6 +5,7 @@ let
   cfg = config.my.ai.coachDaemon;
 
   coachScript = pkgs.writeShellScriptBin "productivity-coach" ''
+    export PYTHONPATH="${../python}''${PYTHONPATH:+:$PYTHONPATH}"
     exec ${pkgs.python3}/bin/python3 ${./coach.py} "$@"
   '';
 in

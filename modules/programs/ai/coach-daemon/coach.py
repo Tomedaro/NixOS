@@ -11,11 +11,15 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from ai_system.io_utils import append_jsonl, atomic_write_json, atomic_write_text
+
 
 AI_DIR = Path(os.environ.get("AI_DIR", "~/Sync/Perseverance.Gu/AI")).expanduser()
 AW_URL = os.environ.get("ACTIVITYWATCH_URL", "http://127.0.0.1:5600").rstrip("/")
 INTERVAL_SECONDS = int(os.environ.get("INTERVAL_SECONDS", "60"))
-NOTIFICATION_COOLDOWN_SECONDS = int(os.environ.get("NOTIFICATION_COOLDOWN_SECONDS", "600"))
+NOTIFICATION_COOLDOWN_SECONDS = int(
+    os.environ.get("NOTIFICATION_COOLDOWN_SECONDS", "600")
+)
 EVENT_FRESHNESS_SECONDS = int(os.environ.get("EVENT_FRESHNESS_SECONDS", "180"))
 STARTUP_GRACE_SECONDS = int(os.environ.get("STARTUP_GRACE_SECONDS", "30"))
 NOTIFY_SEND = os.environ.get("NOTIFY_SEND", "notify-send")
@@ -69,18 +73,6 @@ def ensure_dirs():
         path.mkdir(parents=True, exist_ok=True)
 
 
-def atomic_write_json(path, data):
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-    tmp.replace(path)
-
-
-def atomic_write_text(path, text):
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(text, encoding="utf-8")
-    tmp.replace(path)
-
-
 def load_state():
     if not STATE_FILE.exists():
         return {}
@@ -124,9 +116,7 @@ def find_bucket_id(bucket_type):
     selected = awatcher_candidates or candidates
     selected.sort(
         key=lambda item: (
-            item[1].get("metadata", {}).get("end")
-            or item[1].get("created")
-            or ""
+            item[1].get("metadata", {}).get("end") or item[1].get("created") or ""
         ),
         reverse=True,
     )
@@ -198,13 +188,13 @@ def ensure_current_task_file():
         return True
 
     if LEGACY_CURRENT_TASK_FILE.exists():
-        CURRENT_TASK_FILE.write_text(
+        atomic_write_text(
+            CURRENT_TASK_FILE,
             LEGACY_CURRENT_TASK_FILE.read_text(encoding="utf-8"),
-            encoding="utf-8",
         )
         return True
 
-    CURRENT_TASK_FILE.write_text(DEFAULT_TASK_TEMPLATE, encoding="utf-8")
+    atomic_write_text(CURRENT_TASK_FILE, DEFAULT_TASK_TEMPLATE)
     return False
 
 
@@ -241,7 +231,15 @@ def default_task_policy(existed=True):
         "exists": existed,
         "task": "Study / productive computer work",
         "mode": "study",
-        "allowed_apps": ["Anki", "Obsidian", "kitty", "Zen", "Firefox", "Zathura", "mpv"],
+        "allowed_apps": [
+            "Anki",
+            "Obsidian",
+            "kitty",
+            "Zen",
+            "Firefox",
+            "Zathura",
+            "mpv",
+        ],
         "distracting_apps": ["Discord", "Steam", "Telegram"],
         "allowed_title_keywords": [
             "Anki",
@@ -281,23 +279,38 @@ def parse_policy_json():
         return None
 
     session = read_json_file(CURRENT_SESSION_JSON, {})
+    if str(session.get("status", "")).lower() != "active":
+        return None
 
     fallback = default_task_policy(existed=True)
-    intervention = policy.get("intervention", {}) if isinstance(policy.get("intervention"), dict) else {}
+    intervention = (
+        policy.get("intervention", {})
+        if isinstance(policy.get("intervention"), dict)
+        else {}
+    )
 
     return {
         "exists": True,
         "task": str(policy.get("task") or session.get("task") or fallback["task"]),
         "mode": str(policy.get("mode") or session.get("mode") or fallback["mode"]),
         "allowed_apps": policy_list(policy, "allowed_apps", fallback["allowed_apps"]),
-        "distracting_apps": policy_list(policy, "distracting_apps", fallback["distracting_apps"]),
-        "allowed_title_keywords": policy_list(policy, "allowed_title_keywords", fallback["allowed_title_keywords"]),
-        "distracting_title_keywords": policy_list(policy, "distracting_title_keywords", fallback["distracting_title_keywords"]),
+        "distracting_apps": policy_list(
+            policy, "distracting_apps", fallback["distracting_apps"]
+        ),
+        "allowed_title_keywords": policy_list(
+            policy, "allowed_title_keywords", fallback["allowed_title_keywords"]
+        ),
+        "distracting_title_keywords": policy_list(
+            policy, "distracting_title_keywords", fallback["distracting_title_keywords"]
+        ),
         "session_id": str(session.get("session_id", "")),
         "session_status": str(session.get("status", "")),
         "policy_source": str(CURRENT_POLICY_JSON),
         "strictness": int(intervention.get("level", fallback["strictness"]) or 0),
-        "cooldown_seconds": int(intervention.get("cooldown_seconds", fallback["cooldown_seconds"]) or NOTIFICATION_COOLDOWN_SECONDS),
+        "cooldown_seconds": int(
+            intervention.get("cooldown_seconds", fallback["cooldown_seconds"])
+            or NOTIFICATION_COOLDOWN_SECONDS
+        ),
     }
 
 
@@ -374,6 +387,7 @@ def parse_current_task():
         return policy_task
 
     return parse_current_task_markdown()
+
 
 def lower_list(items):
     return [item.lower() for item in items]
@@ -455,6 +469,7 @@ def classify(window_event, afk_event, task, window_event_is_stale):
         "reason": "Current activity matched neither allowed nor distracting rules.",
     }
 
+
 def send_notification(summary, body, urgency="normal"):
     try:
         subprocess.run(
@@ -477,7 +492,7 @@ def append_markdown_log(entry):
     log_file = LOG_DIR / f"{today()}.md"
 
     if not log_file.exists():
-        log_file.write_text(f"# Desktop Coach Log - {today()}\n\n", encoding="utf-8")
+        atomic_write_text(log_file, f"# Desktop Coach Log - {today()}\n\n")
 
     with log_file.open("a", encoding="utf-8") as handle:
         handle.write(f"## {now_local().strftime('%H:%M:%S')}\n\n")
@@ -495,8 +510,6 @@ def append_markdown_log(entry):
 
 
 def append_jsonl_event(entry):
-    event_file = EVENTS_DIR / f"{today()}.jsonl"
-
     event = {
         "source": "desktop-coach",
         "timestamp": now_iso(),
@@ -504,9 +517,7 @@ def append_jsonl_event(entry):
         **entry,
     }
 
-    with event_file.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(event, ensure_ascii=False, sort_keys=True))
-        handle.write("\n")
+    append_jsonl(EVENTS_DIR / f"{today()}.jsonl", event)
 
 
 def write_now(entry):
@@ -559,15 +570,17 @@ def should_notify(verdict, state, entry):
 
 
 def should_log(entry, state):
-    signature = "|".join([
-        entry["verdict"],
-        entry["app"],
-        entry["title"],
-        entry["afk"],
-        entry["task"],
-        str(entry["window_event_stale"]),
-        str(entry["afk_event_stale"]),
-    ])
+    signature = "|".join(
+        [
+            entry["verdict"],
+            entry["app"],
+            entry["title"],
+            entry["afk"],
+            entry["task"],
+            str(entry["window_event_stale"]),
+            str(entry["afk_event_stale"]),
+        ]
+    )
 
     last_signature = state.get("last_log_signature")
     last_log_epoch = float(state.get("last_log_epoch", 0))
@@ -665,15 +678,17 @@ def tick():
         append_markdown_log(entry)
         append_jsonl_event(entry)
 
-        state["last_log_signature"] = "|".join([
-            entry["verdict"],
-            entry["app"],
-            entry["title"],
-            entry["afk"],
-            entry["task"],
-            str(entry["window_event_stale"]),
-            str(entry["afk_event_stale"]),
-        ])
+        state["last_log_signature"] = "|".join(
+            [
+                entry["verdict"],
+                entry["app"],
+                entry["title"],
+                entry["afk"],
+                entry["task"],
+                str(entry["window_event_stale"]),
+                str(entry["afk_event_stale"]),
+            ]
+        )
         state["last_log_epoch"] = time.time()
 
     state["last_seen"] = {
