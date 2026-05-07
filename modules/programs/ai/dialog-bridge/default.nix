@@ -5,6 +5,7 @@ let
   cfg = config.my.ai.dialogBridge;
 
   dialogScript = pkgs.writeShellScriptBin "dialog-bridge" ''
+    export PYTHONPATH="${../python}''${PYTHONPATH:+:$PYTHONPATH}"
     exec ${pkgs.python3}/bin/python3 ${./dialog_bridge.py} "$@"
   '';
 in

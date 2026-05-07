@@ -59,6 +59,7 @@ nix shell nixpkgs#python3 -c python3 -m py_compile "${py_files[@]}"
 tests=(
   modules/programs/ai/tests/phone_bridge_smoke.py
   modules/programs/ai/tests/action_bridge_smoke.py
+  modules/programs/ai/tests/dialog_bridge_smoke.py
   modules/programs/ai/tests/agent_context_smoke.py
   modules/programs/ai/tests/agent_context_hub_smoke.py
   modules/programs/ai/tests/interaction_lifecycle_smoke.py

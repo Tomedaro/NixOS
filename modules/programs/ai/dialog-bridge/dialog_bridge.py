@@ -9,6 +9,8 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from ai_system.io_utils import atomic_write_json, atomic_write_text
+
 
 AI_DIR = Path(os.environ.get("AI_DIR", "~/Sync/Perseverance.Gu/AI")).expanduser()
 
@@ -17,10 +19,14 @@ TIMEOUT_BIN = os.environ.get("TIMEOUT_BIN", "timeout")
 SYSTEMCTL = os.environ.get("SYSTEMCTL", "systemctl")
 
 NOTIFICATION_TIMEOUT_SECONDS = int(os.environ.get("NOTIFICATION_TIMEOUT_SECONDS", "60"))
-NOTIFICATION_COOLDOWN_SECONDS = int(os.environ.get("NOTIFICATION_COOLDOWN_SECONDS", "600"))
+NOTIFICATION_COOLDOWN_SECONDS = int(
+    os.environ.get("NOTIFICATION_COOLDOWN_SECONDS", "600")
+)
 MAX_QUESTION_AGE_SECONDS = int(os.environ.get("MAX_QUESTION_AGE_SECONDS", "14400"))
 TRIGGER_PLANNER_ON_ANSWER = os.environ.get("TRIGGER_PLANNER_ON_ANSWER", "1") == "1"
-TRIGGER_PLANNER_SERVICE = os.environ.get("TRIGGER_PLANNER_SERVICE", "llm-planner-help-now.service")
+TRIGGER_PLANNER_SERVICE = os.environ.get(
+    "TRIGGER_PLANNER_SERVICE", "llm-planner-help-now.service"
+)
 
 TIMEZONE = ZoneInfo(os.environ.get("DIALOG_BRIDGE_TIMEZONE", "Europe/Paris"))
 
@@ -61,17 +67,6 @@ def ensure_dirs():
         EVENTS_DESKTOP_DIR,
     ]:
         path.mkdir(parents=True, exist_ok=True)
-
-
-def atomic_write_text(path: Path, text: str):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(text, encoding="utf-8")
-    tmp.replace(path)
-
-
-def atomic_write_json(path: Path, data):
-    atomic_write_text(path, json.dumps(data, indent=2, ensure_ascii=False))
 
 
 def read_json(path: Path, default=None):
@@ -187,15 +182,17 @@ def trim_options(options):
 def write_current_question_inactive(reason="none"):
     atomic_write_text(
         CURRENT_QUESTION_MD,
-        "\n".join([
-            "# Current Question",
-            "",
-            "Status: inactive",
-            f"Reason: {reason}",
-            "Question: none",
-            f"Updated: {now_iso()}",
-            "",
-        ]),
+        "\n".join(
+            [
+                "# Current Question",
+                "",
+                "Status: inactive",
+                f"Reason: {reason}",
+                "Question: none",
+                f"Updated: {now_iso()}",
+                "",
+            ]
+        ),
     )
 
 
@@ -217,7 +214,9 @@ def write_current_question_active(question, status="active"):
         lines.append(f"- `{opt['id']}` — {opt['label']}")
 
     lines.append("")
-    lines.append(f"Free text allowed: {str(question.get('free_text_allowed', True)).lower()}")
+    lines.append(
+        f"Free text allowed: {str(question.get('free_text_allowed', True)).lower()}"
+    )
     lines.append(f"Updated: {now_iso()}")
     lines.append("")
 
@@ -330,7 +329,9 @@ def show_notification(question):
 
     if question.get("free_text_allowed"):
         body_lines.append("")
-        body_lines.append("Desktop v0 supports buttons only; choose the closest option.")
+        body_lines.append(
+            "Desktop v0 supports buttons only; choose the closest option."
+        )
 
     cmd = [
         TIMEOUT_BIN,
@@ -363,7 +364,11 @@ def show_notification(question):
         return None
 
     if completed.stderr.strip():
-        print(f"notify-send stderr: {completed.stderr.strip()}", file=sys.stderr, flush=True)
+        print(
+            f"notify-send stderr: {completed.stderr.strip()}",
+            file=sys.stderr,
+            flush=True,
+        )
 
     for line in completed.stdout.splitlines():
         line = line.strip()
@@ -482,7 +487,9 @@ def run_once():
     mark_question_answered(state, question, event)
 
     archive_path = archive_question(question, "answered", state=state, event=event)
-    write_current_question_inactive(f"answered: {event.get('answer_label', event.get('answer'))}")
+    write_current_question_inactive(
+        f"answered: {event.get('answer_label', event.get('answer'))}"
+    )
 
     print(
         f"answered question {question.get('question_id')} with {event.get('answer')}; archived={archive_path}",
