@@ -274,6 +274,8 @@ Queue readers must:
 5. Treat systemd path activation only as a wakeup signal, not as a one-file event.
 6. Move raw files to processed or failed archives so the inbox remains small and inspectable.
 
+Phone telemetry queue readers share the same complete-file semantics: dotfiles, editor/sync temp files, partial files, and non-JSON files are ignored rather than failed. Only complete stable `.json` telemetry files are processed.
+
 Action files may include `action_id` or `idempotency_key`. If omitted, the action bridge derives a stable action id from the action name and raw filename. A duplicate processed action id must be archived without repeating side effects.
 
 ### Action processing journal

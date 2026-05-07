@@ -9,7 +9,7 @@ from pathlib import Path
 
 from ai_system.events import append_event, normalize_event
 from ai_system.io_utils import atomic_write_json, atomic_write_text
-from ai_system.queue import is_stable, move_unique
+from ai_system.queue import is_stable, list_stable_json_queue_files, move_unique
 from ai_system.time_utils import get_timezone, now_iso, today
 
 
@@ -350,10 +350,11 @@ def cleanup_processed():
 
 
 def pending_event_files():
-    return sorted(
-        [path for path in RAW_EVENTS_DIR.glob("*.json") if path.is_file()],
-        key=lambda p: p.stat().st_mtime,
+    ready, _unstable, _ignored = list_stable_json_queue_files(
+        RAW_EVENTS_DIR,
+        STABILITY_SECONDS,
     )
+    return sorted(ready, key=lambda p: p.stat().st_mtime)
 
 
 def tick():

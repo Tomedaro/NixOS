@@ -174,6 +174,56 @@ def test_misrouted_action_is_failed() -> None:
 
 
 
+def test_queue_ignores_partial_dotfiles_and_non_json() -> None:
+    tmp, ai_dir, module = setup_ai_dir()
+    with tmp:
+        raw_dir = ai_dir / "inbox/from-phone/events"
+
+        hidden = raw_dir / ".1777998501_opened_ankidroid.json"
+        write_json(hidden, {
+            "schema_version": "event.v1",
+            "source": "tasker",
+            "device": "phone",
+            "event": "opened_ankidroid",
+            "message": "Hidden temp event",
+            "timestamp_epoch": 1777998501,
+        })
+
+        temp = raw_dir / "1777998502_opened_ankidroid.json.tmp"
+        temp.write_text("{not complete json", encoding="utf-8")
+
+        partial = raw_dir / "1777998503_opened_ankidroid.partial"
+        partial.write_text("partial", encoding="utf-8")
+
+        non_json = raw_dir / "README.md"
+        non_json.write_text("not a queue item", encoding="utf-8")
+
+        valid = raw_dir / "1777998504_opened_ankidroid.json"
+        write_json(valid, {
+            "schema_version": "event.v1",
+            "source": "tasker",
+            "device": "phone",
+            "event": "opened_ankidroid",
+            "message": "Valid queue event",
+            "timestamp_epoch": 1777998504,
+            "tasker_date": "05-05-2026",
+            "tasker_time": "18.28",
+        })
+
+        assert module.tick() == 1
+
+        events = read_jsonl(ai_dir / "events/phone/2026-05-05.jsonl")
+        assert len(events) == 1
+        assert events[0]["message"] == "Valid queue event"
+
+        assert not valid.exists()
+        assert hidden.exists()
+        assert temp.exists()
+        assert partial.exists()
+        assert non_json.exists()
+        assert not find_files(ai_dir / "inbox/from-phone/failed", "*")
+
+
 def test_once_mode_processes_and_exits() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         ai_dir = Path(tmp) / "AI"
@@ -212,6 +262,7 @@ def test_once_mode_processes_and_exits() -> None:
 def main() -> None:
     tests = [
         test_valid_phone_event_is_processed,
+        test_queue_ignores_partial_dotfiles_and_non_json,
         test_literal_tasker_variable_filename_is_failed,
         test_literal_tasker_variable_timestamp_is_failed,
         test_misrouted_action_is_failed,
