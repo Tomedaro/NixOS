@@ -928,6 +928,7 @@ Processed/failed queues:
 ```text
 AI/inbox/actions-processed/YYYY-MM-DD/
 AI/inbox/actions-failed/YYYY-MM-DD/
+AI/inbox/actions-manual-review/YYYY-MM-DD/
 ```
 
 Important outputs:
@@ -1510,6 +1511,7 @@ Important queues:
 inbox/actions/
 inbox/actions-processed/
 inbox/actions-failed/
+inbox/actions-manual-review/
 
 inbox/from-phone/events/
 inbox/from-phone/processed/

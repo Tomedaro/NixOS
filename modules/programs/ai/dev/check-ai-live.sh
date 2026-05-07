@@ -396,6 +396,7 @@ list_queue "processed phone telemetry newest" "$AI_DIR/inbox/from-phone/processe
 report_malformed_processed_phone_telemetry
 list_queue "pending action inbox" "$AI_DIR/inbox/actions" 1 40
 list_queue "failed actions newest" "$AI_DIR/inbox/actions-failed" 3 6
+list_queue "manual review actions newest" "$AI_DIR/inbox/actions-manual-review" 3 6
 list_queue "processed actions newest" "$AI_DIR/inbox/actions-processed" 3 6
 
 report_interaction_surface

@@ -123,6 +123,7 @@ Inboxes:
 AI/inbox/actions/
 AI/inbox/actions-processed/
 AI/inbox/actions-failed/
+AI/inbox/actions-manual-review/
 
 AI/inbox/from-phone/events/
 AI/inbox/from-phone/processed/

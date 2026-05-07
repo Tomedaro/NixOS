@@ -31,6 +31,7 @@ let
     mkdir -p "$AI_DIR/inbox/actions"
     mkdir -p "$AI_DIR/inbox/actions-processed"
     mkdir -p "$AI_DIR/inbox/actions-failed"
+    mkdir -p "$AI_DIR/inbox/actions-manual-review"
 
     mkdir -p "$AI_DIR/outbox/to-phone"
     mkdir -p "$AI_DIR/outbox/to-desktop"
