@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from ai_system.io_utils import atomic_write_json, atomic_write_text
+from ai_system.io_utils import append_jsonl, atomic_write_json, atomic_write_text
 
 
 AI_DIR = Path(os.environ.get("AI_DIR", "~/Sync/Perseverance.Gu/AI")).expanduser()
@@ -413,9 +413,7 @@ def write_answer_event(question, answer_id):
     atomic_write_json(raw_path, event)
 
     jsonl_path = EVENTS_DESKTOP_DIR / f"{today()}.jsonl"
-    with jsonl_path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(event, ensure_ascii=False, sort_keys=True))
-        handle.write("\n")
+    append_jsonl(jsonl_path, event)
 
     atomic_write_json(LAST_ANSWER_JSON, event)
 
