@@ -9,6 +9,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from ai_system.io_utils import append_jsonl, atomic_write_json, atomic_write_text
+
 
 AI_DIR = Path(os.environ.get("AI_DIR", "~/Sync/Perseverance.Gu/AI")).expanduser()
 TIMEZONE = ZoneInfo(os.environ.get("AI_SESSION_TIMEZONE", "Europe/Paris"))
@@ -173,23 +175,6 @@ def ensure_dirs():
     for path in [CONTROL_DIR, SESSION_DIR, EVENTS_DESKTOP_DIR]:
         path.mkdir(parents=True, exist_ok=True)
 
-
-def atomic_write_text(path: Path, text: str):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(text, encoding="utf-8")
-    tmp.replace(path)
-
-
-def atomic_write_json(path: Path, data):
-    atomic_write_text(path, json.dumps(data, indent=2, ensure_ascii=False))
-
-
-def append_jsonl(path: Path, event):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(event, ensure_ascii=False, sort_keys=True))
-        handle.write("\n")
 
 
 def split_csv(values):

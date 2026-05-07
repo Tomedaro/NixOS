@@ -274,7 +274,7 @@ report_regression_guardrails() {
   )"
 
   local expected_legacy_atomic_regex
-  expected_legacy_atomic_regex='^(modules/programs/ai/(session-manager/session_manager.py|coach-daemon/coach.py|llm-planner/python/ai_planner/io_utils.py|python/ai_system/io_utils.py):)'
+  expected_legacy_atomic_regex='^(modules/programs/ai/(coach-daemon/coach.py|llm-planner/python/ai_planner/io_utils.py|python/ai_system/io_utils.py):)'
 
   local unexpected_atomic_hits
   unexpected_atomic_hits="$(
@@ -295,7 +295,7 @@ report_regression_guardrails() {
   local tracked_legacy_atomic_hits
   tracked_legacy_atomic_hits="$(
     printf '%s\n' "$atomic_hits" \
-      | grep -E '^(modules/programs/ai/(session-manager/session_manager.py|coach-daemon/coach.py|llm-planner/python/ai_planner/io_utils.py):)' \
+      | grep -E '^(modules/programs/ai/(coach-daemon/coach.py|llm-planner/python/ai_planner/io_utils.py):)' \
       || true
   )"
 

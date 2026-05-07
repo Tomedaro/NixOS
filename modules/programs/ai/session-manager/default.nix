@@ -5,6 +5,7 @@ let
   cfg = config.my.ai.sessionManager;
 
   sessionScript = pkgs.writeShellScriptBin "ai-session" ''
+    export PYTHONPATH="${../python}''${PYTHONPATH:+:$PYTHONPATH}"
     exec ${pkgs.python3}/bin/python3 ${./session_manager.py} "$@"
   '';
 in
