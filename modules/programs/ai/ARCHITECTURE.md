@@ -276,6 +276,19 @@ Queue readers must:
 
 Action files may include `action_id` or `idempotency_key`. If omitted, the action bridge derives a stable action id from the action name and raw filename. A duplicate processed action id must be archived without repeating side effects.
 
+### Action processing journal
+
+The action bridge keeps a per-action durable journal in `AI/state/action-bridge/action-journal/*.json`.
+
+Lifecycle:
+
+1. `processing` is written before any side-effectful action handler runs.
+2. `processed` is written after the handler succeeds and the raw action has been archived.
+3. `failed` is written after validation or ordinary handler failure.
+4. `manual_review` is written when replay safety is uncertain.
+
+A stale `processing` journal from a prior run is treated as "possibly already executed". The bridge must not replay it automatically. It moves the raw action to `AI/inbox/actions-manual-review/YYYY-MM-DD/` instead. To retry intentionally, write a new action file with a new `action_id` or `idempotency_key`.
+
 ### Command, event, and state contract
 
 - Commands are intentional requests from a user or UI adapter. They belong in `AI/inbox/actions/*.json`.

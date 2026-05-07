@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import fcntl
+import hashlib
 import json
 import os
 import subprocess
@@ -37,6 +38,7 @@ TIMEZONE = ZoneInfo(os.environ.get("ACTION_BRIDGE_TIMEZONE", "Europe/Paris"))
 INBOX_DIR = AI_DIR / "inbox" / "actions"
 PROCESSED_DIR = AI_DIR / "inbox" / "actions-processed"
 FAILED_DIR = AI_DIR / "inbox" / "actions-failed"
+MANUAL_REVIEW_DIR = AI_DIR / "inbox" / "actions-manual-review"
 
 STATE_DIR = AI_DIR / "state" / "action-bridge"
 STATE_LLM_DIR = AI_DIR / "state" / "llm"
@@ -60,6 +62,7 @@ EVENTS_RECOVERY_DIR = AI_DIR / "events" / "recovery"
 STATUS_JSON = STATE_DIR / "status.json"
 STATUS_MD = STATE_DIR / "status.md"
 LOCK_FILE = STATE_DIR / "action-bridge.lock"
+ACTION_JOURNAL_DIR = STATE_DIR / "action-journal"
 PROCESSED_ACTION_IDS_JSON = STATE_DIR / "processed-action-ids.json"
 MAX_RECORDED_ACTION_IDS = int(os.environ.get("ACTION_PROCESSED_ID_LIMIT", "2000"))
 LAST_ANSWER_JSON = STATE_LLM_DIR / "last-answer.json"
@@ -91,7 +94,9 @@ def ensure_dirs():
         INBOX_DIR,
         PROCESSED_DIR,
         FAILED_DIR,
+        MANUAL_REVIEW_DIR,
         STATE_DIR,
+        ACTION_JOURNAL_DIR,
         STATE_LLM_DIR,
         STATE_SESSION_DIR,
         OUTBOX_TO_PHONE_DIR,
@@ -319,6 +324,99 @@ def remember_processed_action_id(action_id):
             "ids": ids,
         },
     )
+
+
+class ActionManualReviewRequired(RuntimeError):
+    """Raised when automatic replay could duplicate side effects."""
+
+    def __init__(self, message, reason, journal=None):
+        super().__init__(message)
+        self.reason = reason
+        self.journal = journal if isinstance(journal, dict) else {}
+
+
+def read_action_file(path):
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("action file must contain a JSON object")
+    return data
+
+
+def relative_ai_path(path):
+    try:
+        return str(Path(path).relative_to(AI_DIR))
+    except Exception:
+        return str(path)
+
+
+def sha256_text(text):
+    return hashlib.sha256(str(text).encode("utf-8")).hexdigest()
+
+
+def sha256_file(path):
+    path = Path(path)
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except Exception:
+        return ""
+
+
+def action_journal_path(action_id):
+    safe = slugify(action_id, "action")
+    digest = sha256_text(action_id)[:12]
+    return ACTION_JOURNAL_DIR / f"{safe}-{digest}.json"
+
+
+def load_action_journal(action_id):
+    if not str(action_id or "").strip():
+        return {}
+
+    data = read_json(action_journal_path(action_id), {})
+    return data if isinstance(data, dict) else {}
+
+
+def write_action_journal(action_id, status, action, path, details=None):
+    action_id = str(action_id or "").strip()
+    if not action_id:
+        return {}
+
+    existing = load_action_journal(action_id)
+    now_value = now_iso()
+    journal = dict(existing) if isinstance(existing, dict) else {}
+
+    journal.update(
+        {
+            "schema_version": "action_processing_journal.v1",
+            "action_id": action_id,
+            "action": get_action_name(action),
+            "status": status,
+            "raw_file": relative_ai_path(path),
+            "updated_at": now_value,
+        }
+    )
+
+    raw_hash = sha256_file(path)
+    if raw_hash:
+        journal["raw_sha256"] = raw_hash
+    elif existing.get("raw_sha256"):
+        journal["raw_sha256"] = existing.get("raw_sha256")
+
+    if status == "processing":
+        journal.setdefault("created_at", now_value)
+        journal["processing_started_at"] = now_value
+        journal["attempt_count"] = int(journal.get("attempt_count") or 0) + 1
+    elif status == "processed":
+        journal["processed_at"] = now_value
+    elif status == "failed":
+        journal["failed_at"] = now_value
+    elif status == "manual_review":
+        journal["manual_review_at"] = now_value
+
+    if details is not None:
+        journal["details"] = details
+
+    atomic_write_json(action_journal_path(action_id), journal)
+    return journal
 
 
 def load_current_session():
@@ -1387,16 +1485,46 @@ def process_all():
 
     processed = []
     failed = []
+    manual_review = []
     unstable = [str(path) for path in unstable_paths]
     ignored = [str(path) for path in ignored_paths]
     processed_action_ids = load_processed_action_ids()
 
-    for path in candidates:
-        try:
-            action = json.loads(path.read_text(encoding="utf-8"))
-            action_id = action_id_for(path, action)
+    if not candidates and not unstable and not ignored:
+        details = {
+            "processed": processed,
+            "failed": failed,
+            "manual_review": manual_review,
+            "unstable": unstable,
+            "ignored": ignored,
+            "authority_level": AUTHORITY_LEVEL,
+        }
+        write_status("idle", "no pending actions", details)
+        print("no pending actions")
+        return details
 
-            if action_id in processed_action_ids:
+    for path in candidates:
+        action = {}
+        action_id = ""
+
+        try:
+            action = read_action_file(path)
+            action_id = action_id_for(path, action)
+            journal = load_action_journal(action_id)
+            journal_status = str(journal.get("status") or "").strip().lower()
+
+            if action_id in processed_action_ids or journal_status == "processed":
+                if journal_status != "processed":
+                    write_action_journal(
+                        action_id,
+                        "processed",
+                        action,
+                        path,
+                        {
+                            "reason": "recovered_from_processed_action_id_cache",
+                        },
+                    )
+
                 result = {
                     "action": get_action_name(action),
                     "action_id": action_id,
@@ -1404,69 +1532,180 @@ def process_all():
                     "duplicate": True,
                     "reason": "action_id_already_processed",
                 }
-            else:
-                result = handle_action(path)
-                processed_action_ids.add(action_id)
+                destination = move_unique(path, PROCESSED_DIR / today())
+                result["processed_path"] = str(destination)
+                processed.append(result)
+                print(
+                    f"processed action {result.get('action')} from {path.name}",
+                    flush=True,
+                )
+                continue
 
-                try:
-                    remember_processed_action_id(action_id)
-                except Exception as cache_error:
-                    result["idempotency_cache_error"] = str(cache_error)
+            if journal_status == "processing":
+                raise ActionManualReviewRequired(
+                    "previous incomplete processing journal for "
+                    f"action_id {action_id}; refusing to replay possible side effects",
+                    reason="stale_processing_journal",
+                    journal=journal,
+                )
+
+            if journal_status == "failed":
+                raise ActionManualReviewRequired(
+                    f"previous failed action journal for action_id {action_id}; "
+                    "refusing automatic retry without a new action_id",
+                    reason="previous_failed_journal",
+                    journal=journal,
+                )
+
+            if journal_status == "manual_review":
+                raise ActionManualReviewRequired(
+                    f"previous manual-review journal for action_id {action_id}; "
+                    "refusing automatic retry without a new action_id",
+                    reason="previous_manual_review_journal",
+                    journal=journal,
+                )
+
+            write_action_journal(
+                action_id,
+                "processing",
+                action,
+                path,
+                {
+                    "reason": "about_to_execute_side_effects",
+                    "source": "action-bridge",
+                },
+            )
+
+            result = handle_action(path)
+
+            processed_action_ids.add(action_id)
+
+            try:
+                remember_processed_action_id(action_id)
+            except Exception as cache_error:
+                result["idempotency_cache_error"] = str(cache_error)
 
             destination = move_unique(path, PROCESSED_DIR / today())
             result["processed_path"] = str(destination)
+
+            write_action_journal(
+                action_id,
+                "processed",
+                action,
+                destination,
+                {
+                    "result": result,
+                    "processed_path": str(destination),
+                },
+            )
+
             processed.append(result)
             print(
                 f"processed action {result.get('action')} from {path.name}",
                 flush=True,
             )
         except Exception as error:
+            manual_review_required = isinstance(error, ActionManualReviewRequired)
+            journal_status = "manual_review" if manual_review_required else "failed"
+            archive_root = MANUAL_REVIEW_DIR if manual_review_required else FAILED_DIR
+            archive_key = (
+                "manual_review_path" if manual_review_required else "failed_path"
+            )
             error_text = str(error)
+
+            journal_details = {
+                "error": error_text,
+            }
+            if manual_review_required:
+                journal_details["reason"] = error.reason
+                journal_details["previous_journal"] = error.journal
+
+            if action_id:
+                try:
+                    write_action_journal(
+                        action_id,
+                        journal_status,
+                        action,
+                        path,
+                        journal_details,
+                    )
+                except Exception as journal_error:
+                    error_text += f"\nfailed to write action journal: {journal_error}"
+
             try:
-                destination = move_unique(path, FAILED_DIR / today())
+                destination = move_unique(path, archive_root / today())
                 atomic_write_text(
                     destination.with_suffix(destination.suffix + ".error.txt"),
-                    error_text,
+                    error_text + "\n",
                 )
+
+                if action_id:
+                    try:
+                        moved_details = dict(journal_details)
+                        moved_details[archive_key] = str(destination)
+                        write_action_journal(
+                            action_id,
+                            journal_status,
+                            action,
+                            destination,
+                            moved_details,
+                        )
+                    except Exception as journal_error:
+                        error_text += (
+                            f"\nfailed to update action journal after move: "
+                            f"{journal_error}"
+                        )
             except Exception as move_error:
                 destination = path
-                error_text += f"\nfailed to move to failed queue: {move_error}"
+                error_text += f"\nfailed to move to archive queue: {move_error}"
 
-            failed.append(
-                {
-                    "file": str(path),
-                    "failed_path": str(destination),
-                    "error": error_text,
-                }
-            )
+            record = {
+                "file": str(path),
+                archive_key: str(destination),
+                "action_id": action_id,
+                "error": error_text,
+            }
+            if manual_review_required:
+                record["reason"] = error.reason
+                manual_review.append(record)
+            else:
+                failed.append(record)
+
             print(
-                f"failed action {path.name}: {error_text}", file=sys.stderr, flush=True
+                f"{journal_status} action {path.name}: {error_text}",
+                file=sys.stderr,
+                flush=True,
             )
 
     if failed:
         status = "failed"
-    elif unstable and not processed:
+    elif manual_review:
+        status = "manual_review"
+    elif processed:
+        status = "processed"
+    elif unstable:
         status = "waiting"
     else:
-        status = "processed"
+        status = "idle"
+
+    details = {
+        "processed": processed,
+        "failed": failed,
+        "manual_review": manual_review,
+        "unstable": unstable,
+        "ignored": ignored,
+        "authority_level": AUTHORITY_LEVEL,
+    }
 
     write_status(
         status,
-        f"processed={len(processed)} failed={len(failed)} unstable={len(unstable)} ignored={len(ignored)}",
-        {
-            "processed": processed,
-            "failed": failed,
-            "unstable": unstable,
-            "ignored": ignored,
-        },
+        f"processed={len(processed)} failed={len(failed)} "
+        f"manual_review={len(manual_review)} "
+        f"unstable={len(unstable)} ignored={len(ignored)}",
+        details,
     )
 
-    return {
-        "processed": processed,
-        "failed": failed,
-        "unstable": unstable,
-        "ignored": ignored,
-    }
+    return details
 
 
 def create_templates():

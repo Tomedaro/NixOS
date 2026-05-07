@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import hashlib
 import importlib.util
 import json
 import os
@@ -83,6 +84,7 @@ def setup_base(ai_dir: Path) -> None:
         "inbox/actions",
         "inbox/actions-processed",
         "inbox/actions-failed",
+        "inbox/actions-manual-review",
         "outbox/to-phone",
         "state/llm",
         "state/recovery",
@@ -145,6 +147,10 @@ def processed_files(ai_dir: Path) -> list[Path]:
     return list((ai_dir / f"inbox/actions-processed/{today()}").glob("*.json"))
 
 
+def manual_review_files(ai_dir: Path) -> list[Path]:
+    return list((ai_dir / f"inbox/actions-manual-review/{today()}").glob("*.json"))
+
+
 def failed_files(ai_dir: Path) -> list[Path]:
     return list((ai_dir / f"inbox/actions-failed/{today()}").glob("*.json"))
 
@@ -156,6 +162,11 @@ def raw_action_file(ai_dir: Path, name: str, text: str) -> Path:
     old_time = time.time() - 120
     os.utime(path, (old_time, old_time))
     return path
+
+
+def action_journal_path(ai_dir: Path, action_id: str) -> Path:
+    digest = hashlib.sha256(action_id.encode("utf-8")).hexdigest()[:12]
+    return ai_dir / "state/action-bridge/action-journal" / f"{action_id}-{digest}.json"
 
 
 def test_ack_nudge() -> None:
@@ -617,6 +628,130 @@ def test_duplicate_action_id_is_skipped_without_duplicate_effects() -> None:
         assert "dedupe-action-smoke" in cache["ids"]
 
 
+def test_action_journal_records_processed_action() -> None:
+    with tempfile.TemporaryDirectory(prefix="ai-action-journal-success-") as tmp:
+        ai_dir = Path(tmp) / "AI"
+        tasknotes_dir = Path(tmp) / "TaskNotes"
+        setup_base(ai_dir)
+
+        action_id = "action-journal-success"
+
+        write_json(
+            ai_dir / "outbox/to-phone/current-nudge.json",
+            {
+                "schema_version": "phone_interaction.v1",
+                "kind": "nudge",
+                "status": "active",
+                "nudge_id": "n-journal-success",
+                "intervention_id": "i-journal-success",
+                "message": "Journal success nudge",
+                "recommended_next_action": "Acknowledge this.",
+                "actions": [{"action": "ack_nudge", "label": "Done"}],
+            },
+        )
+
+        action_file(
+            ai_dir,
+            "1000_journal_success.json",
+            {
+                "schema_version": "action.v1",
+                "action": "ack_nudge",
+                "action_id": action_id,
+                "source": "test",
+                "device": "phone",
+                "nudge_id": "n-journal-success",
+                "timestamp_epoch": int(time.time()),
+            },
+        )
+
+        proc = run_action_bridge(ai_dir, tasknotes_dir)
+        assert_bridge_ok(proc)
+
+        journal = read_json(action_journal_path(ai_dir, action_id))
+        assert journal["schema_version"] == "action_processing_journal.v1"
+        assert journal["action_id"] == action_id
+        assert journal["status"] == "processed"
+        assert journal["raw_file"].startswith("inbox/actions-processed/")
+        assert journal["raw_sha256"]
+        assert journal["details"]["processed_path"]
+
+        nudge = read_json(ai_dir / "outbox/to-phone/current-nudge.json")
+        assert nudge["status"] == "inactive"
+        assert nudge["last_status"] == "acknowledged"
+
+
+def test_processing_journal_blocks_replay_without_side_effects() -> None:
+    with tempfile.TemporaryDirectory(prefix="ai-action-journal-interrupted-") as tmp:
+        ai_dir = Path(tmp) / "AI"
+        tasknotes_dir = Path(tmp) / "TaskNotes"
+        setup_base(ai_dir)
+
+        action_id = "action-journal-interrupted"
+
+        write_json(
+            action_journal_path(ai_dir, action_id),
+            {
+                "schema_version": "action_processing_journal.v1",
+                "action_id": action_id,
+                "action": "ack_nudge",
+                "status": "processing",
+                "raw_file": "inbox/actions/1000_interrupted.json",
+            },
+        )
+
+        write_json(
+            ai_dir / "outbox/to-phone/current-nudge.json",
+            {
+                "schema_version": "phone_interaction.v1",
+                "kind": "nudge",
+                "status": "active",
+                "nudge_id": "n-interrupted",
+                "intervention_id": "i-interrupted",
+                "message": "Interrupted nudge",
+                "recommended_next_action": "Acknowledge this.",
+                "actions": [{"action": "ack_nudge", "label": "Done"}],
+            },
+        )
+
+        action_file(
+            ai_dir,
+            "1000_interrupted.json",
+            {
+                "schema_version": "action.v1",
+                "action": "ack_nudge",
+                "action_id": action_id,
+                "source": "test",
+                "device": "phone",
+                "nudge_id": "n-interrupted",
+                "timestamp_epoch": int(time.time()),
+            },
+        )
+
+        proc = run_action_bridge(ai_dir, tasknotes_dir)
+        assert_bridge_ok(proc)
+
+        nudge = read_json(ai_dir / "outbox/to-phone/current-nudge.json")
+        assert nudge["status"] == "active"
+
+        assert not processed_files(
+            ai_dir
+        ), "stale processing journal should not process"
+        assert not failed_files(
+            ai_dir
+        ), "stale processing journal should not be ordinary failure"
+        assert manual_review_files(
+            ai_dir
+        ), "stale processing journal should require manual review"
+
+        journal = read_json(action_journal_path(ai_dir, action_id))
+        assert journal["status"] == "manual_review"
+        assert journal["details"]["reason"] == "stale_processing_journal"
+
+        status = read_json(ai_dir / "state/action-bridge/status.json")
+        assert status["status"] == "manual_review"
+        assert status["details"]["manual_review"]
+
+
 def test_process_lock_is_non_blocking() -> None:
     with tempfile.TemporaryDirectory(prefix="ai-action-bridge-lock-") as tmp:
         ai_dir = Path(tmp) / "AI"
@@ -670,6 +805,8 @@ def main() -> None:
         test_queue_ignores_partial_dotfiles_and_non_json,
         test_invalid_json_moves_to_failed_once,
         test_duplicate_action_id_is_skipped_without_duplicate_effects,
+        test_action_journal_records_processed_action,
+        test_processing_journal_blocks_replay_without_side_effects,
         test_process_lock_is_non_blocking,
     ]
 
