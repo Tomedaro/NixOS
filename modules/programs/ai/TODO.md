@@ -202,8 +202,8 @@ Create:
 * `AI/outbox/to-obsidian/current-interaction.json`
 * `AI/outbox/to-obsidian/current-interaction.md`
 * `AI/outbox/to-obsidian/inbox.md`
-* `AI/inbox/from-obsidian/messages/*.json`
-* `AI/inbox/from-obsidian/actions/*.json`
+* `AI/inbox/obsidian/messages/*.json`
+* `AI/inbox/obsidian/actions/*.json`
 
 Support:
 

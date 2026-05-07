@@ -60,7 +60,7 @@ def test_write_nudge_interaction_outputs_json_and_markdown() -> None:
         assert "Do 5 Anki cards." in markdown
         assert "`ack_nudge`" in markdown
         assert "`snooze_nudge`" in markdown
-        assert "AI/inbox/from-obsidian/messages/*.json" in markdown
+        assert "AI/inbox/obsidian/messages/*.json" in markdown
 
 
 def test_inactive_interaction_is_renderable() -> None:

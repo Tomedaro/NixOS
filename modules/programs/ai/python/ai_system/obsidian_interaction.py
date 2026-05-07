@@ -115,8 +115,8 @@ def normalize_interaction(
         "free_text_allowed": bool(payload.get("free_text_allowed", True)),
         "actions": actions,
         "response_targets": {
-            "messages_dir": "AI/inbox/from-obsidian/messages",
-            "actions_dir": "AI/inbox/from-obsidian/actions",
+            "messages_dir": "AI/inbox/obsidian/messages",
+            "actions_dir": "AI/inbox/obsidian/actions",
         },
     }
 
@@ -229,8 +229,8 @@ def markdown_for_interaction(interaction: Any) -> str:
             "",
             f"Free text allowed: `{str(data['free_text_allowed']).lower()}`",
             "",
-            "Write text messages to `AI/inbox/from-obsidian/messages/*.json`.",
-            "Write button/action responses to `AI/inbox/from-obsidian/actions/*.json`.",
+            "Write text messages to `AI/inbox/obsidian/messages/*.json`.",
+            "Write button/action responses to `AI/inbox/obsidian/actions/*.json`.",
             "",
         ]
     )

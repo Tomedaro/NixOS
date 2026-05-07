@@ -33,8 +33,12 @@ let
     mkdir -p "$AI_DIR/inbox/actions-failed"
     mkdir -p "$AI_DIR/inbox/actions-manual-review"
 
+    mkdir -p "$AI_DIR/inbox/obsidian/messages"
+    mkdir -p "$AI_DIR/inbox/obsidian/actions"
+
     mkdir -p "$AI_DIR/outbox/to-phone"
     mkdir -p "$AI_DIR/outbox/to-desktop"
+    mkdir -p "$AI_DIR/outbox/to-obsidian"
 
     mkdir -p "$AI_DIR/events/phone"
     mkdir -p "$AI_DIR/events/desktop"
@@ -88,6 +92,7 @@ Desktop services write:
 - `anki/`
 - `reports/`
 - `outbox/to-phone/`
+- `outbox/to-obsidian/`
 
 Phone-bridge writes processed phone outputs:
 
