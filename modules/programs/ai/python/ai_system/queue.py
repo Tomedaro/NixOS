@@ -3,12 +3,65 @@ import time
 from pathlib import Path
 
 
+IGNORED_QUEUE_SUFFIXES = (
+    ".tmp",
+    ".part",
+    ".partial",
+    ".swp",
+    ".swx",
+)
+
+
 def is_stable(path, stability_seconds):
     path = Path(path)
     try:
         return time.time() - path.stat().st_mtime >= stability_seconds
     except FileNotFoundError:
         return False
+
+
+def is_complete_json_queue_file(path):
+    path = Path(path)
+    name = path.name
+
+    if not path.is_file():
+        return False
+
+    if name.startswith("."):
+        return False
+
+    if name.endswith("~"):
+        return False
+
+    if any(name.endswith(suffix) for suffix in IGNORED_QUEUE_SUFFIXES):
+        return False
+
+    return path.suffix == ".json"
+
+
+def list_stable_json_queue_files(directory, stability_seconds):
+    directory = Path(directory)
+    ready = []
+    unstable = []
+    ignored = []
+
+    if not directory.exists():
+        return ready, unstable, ignored
+
+    for path in sorted(directory.iterdir(), key=lambda item: item.name):
+        if not path.is_file():
+            continue
+
+        if not is_complete_json_queue_file(path):
+            ignored.append(path)
+            continue
+
+        if is_stable(path, stability_seconds):
+            ready.append(path)
+        else:
+            unstable.append(path)
+
+    return ready, unstable, ignored
 
 
 def unique_destination(path):

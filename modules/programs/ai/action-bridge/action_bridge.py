@@ -3,7 +3,6 @@
 import fcntl
 import json
 import os
-import shutil
 import subprocess
 import sys
 import time
@@ -11,6 +10,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from ai_system.io_utils import append_jsonl, atomic_write_json, atomic_write_text
+from ai_system.queue import list_stable_json_queue_files, move_unique
 from ai_system.recovery_targets import get_recovery_target
 
 
@@ -60,6 +60,8 @@ EVENTS_RECOVERY_DIR = AI_DIR / "events" / "recovery"
 STATUS_JSON = STATE_DIR / "status.json"
 STATUS_MD = STATE_DIR / "status.md"
 LOCK_FILE = STATE_DIR / "action-bridge.lock"
+PROCESSED_ACTION_IDS_JSON = STATE_DIR / "processed-action-ids.json"
+MAX_RECORDED_ACTION_IDS = int(os.environ.get("ACTION_PROCESSED_ID_LIMIT", "2000"))
 LAST_ANSWER_JSON = STATE_LLM_DIR / "last-answer.json"
 PENDING_QUESTION_JSON = STATE_LLM_DIR / "pending-question.json"
 CURRENT_SESSION_JSON = STATE_SESSION_DIR / "current.json"
@@ -192,35 +194,6 @@ def write_status(status, message="", details=None):
     atomic_write_text(STATUS_MD, "\n".join(lines))
 
 
-def is_stable(path):
-    try:
-        age = time.time() - path.stat().st_mtime
-    except FileNotFoundError:
-        return False
-
-    return age >= STABILITY_SECONDS
-
-
-def move_unique(source, directory, prefix=""):
-    directory.mkdir(parents=True, exist_ok=True)
-    candidate = directory / f"{prefix}{source.name}"
-
-    if not candidate.exists():
-        shutil.move(str(source), str(candidate))
-        return candidate
-
-    stem = candidate.stem
-    suffix = candidate.suffix
-
-    for index in range(1, 10000):
-        alt = directory / f"{stem}-{index}{suffix}"
-        if not alt.exists():
-            shutil.move(str(source), str(alt))
-            return alt
-
-    raise RuntimeError(f"could not find unique destination for {source}")
-
-
 def as_list(value):
     if value is None:
         return []
@@ -270,13 +243,82 @@ def slugify(value, fallback="item"):
 
 
 def action_id_for(path, action):
-    existing = str(action.get("action_id", "")).strip()
+    existing = str(
+        action.get("action_id") or action.get("idempotency_key") or ""
+    ).strip()
     if existing:
         return existing
 
     action_name = get_action_name(action) or "unknown"
-    epoch = int(time.time())
-    return f"action-{action_name}-{epoch}-{path.stem}"
+    return f"action-{slugify(action_name, 'unknown')}-{path.stem}"
+
+
+def load_processed_action_ids():
+    seen = set()
+
+    data = read_json(PROCESSED_ACTION_IDS_JSON, {})
+    raw_ids = []
+    if isinstance(data, dict):
+        raw_ids = data.get("ids", [])
+    elif isinstance(data, list):
+        raw_ids = data
+
+    for item in raw_ids:
+        item = str(item or "").strip()
+        if item:
+            seen.add(item)
+
+    for log_path in sorted(EVENTS_ACTIONS_DIR.glob("*.jsonl"))[-30:]:
+        try:
+            lines = log_path.read_text(
+                encoding="utf-8",
+                errors="replace",
+            ).splitlines()
+        except Exception:
+            continue
+
+        for line in lines:
+            try:
+                item = json.loads(line)
+            except Exception:
+                continue
+
+            if not isinstance(item, dict):
+                continue
+
+            action_id = str(item.get("action_id") or "").strip()
+            if action_id:
+                seen.add(action_id)
+
+    return seen
+
+
+def remember_processed_action_id(action_id):
+    action_id = str(action_id or "").strip()
+    if not action_id:
+        return
+
+    data = read_json(PROCESSED_ACTION_IDS_JSON, {})
+    ids = []
+    if isinstance(data, dict):
+        ids = [str(item) for item in data.get("ids", []) if str(item).strip()]
+    elif isinstance(data, list):
+        ids = [str(item) for item in data if str(item).strip()]
+
+    if action_id not in ids:
+        ids.append(action_id)
+
+    if len(ids) > MAX_RECORDED_ACTION_IDS:
+        ids = ids[-MAX_RECORDED_ACTION_IDS:]
+
+    atomic_write_json(
+        PROCESSED_ACTION_IDS_JSON,
+        {
+            "schema_version": "action_id_cache.v1",
+            "updated_at": now_iso(),
+            "ids": ids,
+        },
+    )
 
 
 def load_current_session():
@@ -1338,49 +1380,68 @@ def process_all():
     ensure_dirs()
     create_templates()
 
-    paths = sorted(
-        [p for p in INBOX_DIR.glob("*.json") if p.is_file()],
-        key=lambda p: p.stat().st_mtime,
+    candidates, unstable_paths, ignored_paths = list_stable_json_queue_files(
+        INBOX_DIR,
+        STABILITY_SECONDS,
     )
-
-    if not paths:
-        write_status("idle", "no pending actions")
-        print("no pending actions")
-        return
 
     processed = []
     failed = []
-    unstable = []
+    unstable = [str(path) for path in unstable_paths]
+    ignored = [str(path) for path in ignored_paths]
+    processed_action_ids = load_processed_action_ids()
 
-    for path in paths:
-        if not is_stable(path):
-            unstable.append(str(path))
-            continue
-
+    for path in candidates:
         try:
-            result = handle_action(path)
+            action = json.loads(path.read_text(encoding="utf-8"))
+            action_id = action_id_for(path, action)
+
+            if action_id in processed_action_ids:
+                result = {
+                    "action": get_action_name(action),
+                    "action_id": action_id,
+                    "status": "skipped_duplicate",
+                    "duplicate": True,
+                    "reason": "action_id_already_processed",
+                }
+            else:
+                result = handle_action(path)
+                processed_action_ids.add(action_id)
+
+                try:
+                    remember_processed_action_id(action_id)
+                except Exception as cache_error:
+                    result["idempotency_cache_error"] = str(cache_error)
+
             destination = move_unique(path, PROCESSED_DIR / today())
             result["processed_path"] = str(destination)
             processed.append(result)
             print(
-                f"processed action {result.get('action')} from {path.name}", flush=True
+                f"processed action {result.get('action')} from {path.name}",
+                flush=True,
             )
         except Exception as error:
+            error_text = str(error)
             try:
                 destination = move_unique(path, FAILED_DIR / today())
-            except Exception:
+                atomic_write_text(
+                    destination.with_suffix(destination.suffix + ".error.txt"),
+                    error_text,
+                )
+            except Exception as move_error:
                 destination = path
-
-            atomic_write_text(Path(str(destination) + ".error.txt"), str(error) + "\n")
+                error_text += f"\nfailed to move to failed queue: {move_error}"
 
             failed.append(
                 {
-                    "path": str(destination),
-                    "error": str(error),
+                    "file": str(path),
+                    "failed_path": str(destination),
+                    "error": error_text,
                 }
             )
-
-            print(f"failed action {path}: {error}", file=sys.stderr, flush=True)
+            print(
+                f"failed action {path.name}: {error_text}", file=sys.stderr, flush=True
+            )
 
     if failed:
         status = "failed"
@@ -1391,14 +1452,21 @@ def process_all():
 
     write_status(
         status,
-        f"processed={len(processed)} failed={len(failed)} unstable={len(unstable)}",
+        f"processed={len(processed)} failed={len(failed)} unstable={len(unstable)} ignored={len(ignored)}",
         {
             "processed": processed,
             "failed": failed,
             "unstable": unstable,
-            "authority_level": AUTHORITY_LEVEL,
+            "ignored": ignored,
         },
     )
+
+    return {
+        "processed": processed,
+        "failed": failed,
+        "unstable": unstable,
+        "ignored": ignored,
+    }
 
 
 def create_templates():

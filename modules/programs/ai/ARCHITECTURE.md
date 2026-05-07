@@ -260,3 +260,26 @@ validation, and explicit mutation.
   but they should not silently repair or clear it.
 - Any live mutation in dev tools should stay behind explicit flags, matching the
   inspect-first Nix/Linux operator workflow.
+
+### File queue semantics
+
+File inboxes are command/event queues, not shared mutable state.
+
+Queue readers must:
+
+1. Process only complete non-hidden `.json` files.
+2. Ignore dotfiles and sync/temp files such as `.tmp`, `.part`, `.partial`, `.swp`, and backup files.
+3. Wait for file stability before reading.
+4. Drain all ready files on every activation.
+5. Treat systemd path activation only as a wakeup signal, not as a one-file event.
+6. Move raw files to processed or failed archives so the inbox remains small and inspectable.
+
+Action files may include `action_id` or `idempotency_key`. If omitted, the action bridge derives a stable action id from the action name and raw filename. A duplicate processed action id must be archived without repeating side effects.
+
+### Command, event, and state contract
+
+- Commands are intentional requests from a user or UI adapter. They belong in `AI/inbox/actions/*.json`.
+- Passive telemetry is observation, not authority. Phone telemetry belongs in `AI/inbox/from-phone/events/*.json`.
+- Events are append-only facts explaining what happened. They belong in `AI/events/*/YYYY-MM-DD.jsonl`.
+- State files are materialized current views that may be overwritten. They belong in `AI/state/**` or `AI/outbox/**`.
+- Outbox files are renderable UI state for adapters. They should not be treated as durable history.

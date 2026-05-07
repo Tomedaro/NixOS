@@ -145,6 +145,19 @@ def processed_files(ai_dir: Path) -> list[Path]:
     return list((ai_dir / f"inbox/actions-processed/{today()}").glob("*.json"))
 
 
+def failed_files(ai_dir: Path) -> list[Path]:
+    return list((ai_dir / f"inbox/actions-failed/{today()}").glob("*.json"))
+
+
+def raw_action_file(ai_dir: Path, name: str, text: str) -> Path:
+    path = ai_dir / "inbox/actions" / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    old_time = time.time() - 120
+    os.utime(path, (old_time, old_time))
+    return path
+
+
 def test_ack_nudge() -> None:
     with tempfile.TemporaryDirectory(prefix="ai-action-ack-") as tmp:
         ai_dir = Path(tmp) / "AI"
@@ -460,6 +473,150 @@ def test_dismiss_question() -> None:
         )
 
 
+def test_queue_ignores_partial_dotfiles_and_non_json() -> None:
+    with tempfile.TemporaryDirectory(prefix="ai-action-queue-ignore-") as tmp:
+        ai_dir = Path(tmp) / "AI"
+        tasknotes_dir = Path(tmp) / "TaskNotes"
+        setup_base(ai_dir)
+
+        write_json(
+            ai_dir / "outbox/to-phone/current-nudge.json",
+            {
+                "schema_version": "phone_interaction.v1",
+                "kind": "nudge",
+                "status": "active",
+                "nudge_id": "n-ignore-smoke",
+                "message": "Ignore queue noise.",
+                "recommended_next_action": "Do nothing.",
+                "actions": [{"action": "ack_nudge", "label": "Done"}],
+            },
+        )
+
+        payload = json.dumps(
+            {
+                "schema_version": "action.v1",
+                "action": "ack_nudge",
+                "source": "test",
+                "device": "phone",
+                "nudge_id": "n-ignore-smoke",
+                "timestamp_epoch": int(time.time()),
+            },
+            indent=2,
+        )
+
+        raw_action_file(ai_dir, ".1000_ack_nudge.json", payload)
+        raw_action_file(ai_dir, "1001_ack_nudge.json.tmp", payload)
+        raw_action_file(ai_dir, "README.md", "not an action")
+
+        proc = run_action_bridge(ai_dir, tasknotes_dir)
+        assert_bridge_ok(proc)
+
+        nudge = read_json(ai_dir / "outbox/to-phone/current-nudge.json")
+        assert nudge["status"] == "active"
+        assert not processed_files(ai_dir)
+        assert not failed_files(ai_dir)
+        assert not latest_action_events(ai_dir)
+
+        status = read_json(ai_dir / "state/action-bridge/status.json")
+        ignored = status.get("details", {}).get("ignored", [])
+        assert any(".1000_ack_nudge.json" in item for item in ignored)
+        assert any("1001_ack_nudge.json.tmp" in item for item in ignored)
+
+
+def test_invalid_json_moves_to_failed_once() -> None:
+    with tempfile.TemporaryDirectory(prefix="ai-action-invalid-json-") as tmp:
+        ai_dir = Path(tmp) / "AI"
+        tasknotes_dir = Path(tmp) / "TaskNotes"
+        setup_base(ai_dir)
+
+        raw_action_file(ai_dir, "1000_bad.json", "{not json")
+
+        first = run_action_bridge(ai_dir, tasknotes_dir)
+        assert_bridge_ok(first)
+
+        failed = failed_files(ai_dir)
+        assert len(failed) == 1
+        assert failed[0].with_suffix(failed[0].suffix + ".error.txt").exists()
+
+        second = run_action_bridge(ai_dir, tasknotes_dir)
+        assert_bridge_ok(second)
+
+        assert len(failed_files(ai_dir)) == 1
+        assert not list((ai_dir / "inbox/actions").glob("*.json"))
+
+
+def test_duplicate_action_id_is_skipped_without_duplicate_effects() -> None:
+    with tempfile.TemporaryDirectory(prefix="ai-action-idempotent-") as tmp:
+        ai_dir = Path(tmp) / "AI"
+        tasknotes_dir = Path(tmp) / "TaskNotes"
+        setup_base(ai_dir)
+
+        write_json(
+            ai_dir / "outbox/to-phone/current-nudge.json",
+            {
+                "schema_version": "phone_interaction.v1",
+                "kind": "nudge",
+                "status": "active",
+                "nudge_id": "n-dedupe-smoke",
+                "intervention_id": "i-dedupe-smoke",
+                "message": "Dedupe nudge.",
+                "recommended_next_action": "Acknowledge once.",
+                "actions": [
+                    {"action": "ack_nudge", "label": "Done"},
+                    {"action": "snooze_nudge", "label": "Not now"},
+                ],
+            },
+        )
+
+        write_json(
+            ai_dir / "outbox/to-phone/interaction-state.json",
+            {
+                "active_nudge": {"nudge_id": "n-dedupe-smoke", "status": "active"},
+                "active_question": None,
+            },
+        )
+
+        shared = {
+            "schema_version": "action.v1",
+            "action_id": "dedupe-action-smoke",
+            "source": "test",
+            "device": "phone",
+            "nudge_id": "n-dedupe-smoke",
+            "timestamp_epoch": int(time.time()),
+        }
+
+        action_file(
+            ai_dir,
+            "1000_ack_nudge.json",
+            dict(shared, action="ack_nudge"),
+        )
+        action_file(
+            ai_dir,
+            "1001_snooze_nudge.json",
+            dict(shared, action="snooze_nudge", snooze_minutes=15),
+        )
+
+        proc = run_action_bridge(ai_dir, tasknotes_dir)
+        assert_bridge_ok(proc)
+
+        events = [
+            event
+            for event in latest_action_events(ai_dir)
+            if event.get("action_id") == "dedupe-action-smoke"
+        ]
+        assert len(events) == 1
+        assert events[0]["event"] == "ack_nudge"
+
+        interaction_state = read_json(ai_dir / "outbox/to-phone/interaction-state.json")
+        assert interaction_state["last_nudge_ack"]["nudge_id"] == "n-dedupe-smoke"
+        assert "last_nudge_snooze" not in interaction_state
+
+        assert len(processed_files(ai_dir)) == 2
+
+        cache = read_json(ai_dir / "state/action-bridge/processed-action-ids.json")
+        assert "dedupe-action-smoke" in cache["ids"]
+
+
 def test_process_lock_is_non_blocking() -> None:
     with tempfile.TemporaryDirectory(prefix="ai-action-bridge-lock-") as tmp:
         ai_dir = Path(tmp) / "AI"
@@ -510,6 +667,9 @@ def main() -> None:
         test_start_recovery_target_consumes_nudge,
         test_answer_question,
         test_dismiss_question,
+        test_queue_ignores_partial_dotfiles_and_non_json,
+        test_invalid_json_moves_to_failed_once,
+        test_duplicate_action_id_is_skipped_without_duplicate_effects,
         test_process_lock_is_non_blocking,
     ]
 
