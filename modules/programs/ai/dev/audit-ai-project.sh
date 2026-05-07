@@ -205,6 +205,115 @@ report_recovery_trigger_install_state() {
  done <<< "$units"
 }
 
+
+report_regression_guardrails() {
+  section "regression guardrails"
+
+  local failures=0
+
+  local malformed_imports
+  malformed_imports="$(
+    grep -RIn --color=never --exclude='audit-ai-project.sh' \
+      'from ai_system\.io_utilsimport' \
+      modules/programs/ai \
+      || true
+  )"
+
+  if [ -n "$malformed_imports" ]; then
+    echo "FAIL malformed shared io_utils imports"
+    echo "$malformed_imports"
+    failures=1
+  else
+    echo "OK malformed shared io_utils imports"
+  fi
+
+  local patch_script_artifacts
+  patch_script_artifacts="$(
+    grep -RIn --color=never --exclude='audit-ai-project.sh' \
+      'command not found: #\|run_all marker not found\|main marker not found' \
+      modules/programs/ai \
+      || true
+  )"
+
+  if [ -n "$patch_script_artifacts" ]; then
+    echo
+    echo "FAIL patch-script failure text committed to repo"
+    echo "$patch_script_artifacts"
+    failures=1
+  else
+    echo "OK patch-script failure text absent"
+  fi
+
+  local lock_impl
+  lock_impl="$(
+    grep -RIn --color=never \
+      'def acquire_process_lock' \
+      modules/programs/ai/action-bridge/action_bridge.py \
+      || true
+  )"
+
+  if [ -n "$lock_impl" ]; then
+    if grep -q 'test_process_lock_is_non_blocking' modules/programs/ai/tests/action_bridge_smoke.py; then
+      echo "OK action bridge process lock has smoke coverage"
+    else
+      echo
+      echo "FAIL action bridge process lock exists without smoke coverage"
+      echo "$lock_impl"
+      failures=1
+    fi
+  else
+    echo "OK action bridge process lock not present"
+  fi
+
+  local atomic_hits
+  atomic_hits="$(
+    grep -RIn --color=never --exclude='audit-ai-project.sh' \
+      'def atomic_write_text\|def atomic_write_json\|with_suffix(path\.suffix \+ ".tmp")\|tmp\.replace(path)' \
+      modules/programs/ai \
+      || true
+  )"
+
+  local expected_legacy_atomic_regex
+  expected_legacy_atomic_regex='^(modules/programs/ai/(dialog-bridge/dialog_bridge.py|session-manager/session_manager.py|coach-daemon/coach.py|llm-planner/python/ai_planner/io_utils.py|python/ai_system/io_utils.py):)'
+
+  local unexpected_atomic_hits
+  unexpected_atomic_hits="$(
+    printf '%s\n' "$atomic_hits" \
+      | grep -Ev "$expected_legacy_atomic_regex" \
+      || true
+  )"
+
+  if [ -n "$unexpected_atomic_hits" ]; then
+    echo
+    echo "FAIL unexpected local atomic writer or legacy tmp replace pattern"
+    echo "$unexpected_atomic_hits"
+    failures=1
+  else
+    echo "OK no unexpected local atomic writer patterns"
+  fi
+
+  local tracked_legacy_atomic_hits
+  tracked_legacy_atomic_hits="$(
+    printf '%s\n' "$atomic_hits" \
+      | grep -E '^(modules/programs/ai/(dialog-bridge/dialog_bridge.py|session-manager/session_manager.py|coach-daemon/coach.py|llm-planner/python/ai_planner/io_utils.py):)' \
+      || true
+  )"
+
+  echo "tracked_legacy_atomic_writer_lines=$(count_lines "$tracked_legacy_atomic_hits")"
+  if [ "$VERBOSE" -eq 1 ] && [ -n "$tracked_legacy_atomic_hits" ]; then
+    echo "$tracked_legacy_atomic_hits"
+    echo "NOTE: these are temporary migration debt, not allowed for new files."
+  fi
+
+  if [ "$failures" -ne 0 ]; then
+    echo
+    echo "RESULT regression guardrails failed"
+    exit 1
+  fi
+
+  echo "OK regression guardrails"
+}
+
 section "repo"
 pwd
 git status --short
@@ -311,6 +420,8 @@ if [ -n "$malformed_hits" ]; then
 fi
 
 echo "OK legacy guard"
+
+report_regression_guardrails
 
 list_queue "pending phone telemetry inbox" "$AI_DIR/inbox/from-phone/events" 1 40
 list_queue "failed phone telemetry newest" "$AI_DIR/inbox/from-phone/failed" 3 12
