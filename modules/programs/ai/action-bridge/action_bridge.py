@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import fcntl
 import json
 import os
 import shutil
@@ -58,6 +59,7 @@ EVENTS_RECOVERY_DIR = AI_DIR / "events" / "recovery"
 
 STATUS_JSON = STATE_DIR / "status.json"
 STATUS_MD = STATE_DIR / "status.md"
+LOCK_FILE = STATE_DIR / "action-bridge.lock"
 LAST_ANSWER_JSON = STATE_LLM_DIR / "last-answer.json"
 PENDING_QUESTION_JSON = STATE_LLM_DIR / "pending-question.json"
 CURRENT_SESSION_JSON = STATE_SESSION_DIR / "current.json"
@@ -104,6 +106,48 @@ def ensure_dirs():
         TASKNOTES_DIR,
     ]:
         path.mkdir(parents=True, exist_ok=True)
+
+
+def acquire_process_lock():
+    """Acquire a non-blocking process lock for the action queue worker.
+
+    systemd path units can start multiple short-lived service instances during
+    file bursts. A process lock keeps queue handling single-writer without
+    relying on timing or StartLimit behavior. fcntl locks are released by the
+    kernel when the process exits, so stale lock files are harmless.
+    """
+    LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+    handle = LOCK_FILE.open("a+", encoding="utf-8")
+
+    try:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        handle.close()
+        return None
+
+    handle.seek(0)
+    handle.truncate()
+    handle.write(
+        json.dumps(
+            {
+                "pid": os.getpid(),
+                "locked_at": now_iso(),
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    handle.flush()
+    os.fsync(handle.fileno())
+    return handle
+
+
+def release_process_lock(handle) -> None:
+    try:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+    finally:
+        handle.close()
 
 
 def read_json(path, default=None):
@@ -1463,4 +1507,14 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    ensure_dirs()
+    lock_handle = acquire_process_lock()
+
+    if lock_handle is None:
+        print("action bridge already running; exiting", file=sys.stderr, flush=True)
+        raise SystemExit(0)
+
+    try:
+        main()
+    finally:
+        release_process_lock(lock_handle)
