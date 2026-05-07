@@ -274,7 +274,7 @@ report_regression_guardrails() {
   )"
 
   local expected_legacy_atomic_regex
-  expected_legacy_atomic_regex='^(modules/programs/ai/(llm-planner/python/ai_planner/io_utils.py|python/ai_system/io_utils.py):)'
+  expected_legacy_atomic_regex='^(modules/programs/ai/(python/ai_system/io_utils.py):)'
 
   local unexpected_atomic_hits
   unexpected_atomic_hits="$(
@@ -293,11 +293,7 @@ report_regression_guardrails() {
   fi
 
   local tracked_legacy_atomic_hits
-  tracked_legacy_atomic_hits="$(
-    printf '%s\n' "$atomic_hits" \
-      | grep -E '^(modules/programs/ai/(llm-planner/python/ai_planner/io_utils.py):)' \
-      || true
-  )"
+  tracked_legacy_atomic_hits=""
 
   echo "tracked_legacy_atomic_writer_lines=$(count_lines "$tracked_legacy_atomic_hits")"
   if [ "$VERBOSE" -eq 1 ] && [ -n "$tracked_legacy_atomic_hits" ]; then

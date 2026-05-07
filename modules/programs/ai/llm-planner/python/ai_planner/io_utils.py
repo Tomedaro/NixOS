@@ -2,6 +2,8 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+from ai_system.io_utils import atomic_write_json, atomic_write_text
+
 
 def now(config):
     return datetime.now(config.timezone)
@@ -24,17 +26,6 @@ def ensure_dirs(config):
         config.outbox_to_phone_dir,
     ]:
         path.mkdir(parents=True, exist_ok=True)
-
-
-def atomic_write_text(path: Path, text: str):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(text, encoding="utf-8")
-    tmp.replace(path)
-
-
-def atomic_write_json(path: Path, data):
-    atomic_write_text(path, json.dumps(data, indent=2, ensure_ascii=False))
 
 
 def read_text(path: Path, default=""):
