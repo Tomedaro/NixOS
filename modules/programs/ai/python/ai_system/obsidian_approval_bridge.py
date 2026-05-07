@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from ai_system.io_utils import atomic_write_json, atomic_write_text
+from ai_system.queue import list_stable_json_queue_files
 from ai_system.obsidian_contracts import (
     DEFAULT_AI_DIR,
     bounded_text as contract_bounded_text,
@@ -38,8 +39,10 @@ def latest_action_file(ai_dir: Path) -> Path | None:
     if not inbox.exists():
         return None
 
+    ready, _unstable, _ignored = list_stable_json_queue_files(inbox, 0)
+
     files = sorted(
-        inbox.glob("*.json"),
+        ready,
         key=lambda path: path.stat().st_mtime,
         reverse=True,
     )

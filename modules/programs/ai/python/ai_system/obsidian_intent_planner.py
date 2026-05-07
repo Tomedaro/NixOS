@@ -15,6 +15,7 @@ from typing import Any
 
 from ai_system.agent_context import build_agent_context
 from ai_system.io_utils import atomic_write_json, atomic_write_text
+from ai_system.queue import list_stable_json_queue_files
 from ai_system.obsidian_contracts import (
     DEFAULT_AI_DIR,
     PROPOSAL_EXECUTION_POLICY,
@@ -37,8 +38,10 @@ def pending_intent_files(ai_dir: Path) -> list[Path]:
     if not inbox.exists():
         return []
 
+    ready, _unstable, _ignored = list_stable_json_queue_files(inbox, 0)
+
     return sorted(
-        inbox.glob("*.json"),
+        ready,
         key=lambda path: path.stat().st_mtime,
         reverse=True,
     )

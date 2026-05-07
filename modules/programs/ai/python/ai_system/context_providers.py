@@ -17,6 +17,7 @@ from ai_system.context_schema import (
     provider_unavailable,
 )
 from ai_system.interaction_lifecycle import clear_reason_for_active_nudge
+from ai_system.queue import list_stable_json_queue_files
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -374,8 +375,10 @@ def obsidian_intent_provider(ai_dir: Path) -> dict[str, Any]:
             source_paths=[str(inbox)],
         )
 
+    ready, _unstable, _ignored = list_stable_json_queue_files(inbox, 0)
+
     files = sorted(
-        inbox.glob("*.json"),
+        ready,
         key=lambda path: path.stat().st_mtime,
         reverse=True,
     )
