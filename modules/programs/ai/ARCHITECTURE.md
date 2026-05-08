@@ -330,6 +330,44 @@ Architecture docs should describe current contracts and invariants, not preserve
 
 ## Observation, proposal, and diagnostic boundaries
 
+### Obsidian protocol flow and safety boundary
+
+The active Obsidian flow is a review-first protocol, not an executor path.
+
+Current flow:
+
+```text
+Obsidian text/action request
+  -> AI/inbox/obsidian/messages/*.json
+  -> obsidian_intent.v1
+  -> planner or LLM proposal contract
+  -> obsidian_proposal.v1
+  -> explicit approve / reject / revise decision
+  -> AI/inbox/obsidian/actions/*.json
+  -> obsidian_proposal_action.v1
+  -> approval bridge
+  -> obsidian_reviewed_proposal.v1
+  -> optional TaskNotes draft bridge
+  -> obsidian_task_draft.v1
+```
+
+Boundary rules:
+
+* Obsidian ingress may write bounded intent files only.
+* Planner and LLM-facing modules may write proposals and Markdown review artifacts only.
+* Proposal approval records user intent; it does not execute the proposal.
+* The approval bridge materializes reviewed artifacts only.
+* TaskNotes draft generation produces reviewable `obsidian_task_draft.v1` artifacts only.
+* No Obsidian protocol module may write `AI/inbox/actions`, edit arbitrary vault notes, launch apps, run shell commands, or mutate live state directly.
+* Real TaskNotes mutation requires a dedicated future apply/promote gate with smoke coverage and explicit approval.
+
+Helper-level contracts:
+
+* `obsidian_message.v1` and `obsidian_action.v1` exist as compatibility/helper payloads.
+* The active text/action ingress schema is currently `obsidian_intent.v1`.
+* Proposal decisions use the narrower `obsidian_proposal_action.v1` schema.
+
+
 The AI system is intentionally split into read-only observation, proposal generation,
 validation, and explicit mutation.
 

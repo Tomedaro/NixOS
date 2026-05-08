@@ -327,7 +327,7 @@ Open / not yet valid to mark complete:
 
 * [ ] Add actual Obsidian / Templater commands or scripts that write inbox files from inside Obsidian.
 * [ ] Decide whether `obsidian_message.v1` / `obsidian_action.v1` remain helper contracts or become primary inbox schemas.
-* [ ] Document the active protocol flow in `README.md` or `ARCHITECTURE.md`.
+* [x] Document the active protocol flow in `README.md` or `ARCHITECTURE.md`.
 * [ ] Add a dedicated TaskNotes apply/promote gate before any real TaskNotes mutation.
 * [ ] Keep future TaskNotes writes reviewable until that gate exists.
 
