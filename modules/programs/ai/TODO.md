@@ -268,24 +268,73 @@ Support:
 
 Tasks:
 
-### 1.6-G.1 Current narrow follow-up: core/vault default consolidation
+### Phase 1.5 Obsidian protocol checkpoint
 
-Completed as a small non-feature change. The goal was to finish the central configuration spine before adding more adaptive behavior.
+Current status after cross-checking code, smoke tests, and live diagnostics.
 
-* [x] Remove now-unused local `vaultRoot` / `aiDir` / `taskNotesDir` let bindings from `modules/programs/ai/default.nix`.
-* [x] Make `vault-bridge` option defaults consume `config.my.ai.core.{vaultRoot,aiDir,taskNotesDir}` instead of duplicating absolute defaults.
-* [x] Verify `config.my.ai.core.aiDir` and `config.my.ai.vault.aiDir` still evaluate to the same path.
-* [x] Run smoke, audit, rebuild, user daemon reload, and live check before committing.
-* [x] Commit as `Consolidate AI vault defaults through core config`.
+Paradigm check:
 
-* [ ] Define `obsidian_interaction.v1`.
-* [ ] Define `obsidian_message.v1`.
-* [ ] Define `obsidian_action.v1`.
-* [ ] Add Markdown templates usable from Obsidian.
-* [ ] Add Templater commands/scripts to write messages/actions.
-* [ ] Add TaskNotes-compatible task creation proposal.
-* [ ] Add smoke tests using a temporary vault fixture.
-* [ ] Keep phone interaction files compatible.
+The implemented pieces fit the local-first safety model: planners and LLM-facing modules create bounded proposals and reviewable artifacts only. They do not edit Obsidian notes, write live action queues, launch apps, or execute commands. Real mutation remains behind explicit approval and future capability-specific apply/promote gates.
+
+Implemented active flow:
+
+* [x] `obsidian_interaction.v1`
+  * Writes current interaction JSON/Markdown for Obsidian-facing review.
+  * Covered by `obsidian_interaction_smoke.py`.
+
+* [x] `obsidian_intent.v1`
+  * Active Obsidian ingress schema for text/action requests.
+  * Non-executing; feeds the planner/context hub.
+  * Covered by `obsidian_ingress_smoke.py`.
+
+* [x] `obsidian_proposal.v1`
+  * Reviewable planner/LLM proposal schema.
+  * Uses `proposal_only_no_direct_execution`.
+  * Covered by intent planner and LLM proposal contract smoke tests.
+
+* [x] `obsidian_proposal_action.v1`
+  * Explicit approve/reject/revise decision schema.
+  * Writes to the Obsidian proposal inbox, not the live action queue.
+  * Covered by `obsidian_proposal_action_smoke.py`.
+
+* [x] `obsidian_reviewed_proposal.v1`
+  * Approval bridge materializes review-ready approved artifacts only.
+  * Does not execute or mutate live state.
+  * Covered by `obsidian_approval_bridge_smoke.py`.
+
+* [x] `obsidian_task_draft.v1`
+  * TaskNotes-compatible draft artifact from approved proposals.
+  * Does not edit TaskNotes directly.
+  * Covered by `obsidian_task_draft_smoke.py`.
+
+Implemented helper / compatibility contracts:
+
+* [x] `obsidian_message.v1`
+  * Helper payload constructor exists.
+  * Not currently the primary active ingress schema.
+
+* [x] `obsidian_action.v1`
+  * Helper payload constructor exists.
+  * Proposal decisions use the narrower `obsidian_proposal_action.v1`.
+
+Implemented review artifacts:
+
+* [x] Markdown review artifacts for current interaction, proposals, reviewed proposals, and task drafts.
+* [x] Temporary AI directory smoke coverage for the Obsidian protocol flow.
+* [x] Phone nudge compatibility through projection into `obsidian_interaction.v1`.
+
+Open / not yet valid to mark complete:
+
+* [ ] Add actual Obsidian / Templater commands or scripts that write inbox files from inside Obsidian.
+* [ ] Decide whether `obsidian_message.v1` / `obsidian_action.v1` remain helper contracts or become primary inbox schemas.
+* [ ] Document the active protocol flow in `README.md` or `ARCHITECTURE.md`.
+* [ ] Add a dedicated TaskNotes apply/promote gate before any real TaskNotes mutation.
+* [ ] Keep future TaskNotes writes reviewable until that gate exists.
+
+Completed recent configuration milestones:
+
+* [x] Consolidate AI vault defaults through core config.
+* [x] Honor AI core timezone in runtime fallbacks.
 
 <!-- AI-PHASE-1-6-ADAPTIVE-MODEL:START -->
 
