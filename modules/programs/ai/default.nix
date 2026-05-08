@@ -1,11 +1,6 @@
 # modules/programs/ai/default.nix
 { config, lib, pkgs, ... }:
 
-let
-  vaultRoot = "/home/daniil/Sync/Perseverance.Gu";
-  aiDir = "${vaultRoot}/AI";
-  taskNotesDir = "${vaultRoot}/TaskNotes";
-in
 {
   imports = [
     ./core
@@ -43,13 +38,7 @@ in
   # Vault / shared file protocol
   ###########################################################################
 
-  my.ai.vault = {
-    enable = lib.mkDefault true;
-
-    root = lib.mkDefault config.my.ai.core.vaultRoot;
-    aiDir = lib.mkDefault config.my.ai.core.aiDir;
-    taskNotesDir = lib.mkDefault config.my.ai.core.taskNotesDir;
-  };
+  my.ai.vault.enable = lib.mkDefault true;
 
   ###########################################################################
   # Ollama

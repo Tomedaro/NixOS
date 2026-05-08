@@ -268,6 +268,16 @@ Support:
 
 Tasks:
 
+### 1.6-G.1 Current narrow follow-up: core/vault default consolidation
+
+Completed as a small non-feature change. The goal was to finish the central configuration spine before adding more adaptive behavior.
+
+* [x] Remove now-unused local `vaultRoot` / `aiDir` / `taskNotesDir` let bindings from `modules/programs/ai/default.nix`.
+* [x] Make `vault-bridge` option defaults consume `config.my.ai.core.{vaultRoot,aiDir,taskNotesDir}` instead of duplicating absolute defaults.
+* [x] Verify `config.my.ai.core.aiDir` and `config.my.ai.vault.aiDir` still evaluate to the same path.
+* [x] Run smoke, audit, rebuild, user daemon reload, and live check before committing.
+* [x] Commit as `Consolidate AI vault defaults through core config`.
+
 * [ ] Define `obsidian_interaction.v1`.
 * [ ] Define `obsidian_message.v1`.
 * [ ] Define `obsidian_action.v1`.

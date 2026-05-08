@@ -347,24 +347,26 @@ EOF_PROOF_REQUEST
   '';
 in
 {
+  imports = [ ../core ];
+
   options.my.ai.vault = {
     enable = lib.mkEnableOption "AI vault folder structure and templates";
 
     root = lib.mkOption {
       type = lib.types.str;
-      default = "/home/daniil/Sync/Perseverance.Gu";
+      default = config.my.ai.core.vaultRoot;
       description = "Root path of the Obsidian vault.";
     };
 
     aiDir = lib.mkOption {
       type = lib.types.str;
-      default = "/home/daniil/Sync/Perseverance.Gu/AI";
+      default = config.my.ai.core.aiDir;
       description = "AI system directory inside the Obsidian vault.";
     };
 
     taskNotesDir = lib.mkOption {
       type = lib.types.str;
-      default = "/home/daniil/Sync/Perseverance.Gu/TaskNotes";
+      default = config.my.ai.core.taskNotesDir;
       description = "TaskNotes directory inside the Obsidian vault.";
     };
   };
