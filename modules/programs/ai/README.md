@@ -51,6 +51,108 @@ start session
 
 The current development focus is stabilizing the protocol and interaction architecture before adding more ambitious modules such as browser URL classification, proof handling, TaskNotes mutation, language learning, screenshots, or strictness experiments.
 
+
+<!-- AI-ADAPTIVE-PERSONAL-MODEL:START -->
+
+## Product direction: adaptive personal productivity companion
+
+This project is not just a reminder bot, a generic LLM agent, or a task writer. It is intended to become a local-first adaptive productivity companion: a supportive assistant/friend that helps the user make progress on long-term and short-term goals, recover from stuck states, and learn what actually works for this specific person over time.
+
+The system should optimize for sustainable goal progress and quality productive hours, not raw time spent or notification volume. It may choose rest, fallback planning, smaller steps, or silence when those are more likely to improve long-term outcomes.
+
+Research-aligned design anchors:
+
+* Personal informatics loop: prepare, collect, integrate, reflect, act.
+* Behavior-change techniques: explicit goals, action planning, prompts/cues, feedback, self-monitoring, review, and problem solving.
+* Self-determination theory: preserve autonomy, competence, and supportive relatedness.
+* COM-B: diagnose behavior through capability, opportunity, and motivation instead of moralizing inaction.
+* Implementation intentions: prefer concrete if-then plans over vague motivation.
+* Just-in-time adaptive intervention logic: adapt intervention timing, channel, intensity, and content to context.
+* Recovery research: protect capacity, detachment, relaxation, mastery, and control; do not turn productivity into a guilt loop.
+
+The system may automatically adapt from evidence, including inaction. Adaptations must remain inspectable, reversible, locally stored, and bounded by explicit goals, capacity state, safety rules, and user correction.
+
+Hybrid goal model:
+
+* Obsidian / TaskNotes are the human-facing surface for goals, commitments, plans, reflection, and review.
+* The AI vault is the operational surface for structured goals, learned patterns, policies, interventions, outcomes, and evidence.
+* Natural language is a control surface that creates immediate actions, memory updates, policy changes, or proposals depending on context and risk.
+
+The system should distinguish:
+
+* approved facts: explicit user-provided or user-confirmed information;
+* inferred patterns: evidence-backed hypotheses about timing, friction, energy, channels, and intervention effectiveness;
+* policies: behavior-changing rules for nudging, scheduling, suppression, adaptation, and review;
+* goals: desired outcomes, habits, projects, recovery targets, and maintenance baselines;
+* interventions: nudges, questions, plans, reviews, and fallback suggestions;
+* outcomes: acted, ignored, snoozed, dismissed, quick-exit, sustained, fallback accepted, completed, or corrected.
+
+Strong automatic adaptation is allowed for timing, tone, channel, frequency, fallback choice, planning strategy, and question style. Confirmation is still required for durable external commitments, disabling important goals, increasing pressure substantially, enabling new executors/services, or writing to external systems.
+
+When an important goal repeatedly fails in the moment, the system should not repeat the same pressure. It should navigate: shrink the action, change timing/channel/tone, suggest a fallback, create tomorrow's plan, and learn which strategy works better.
+
+<!-- AI-ADAPTIVE-PERSONAL-MODEL:END -->
+
+<!-- AI-CONFIG-DOCTRINE:START -->
+
+## Configuration doctrine
+
+`modules/programs/ai/default.nix` is the intended high-level control surface for this project.
+
+Submodules may implement behavior, but they should not independently invent canonical runtime roots, queue paths, timezones, retention settings, nudge policy defaults, or adaptive behavior defaults. Those should flow from `config.my.ai.*` options.
+
+Rules:
+
+* Define typed options for durable configuration.
+* Put user-facing defaults in `modules/programs/ai/default.nix` with `lib.mkDefault`.
+* Let submodules consume `config.my.ai.*`.
+* Pass resolved values to scripts through environment variables or explicit CLI flags.
+* Keep Python code configurable through `--ai-dir`, `AI_DIR`, and related environment variables.
+* Use canonical relative protocol paths in code and docs, but avoid user-specific absolute paths outside Nix defaults and examples.
+* Tests must use temporary AI directories and must not depend on the live vault.
+* New features should add options before hardcoding paths or behavior knobs.
+
+Future option families should include:
+
+```nix
+my.ai = {
+  vault.aiDir = "...";
+  timezone = "Europe/Paris";
+
+  paths = {
+    inbox.actions = "inbox/actions";
+    inbox.phoneEvents = "inbox/from-phone/events";
+    inbox.obsidianMessages = "inbox/obsidian/messages";
+    inbox.obsidianActions = "inbox/obsidian/actions";
+    outbox.phone = "outbox/to-phone";
+    outbox.obsidian = "outbox/to-obsidian";
+    state.profile = "state/profile";
+    state.goals = "state/goals";
+    state.policies = "state/policies";
+  };
+
+  queues = {
+    stabilitySeconds = 2;
+    obsidianStabilitySeconds = 0;
+  };
+
+  interaction = {
+    nudgeTtlSeconds = 3600;
+    projectionRefresh.enable = false;
+  };
+
+  adaptive = {
+    enable = false;
+    mode = "observe";
+    allowAutomaticPolicyAdjustment = true;
+  };
+};
+```
+
+Do not add all of this at once. Add the option layer incrementally as real callers need it.
+
+<!-- AI-CONFIG-DOCTRINE:END -->
+
 Current milestone:
 
 ```text

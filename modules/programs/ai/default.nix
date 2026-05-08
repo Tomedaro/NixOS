@@ -270,7 +270,7 @@ in
   ###########################################################################
 
   my.ai.sessionManager.enable = lib.mkDefault true;
-  my.ai.sessionManager.aiDir = lib.mkDefault "/home/daniil/Sync/Perseverance.Gu/AI";
+  my.ai.sessionManager.aiDir = lib.mkDefault aiDir;
 
 
   ###########################################################################

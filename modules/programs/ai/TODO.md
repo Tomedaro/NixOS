@@ -51,6 +51,47 @@ The project should follow these principles:
 * Phone/Tasker should remain a lightweight companion surface.
 * Hyprland/Niri custom UI comes after the agent logic is stable.
 
+<!-- AI-ADAPTIVE-PERSONAL-MODEL:START -->
+
+## Product direction: adaptive personal productivity companion
+
+This project is not just a reminder bot, a generic LLM agent, or a task writer. It is intended to become a local-first adaptive productivity companion: a supportive assistant/friend that helps the user make progress on long-term and short-term goals, recover from stuck states, and learn what actually works for this specific person over time.
+
+The system should optimize for sustainable goal progress and quality productive hours, not raw time spent or notification volume. It may choose rest, fallback planning, smaller steps, or silence when those are more likely to improve long-term outcomes.
+
+Research-aligned design anchors:
+
+* Personal informatics loop: prepare, collect, integrate, reflect, act.
+* Behavior-change techniques: explicit goals, action planning, prompts/cues, feedback, self-monitoring, review, and problem solving.
+* Self-determination theory: preserve autonomy, competence, and supportive relatedness.
+* COM-B: diagnose behavior through capability, opportunity, and motivation instead of moralizing inaction.
+* Implementation intentions: prefer concrete if-then plans over vague motivation.
+* Just-in-time adaptive intervention logic: adapt intervention timing, channel, intensity, and content to context.
+* Recovery research: protect capacity, detachment, relaxation, mastery, and control; do not turn productivity into a guilt loop.
+
+The system may automatically adapt from evidence, including inaction. Adaptations must remain inspectable, reversible, locally stored, and bounded by explicit goals, capacity state, safety rules, and user correction.
+
+Hybrid goal model:
+
+* Obsidian / TaskNotes are the human-facing surface for goals, commitments, plans, reflection, and review.
+* The AI vault is the operational surface for structured goals, learned patterns, policies, interventions, outcomes, and evidence.
+* Natural language is a control surface that creates immediate actions, memory updates, policy changes, or proposals depending on context and risk.
+
+The system should distinguish:
+
+* approved facts: explicit user-provided or user-confirmed information;
+* inferred patterns: evidence-backed hypotheses about timing, friction, energy, channels, and intervention effectiveness;
+* policies: behavior-changing rules for nudging, scheduling, suppression, adaptation, and review;
+* goals: desired outcomes, habits, projects, recovery targets, and maintenance baselines;
+* interventions: nudges, questions, plans, reviews, and fallback suggestions;
+* outcomes: acted, ignored, snoozed, dismissed, quick-exit, sustained, fallback accepted, completed, or corrected.
+
+Strong automatic adaptation is allowed for timing, tone, channel, frequency, fallback choice, planning strategy, and question style. Confirmation is still required for durable external commitments, disabling important goals, increasing pressure substantially, enabling new executors/services, or writing to external systems.
+
+When an important goal repeatedly fails in the moment, the system should not repeat the same pressure. It should navigate: shrink the action, change timing/channel/tone, suggest a fallback, create tomorrow's plan, and learn which strategy works better.
+
+<!-- AI-ADAPTIVE-PERSONAL-MODEL:END -->
+
 ## Core loop
 
 ```text
@@ -235,6 +276,150 @@ Tasks:
 * [ ] Add TaskNotes-compatible task creation proposal.
 * [ ] Add smoke tests using a temporary vault fixture.
 * [ ] Keep phone interaction files compatible.
+
+<!-- AI-PHASE-1-6-ADAPTIVE-MODEL:START -->
+
+## Phase 1.6: Adaptive personal model foundation
+
+Goal: define the hybrid goal, memory, policy, and learning architecture before expanding TaskNotes-heavy Phase 2 automation.
+
+This phase should make the project direction explicit: automatic learning is allowed and desired, but it must be explainable, reversible, local-first, and bounded by deterministic safety rules.
+
+### 1.6-A. Define the personal model layer
+
+Create contracts for:
+
+* `approved_fact.v1` — explicit user-provided or confirmed facts.
+* `inferred_pattern.v1` — evidence-backed, confidence-scored behavior patterns.
+* `preference_memory.v1` — tone, channel, timing, and interaction preferences.
+* `capacity_state.v1` — high-focus, normal, low-energy, overloaded, recovery-needed, shutdown.
+* `relationship_preference.v1` — how the assistant should interact: supportive, attentive, honest, non-moralizing, gently persistent.
+
+Initial planned paths:
+
+```text
+AI/state/profile/approved-facts.json
+AI/state/profile/inferred-patterns.json
+AI/state/profile/preference-memory.json
+AI/state/profile/capacity-state.json
+```
+
+Rules:
+
+* Store behavior patterns, not identity judgments.
+* Inferred patterns should have confidence, evidence counts, last-updated time, decay behavior, and correction state.
+* User corrections should append events and mark old inferences inactive or superseded; avoid hard deletion by default.
+
+### 1.6-B. Define operational goal and policy layers
+
+Use the hybrid model:
+
+* Obsidian / TaskNotes: human-facing goals, commitments, planning notes, reflection.
+* AI vault: machine-readable operational goal state, policies, patterns, and outcomes.
+
+Create contracts for:
+
+* `goal.v1`
+* `goal_link.v1` between AI state and Obsidian/TaskNotes notes
+* `nudge_policy.v1`
+* `scheduling_policy.v1`
+* `suppression_rule.v1`
+* `adaptation_policy.v1`
+* `experiment_policy.v1`
+
+Policies should be scoped globally and per goal. Global patterns can affect capacity/tone; per-goal policies should control timing, channel, intensity, fallback, and review cadence.
+
+### 1.6-C. Define feedback and outcome vocabulary
+
+The system must learn from both action and lack of action.
+
+Initial outcome vocabulary:
+
+* acted
+* started
+* sustained
+* completed
+* fallback_accepted
+* snoozed
+* dismissed
+* ignored
+* quick_exit
+* no_response
+* negative_feedback
+* positive_feedback
+* corrected_inference
+
+Inaction should count as evidence, but with lower confidence unless repeated or confirmed. Ignored nudges are ambiguous: they may mean bad timing, missed notification, low capacity, unclear next step, avoidance, or goal drift.
+
+### 1.6-D. Define natural-language control classes
+
+Natural language should classify into one or more of these:
+
+* immediate ephemeral action: snooze, hide today, ask later;
+* approved memory update: explicit fact or preference;
+* automatic policy adjustment: less often, gentler, earlier, stop this type today;
+* proposal-required durable change: recurring task, new goal, schedule change, stronger nudge policy;
+* reflective dialogue: help me understand why I avoid this;
+* unsafe/unsupported request: arbitrary execution, bypassing gates, deleting audit history.
+
+Ambiguous requests such as "regularly do that" should produce proposals with options: TaskNotes recurring task, AI policy, goal rule, calendar/reminder, or review cadence.
+
+### 1.6-E. Define explanation and review surfaces
+
+Obsidian should be the primary review surface. The system must be able to generate reviews for any requested period, not only weekly.
+
+Planned review surfaces:
+
+```text
+AI/outbox/to-obsidian/personal-model-review.md
+AI/outbox/to-obsidian/goal-review.md
+AI/outbox/to-obsidian/policy-review.md
+AI/outbox/to-obsidian/learning-review.md
+```
+
+Required questions the system should answer:
+
+* Why did you nudge me now?
+* What did you learn from this period?
+* What changed in your policy recently?
+* What evidence supports this pattern?
+* What goals are stale, blocked, or overloaded?
+* Undo or weaken this adaptation.
+
+### 1.6-F. First narrow learning loop
+
+Do not build the whole personal model at once. Start with one small loop, probably Anki/recovery nudges:
+
+1. Track nudge shown / acted / snoozed / dismissed / ignored by time window and channel.
+2. Infer weak timing and friction patterns.
+3. Adapt timing/frequency/fallback strategy within conservative bounds.
+4. Write a reviewable explanation of what changed.
+5. Accept correction through buttons or natural language.
+
+This loop should validate the full pattern: evidence -> inference -> policy adjustment -> intervention -> outcome -> review -> correction.
+
+<!-- AI-PHASE-1-6-ADAPTIVE-MODEL:END -->
+
+<!-- AI-PHASE-1-6-CONFIG:START -->
+
+## Phase 1.6-G: Centralized configuration and futureproofing
+
+Goal: make the system easy to adjust from one place before adding more adaptive behavior.
+
+`modules/programs/ai/default.nix` should be the human-editable profile layer. Submodules should expose typed options and consume `config.my.ai.*`; Python scripts should receive resolved paths and policy knobs through environment variables or explicit CLI flags.
+
+Tasks:
+
+* [ ] Replace remaining hardcoded AI vault paths in active Nix config with `config.my.ai.vault.aiDir` or local `aiDir`.
+* [ ] Add a shared timezone option instead of hardcoding `Europe/Paris` in each service.
+* [ ] Inventory canonical relative paths and decide whether to add a `my.ai.paths` option family.
+* [ ] Keep canonical relative protocol paths stable in code: `inbox/actions`, `inbox/from-phone/events`, `inbox/obsidian/messages`, `inbox/obsidian/actions`, `outbox/to-phone`, `outbox/to-obsidian`.
+* [ ] Ensure new Python CLIs accept `--ai-dir` or read `AI_DIR`.
+* [ ] Ensure new behavior knobs are Nix options before they become hardcoded constants.
+* [ ] Keep docs examples clearly separated from actual configuration authority.
+* [ ] Avoid broad rewrites; migrate one option family at a time with smoke coverage.
+
+<!-- AI-PHASE-1-6-CONFIG:END -->
 
 ## Phase 2: TaskNotes integration
 

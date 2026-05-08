@@ -8,6 +8,94 @@ Use append-only events as the durable record, and materialized state files as ca
 
 State files may be overwritten by bridges/managers. Event logs should explain why state changed.
 
+<!-- AI-ADAPTIVE-ARCHITECTURE:START -->
+
+## Adaptive personal model architecture
+
+The long-term architecture is a local adaptive self-regulation loop, not an unconstrained agent.
+
+```text
+human-facing goals and reflection in Obsidian/TaskNotes
+        |
+        v
+structured operational model in AI/state
+        |
+        v
+context + evidence + learned patterns
+        |
+        v
+proposal / policy / adaptation logic
+        |
+        v
+gates and authority boundaries
+        |
+        v
+phone / Obsidian / desktop interaction surfaces
+        |
+        v
+append-only outcomes and feedback
+```
+
+Planned state families:
+
+```text
+AI/state/goals/            machine-readable active goals and goal links
+AI/state/profile/          approved facts, inferred patterns, preferences, capacity state
+AI/state/policies/         nudge, scheduling, suppression, adaptation, and experiment policies
+AI/events/learning/        append-only learning and correction events
+AI/events/feedback/        explicit and implicit user feedback events
+AI/outbox/to-obsidian/     reviewable model, goal, policy, and learning summaries
+```
+
+Authority rules:
+
+* Learning modules may summarize evidence and propose or apply bounded policy adjustments.
+* They must not bypass proposal gates, action bridges, or deterministic validation.
+* Automatic adaptation may change timing, tone, channel, frequency, fallback choice, and question style.
+* Durable external commitments, stronger pressure, new executors, service changes, and external writes require explicit confirmation or a reviewed proposal.
+* Every meaningful adaptation must be explainable from local evidence and reversible through user feedback.
+
+Quality model:
+
+The system should optimize sustainable goal progress and quality productive hours, not raw hours or notification volume. Quality should be inferred from multiple signals such as goal alignment, sustained attention, low context switching, completed outcomes, user ratings, and recovery success. App-open time alone is not enough.
+
+Capacity model:
+
+The planner should model capacity states such as high-focus, normal, low-energy, overloaded, recovery-needed, and shutdown. Low-capacity states should trigger smaller actions, fallback planning, recovery suggestions, or silence rather than stronger pressure.
+
+<!-- AI-ADAPTIVE-ARCHITECTURE:END -->
+
+<!-- AI-CONFIG-OWNERSHIP:START -->
+
+## Configuration ownership
+
+The Nix module tree is the configuration authority for runtime roots and behavior knobs.
+
+Design intent:
+
+```text
+modules/programs/ai/default.nix
+  -> sets profile defaults with lib.mkDefault
+  -> submodules consume config.my.ai.*
+  -> systemd services export environment variables
+  -> Python CLIs read env/flags
+  -> vault files store runtime state, not deployment configuration
+```
+
+This keeps the system adjustable as the project grows: new goals, new queues, new adaptive policies, new interaction surfaces, and new services should not require searching scattered Python files for absolute paths or magic constants.
+
+Configuration categories:
+
+* roots: vault root, AI dir, TaskNotes dir;
+* canonical relative paths: action inbox, phone telemetry inbox, Obsidian inboxes, phone/Obsidian outboxes;
+* timing: timezone, queue stability, timers, TTLs, cooldowns;
+* authority: bridge enable flags, mutating flags, maximum action authority;
+* adaptive behavior: learning mode, nudge budget, policy-adjustment permission, experiment bounds.
+
+Keep protocol paths stable by default, but make roots and behavior knobs easy to change.
+
+<!-- AI-CONFIG-OWNERSHIP:END -->
+
 ## Runtime roots
 
 Default runtime vault:

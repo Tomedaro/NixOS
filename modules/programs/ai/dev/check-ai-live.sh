@@ -448,7 +448,7 @@ fi
 if [ "$RUN_OUTCOMES" = "1" ]; then
   run_first_unit_once "intervention outcomes reporter" 'intervention.*outcome|outcome.*report' --write
 else
-  echo "SKIP intervention outcome reporter write; pass --run-outcomes to write live outcome state"
+  printf "%s\n" "SKIP intervention outcome reporter write; pass --run-outcomes to write live outcome state"
 fi
 
 echo

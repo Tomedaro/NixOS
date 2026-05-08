@@ -119,19 +119,20 @@ def main() -> int:
     current_nudge_updated = nudge.get("updated_at") or "unknown"
     clear_reason = active_nudge_clear_reason(nudge)
 
-    print(
-        "active_nudge "
-        f"state_status={state_nudge_status} "
-        f"current_status={current_nudge_status} "
-        f"id={current_nudge_id or state_nudge_id} "
-        f"source={nudge.get('source', 'unknown' if nudge else 'missing')} "
-        f"mode={nudge.get('planner_mode', 'unknown' if nudge else 'missing')} "
-        f"created_at={current_nudge_created or 'unknown'} "
-        f"age={age_text(current_nudge_created, now_epoch=now_epoch)} "
-        f"updated_at={current_nudge_updated} "
-        f"stale_reason={clear_reason} "
-        f"consistency={consistency(state_id=state_nudge_id, state_status=state_nudge_status, current_id=current_nudge_id, current_status=current_nudge_status)}"
-    )
+    active_nudge_parts = [
+        "active_nudge",
+        f"state_status={state_nudge_status}",
+        f"current_status={current_nudge_status}",
+        f"id={current_nudge_id or state_nudge_id}",
+        f"source={nudge.get('source', 'unknown' if nudge else 'missing')}",
+        f"mode={nudge.get('planner_mode', 'unknown' if nudge else 'missing')}",
+        f"created_at={current_nudge_created or 'unknown'}",
+        f"age={age_text(current_nudge_created, now_epoch=now_epoch)}",
+        f"updated_at={current_nudge_updated}",
+        f"stale_reason={clear_reason}",
+        f"consistency={consistency(state_id=state_nudge_id, state_status=state_nudge_status, current_id=current_nudge_id, current_status=current_nudge_status)}",
+    ]
+    print(" ".join(active_nudge_parts))
 
     if clear_reason not in {"none", "unknown"}:
         print(
