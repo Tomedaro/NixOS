@@ -24,7 +24,7 @@ The project is in Phase 1.5/1.6 stabilization. Queue semantics, action replay sa
 - [ ] Update `TODO.md` Phase 1 status so completed Obsidian proposal/action/draft pieces are not treated as missing.
 - [ ] Update `vault-bridge/README.md` and diagnostics so active Obsidian inbox/outbox directories are visible.
 - [x] Fix live-vault Templater session-start surface that wrote stale `AI/inbox/session-requests` files. `AI Start Session.md` now writes bounded `action.v1` / `start_session` files to `AI/inbox/actions`.
-- [ ] Add diagnostics that scan active Obsidian/Templater launch files for stale protocol paths such as `AI/inbox/session-requests`.
+- [x] Add diagnostics that scan active Obsidian/Templater launch files for stale protocol paths such as `AI/inbox/session-requests`.
 - [ ] Align `obsidian_task_draft.v1` with the live TaskNotes config before designing the apply/promote gate.
 
 <!-- AI-CONFIG-CENTRALIZATION:START -->

@@ -943,7 +943,7 @@ Tasks:
 Do not treat older unchecked items as authoritative. Cross-check current code, smoke tests, live diagnostics, and the vault before starting work.
 
 1. Keep the companion philosophy, authority model, Obsidian protocol, and TaskNotes boundary explicit in docs.
-2. Add diagnostics for live-vault Obsidian/Templater protocol drift. The known stale `AI Start Session.md` surface has been fixed to write `action.v1` / `start_session` files to `AI/inbox/actions`, but checks should prevent regressions.
+2. Keep diagnostics for live-vault Obsidian/Templater protocol drift. The known stale `AI Start Session.md` surface has been fixed to write `action.v1` / `start_session` files to `AI/inbox/actions`, and live/audit checks now scan active Templater files for stale protocol paths.
 3. Add minimal Obsidian / Templater scripts that write bounded JSON only:
 
    * text/action intent to `AI/inbox/obsidian/messages/*.json`;

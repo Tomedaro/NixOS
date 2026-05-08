@@ -193,6 +193,99 @@ report_interaction_surface() {
   fi
 }
 
+report_obsidian_protocol_surface() {
+  section "obsidian protocol surface"
+
+  local failures=0
+  local dir
+  for dir in \
+    "$AI_DIR/inbox/obsidian/messages" \
+    "$AI_DIR/inbox/obsidian/actions" \
+    "$AI_DIR/outbox/to-obsidian" \
+    "$AI_DIR/outbox/to-obsidian/proposals" \
+    "$AI_DIR/outbox/to-obsidian/approved-proposals" \
+    "$AI_DIR/outbox/to-obsidian/task-drafts"
+  do
+    if [ -d "$dir" ]; then
+      echo "OK dir: ${dir#$AI_DIR/}"
+    else
+      echo "WARN missing dir: ${dir#$AI_DIR/}"
+    fi
+  done
+
+  local templater_dir="$AI_DIR/launch/Templater"
+  echo "active_templater_dir=$templater_dir"
+
+  if [ ! -d "$templater_dir" ]; then
+    echo "WARN missing active Templater launch dir"
+    return 0
+  fi
+
+  local active_templates
+  active_templates="$(
+    find "$templater_dir" -maxdepth 1 -type f -name '*.md' -print 2>/dev/null \
+      | sort \
+      || true
+  )"
+
+  if [ -z "$active_templates" ]; then
+    echo "WARN no active Templater launch templates found"
+  else
+    echo "active_templater_templates=$(printf '%s\n' "$active_templates" | wc -l | tr -d ' ')"
+    if [ "$VERBOSE" -eq 1 ]; then
+      printf '%s\n' "$active_templates"
+    fi
+  fi
+
+  local stale_refs
+  stale_refs="$(
+    find "$templater_dir" -maxdepth 1 -type f -name '*.md' -print0 2>/dev/null \
+      | xargs -0 -r grep -Hn --color=never -E \
+        'AI/inbox/session-requests|AI/inbox/from-obsidian|AI/inbox/from-phone/events' \
+      || true
+  )"
+
+  if [ -n "$stale_refs" ]; then
+    echo
+    echo "FAIL active Templater stale protocol references"
+    echo "$stale_refs"
+    failures=1
+  else
+    echo "OK active Templater stale protocol references"
+  fi
+
+  local unsafe_refs
+  unsafe_refs="$(
+    find "$templater_dir" -maxdepth 1 -type f -name '*.md' -print0 2>/dev/null \
+      | xargs -0 -r grep -Hn --color=never -E \
+        'tp\.system\.(exec|command)|child_process|app\.commands\.executeCommandById|TaskNotes/Tasks' \
+      || true
+  )"
+
+  if [ -n "$unsafe_refs" ]; then
+    echo
+    echo "FAIL active Templater unsafe direct-action references"
+    echo "$unsafe_refs"
+    failures=1
+  else
+    echo "OK active Templater unsafe direct-action references"
+  fi
+
+  if [ -d "$AI_DIR/inbox/obsidian/messages" ]; then
+    echo "pending_obsidian_messages=$(find "$AI_DIR/inbox/obsidian/messages" -maxdepth 1 -type f -name '*.json' 2>/dev/null | wc -l | tr -d ' ')"
+  fi
+  if [ -d "$AI_DIR/inbox/obsidian/actions" ]; then
+    echo "pending_obsidian_actions=$(find "$AI_DIR/inbox/obsidian/actions" -maxdepth 1 -type f -name '*.json' 2>/dev/null | wc -l | tr -d ' ')"
+  fi
+
+  if [ "$failures" -ne 0 ]; then
+    echo
+    echo "RESULT obsidian protocol surface failed"
+    exit 1
+  fi
+}
+
+
 report_recovery_trigger_install_state() {
  section "recovery trigger install state"
 
@@ -445,6 +538,7 @@ list_queue "failed actions newest" "$AI_DIR/inbox/actions-failed" 3 12
 list_queue "manual review actions newest" "$AI_DIR/inbox/actions-manual-review" 3 12
 list_queue "processed actions newest" "$AI_DIR/inbox/actions-processed" 3 12
 
+report_obsidian_protocol_surface
 report_recovery_trigger_install_state
 report_interaction_surface
 
