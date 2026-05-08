@@ -18,7 +18,7 @@ INTERVAL_SECONDS = int(os.environ.get("INTERVAL_SECONDS", "60"))
 STABILITY_SECONDS = int(os.environ.get("STABILITY_SECONDS", "10"))
 PROCESSED_RETENTION_DAYS = int(os.environ.get("PROCESSED_RETENTION_DAYS", "14"))
 CREATE_TEMPLATES = os.environ.get("CREATE_TEMPLATES", "1") == "1"
-TIMEZONE = get_timezone(os.environ.get("PHONE_BRIDGE_TIMEZONE", "Europe/Paris"))
+TIMEZONE = get_timezone(os.environ.get("PHONE_BRIDGE_TIMEZONE"))
 
 RAW_EVENTS_DIR = AI_DIR / "inbox" / "from-phone" / "events"
 PROCESSED_DIR = AI_DIR / "inbox" / "from-phone" / "processed"

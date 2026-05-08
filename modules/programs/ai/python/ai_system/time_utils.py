@@ -1,9 +1,11 @@
+import os
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 
-def get_timezone(value=None, default="Europe/Paris"):
-    return ZoneInfo(value or default)
+def get_timezone(value=None, default=None):
+    fallback = default or os.environ.get("AI_TIMEZONE", "Europe/Paris")
+    return ZoneInfo(value or fallback)
 
 
 def now(tz):

@@ -15,7 +15,7 @@ from ai_system.time_utils import get_timezone, now_iso as shared_now_iso, today 
 
 
 AI_DIR = Path(os.environ.get("AI_DIR", "/home/daniil/Sync/Perseverance.Gu/AI")).expanduser()
-TIMEZONE = get_timezone(os.environ.get("RECOVERY_TRIGGER_TIMEZONE", "Europe/Paris"))
+TIMEZONE = get_timezone(os.environ.get("RECOVERY_TRIGGER_TIMEZONE"))
 
 SNOOZE_COOLDOWN_SECONDS = int(os.environ.get("RECOVERY_TRIGGER_SNOOZE_COOLDOWN_SECONDS", "1800"))
 RECENT_RECOVERY_COOLDOWN_SECONDS = int(os.environ.get("RECOVERY_TRIGGER_RECENT_RECOVERY_COOLDOWN_SECONDS", "1800"))

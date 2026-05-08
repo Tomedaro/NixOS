@@ -15,7 +15,7 @@ from ai_system.recovery_targets import get_recovery_target
 AI_DIR = Path(
     os.environ.get("AI_DIR", "/home/daniil/Sync/Perseverance.Gu/AI")
 ).expanduser()
-TIMEZONE = ZoneInfo(os.environ.get("RECOVERY_MANAGER_TIMEZONE", "Europe/Paris"))
+TIMEZONE = ZoneInfo(os.environ.get("RECOVERY_MANAGER_TIMEZONE") or os.environ.get("AI_TIMEZONE", "Europe/Paris"))
 
 OPEN_GRACE_SECONDS = int(os.environ.get("RECOVERY_OPEN_GRACE_SECONDS", "30"))
 NO_LAUNCH_EXPIRE_SECONDS = int(

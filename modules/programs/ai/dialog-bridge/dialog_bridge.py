@@ -28,7 +28,7 @@ TRIGGER_PLANNER_SERVICE = os.environ.get(
     "TRIGGER_PLANNER_SERVICE", "llm-planner-help-now.service"
 )
 
-TIMEZONE = ZoneInfo(os.environ.get("DIALOG_BRIDGE_TIMEZONE", "Europe/Paris"))
+TIMEZONE = ZoneInfo(os.environ.get("DIALOG_BRIDGE_TIMEZONE") or os.environ.get("AI_TIMEZONE", "Europe/Paris"))
 
 STATE_LLM_DIR = AI_DIR / "state" / "llm"
 STATE_DESKTOP_DIR = AI_DIR / "state" / "desktop"

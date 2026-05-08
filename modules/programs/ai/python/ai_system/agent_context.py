@@ -34,7 +34,7 @@ from ai_system.interaction_lifecycle import clear_reason_for_active_nudge
 DEFAULT_AI_DIR = Path(
     os.environ.get("AI_DIR", "/home/daniil/Sync/Perseverance.Gu/AI")
 ).expanduser()
-DEFAULT_TIMEZONE = os.environ.get("AI_AGENT_CONTEXT_TIMEZONE", "Europe/Paris")
+DEFAULT_TIMEZONE = os.environ.get("AI_AGENT_CONTEXT_TIMEZONE") or os.environ.get("AI_TIMEZONE", "Europe/Paris")
 
 ACTIVE_SESSION_STATUSES = {"active", "running", "started"}
 ACTIVE_NUDGE_STATUSES = {"active"}

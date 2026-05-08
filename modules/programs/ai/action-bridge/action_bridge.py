@@ -33,7 +33,7 @@ TRIGGER_HELP_NOW_SERVICE = os.environ.get(
     "TRIGGER_HELP_NOW_SERVICE", "llm-planner-help-now.service"
 )
 
-TIMEZONE = ZoneInfo(os.environ.get("ACTION_BRIDGE_TIMEZONE", "Europe/Paris"))
+TIMEZONE = ZoneInfo(os.environ.get("ACTION_BRIDGE_TIMEZONE") or os.environ.get("AI_TIMEZONE", "Europe/Paris"))
 
 INBOX_DIR = AI_DIR / "inbox" / "actions"
 PROCESSED_DIR = AI_DIR / "inbox" / "actions-processed"

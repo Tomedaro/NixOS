@@ -15,7 +15,7 @@ from ai_system.io_utils import atomic_write_json, atomic_write_text
 
 AI_DIR = Path(os.environ.get("AI_DIR", "~/Sync/Perseverance.Gu/AI")).expanduser()
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
-TIMEZONE = ZoneInfo(os.environ.get("LLM_PLANNER_TIMEZONE", "Europe/Paris"))
+TIMEZONE = ZoneInfo(os.environ.get("LLM_PLANNER_TIMEZONE") or os.environ.get("AI_TIMEZONE", "Europe/Paris"))
 
 
 def now():

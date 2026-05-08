@@ -18,7 +18,7 @@ ANKI_CONNECT_URL = os.environ.get("ANKI_CONNECT_URL", "http://127.0.0.1:8765").r
 INTERVAL_SECONDS = int(os.environ.get("INTERVAL_SECONDS", "300"))
 CREATE_TASKNOTE = os.environ.get("CREATE_TASKNOTE", "1") == "1"
 TASKNOTE_MODE = os.environ.get("TASKNOTE_MODE", "propose").strip().lower()
-TIMEZONE = get_timezone(os.environ.get("ANKI_BRIDGE_TIMEZONE", "Europe/Paris"))
+TIMEZONE = get_timezone(os.environ.get("ANKI_BRIDGE_TIMEZONE"))
 
 if not CREATE_TASKNOTE:
     TASKNOTE_MODE = "off"

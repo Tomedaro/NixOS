@@ -39,7 +39,7 @@ class PlannerConfig:
             ollama_num_predict=int(os.environ.get("OLLAMA_NUM_PREDICT", "900")),
             ollama_timeout_seconds=int(os.environ.get("OLLAMA_TIMEOUT_SECONDS", "600")),
             ollama_keep_alive=os.environ.get("OLLAMA_KEEP_ALIVE", "10m"),
-            timezone=ZoneInfo(os.environ.get("LLM_PLANNER_TIMEZONE", "Europe/Paris")),
+            timezone=ZoneInfo(os.environ.get("LLM_PLANNER_TIMEZONE") or os.environ.get("AI_TIMEZONE", "Europe/Paris")),
             max_log_chars=int(os.environ.get("MAX_LOG_CHARS", "800")),
             max_jsonl_events=int(os.environ.get("MAX_JSONL_EVENTS", "20")),
             max_tasknotes=int(os.environ.get("MAX_TASKNOTES", "5")),

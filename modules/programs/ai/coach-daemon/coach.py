@@ -23,7 +23,7 @@ NOTIFICATION_COOLDOWN_SECONDS = int(
 EVENT_FRESHNESS_SECONDS = int(os.environ.get("EVENT_FRESHNESS_SECONDS", "180"))
 STARTUP_GRACE_SECONDS = int(os.environ.get("STARTUP_GRACE_SECONDS", "30"))
 NOTIFY_SEND = os.environ.get("NOTIFY_SEND", "notify-send")
-TIMEZONE = ZoneInfo(os.environ.get("COACH_TIMEZONE", "Europe/Paris"))
+TIMEZONE = ZoneInfo(os.environ.get("COACH_TIMEZONE") or os.environ.get("AI_TIMEZONE", "Europe/Paris"))
 SERVICE_STARTED_AT = time.time()
 
 CONTROL_DIR = AI_DIR / "control"

@@ -13,7 +13,7 @@ from ai_system.io_utils import append_jsonl, atomic_write_json, atomic_write_tex
 
 
 AI_DIR = Path(os.environ.get("AI_DIR", "~/Sync/Perseverance.Gu/AI")).expanduser()
-TIMEZONE = ZoneInfo(os.environ.get("AI_SESSION_TIMEZONE", "Europe/Paris"))
+TIMEZONE = ZoneInfo(os.environ.get("AI_SESSION_TIMEZONE") or os.environ.get("AI_TIMEZONE", "Europe/Paris"))
 
 CONTROL_DIR = AI_DIR / "control"
 STATE_DIR = AI_DIR / "state"

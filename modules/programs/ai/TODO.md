@@ -421,13 +421,28 @@ Goal: make the system easy to adjust from one place before adding more adaptive 
 Tasks:
 
 * [ ] Replace remaining hardcoded AI vault paths in active Nix config with `config.my.ai.vault.aiDir` or local `aiDir`.
-* [ ] Add a shared timezone option instead of hardcoding `Europe/Paris` in each service.
+* [x] Add a shared timezone option instead of hardcoding `Europe/Paris` in each service. Core timezone now exists; runtime fallbacks prefer service-specific env, then `AI_TIMEZONE`, then `Europe/Paris`.
 * [ ] Inventory canonical relative paths and decide whether to add a `my.ai.paths` option family.
 * [ ] Keep canonical relative protocol paths stable in code: `inbox/actions`, `inbox/from-phone/events`, `inbox/obsidian/messages`, `inbox/obsidian/actions`, `outbox/to-phone`, `outbox/to-obsidian`.
 * [ ] Ensure new Python CLIs accept `--ai-dir` or read `AI_DIR`.
 * [ ] Ensure new behavior knobs are Nix options before they become hardcoded constants.
 * [ ] Keep docs examples clearly separated from actual configuration authority.
 * [ ] Avoid broad rewrites; migrate one option family at a time with smoke coverage.
+
+### 1.6-G.2 Current narrow follow-up: runtime fallback cleanup
+
+Completed as a small compatibility cleanup. Direct-run Python tools now honor the new generic core timezone environment where possible, without breaking legacy service-specific env vars or tests.
+
+* [x] Read `ai_system/time_utils.py` before changing timezone behavior.
+* [x] Classify remaining `Europe/Paris` and `/home/daniil/...` literals as canonical core defaults, docs/examples, tests, dev helpers, or runtime fallbacks.
+* [x] Keep `modules/programs/ai/core/default.nix` literals as the canonical Nix defaults.
+* [x] Leave docs/examples/tests unchanged unless doing a dedicated docs/test cleanup.
+* [x] Update runtime Python timezone fallbacks to prefer service-specific env var, then `AI_TIMEZONE`, then `Europe/Paris`.
+* [x] Consider only narrow direct-run fallback cleanup for `AI_DIR` / `TASKNOTES_DIR`; do not introduce Nix eval into Python runtime.
+* [x] Reword or check off the older TODO item about adding a shared timezone option.
+* [x] Run smoke, audit, rebuild, user daemon reload, and live check before committing.
+* [x] Commit as `Honor AI core timezone in runtime fallbacks`.
+
 
 <!-- AI-PHASE-1-6-CONFIG:END -->
 

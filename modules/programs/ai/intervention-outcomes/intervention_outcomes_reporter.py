@@ -28,7 +28,7 @@ from ai_system.time_utils import get_timezone, now as shared_now, now_iso as sha
 
 
 AI_DIR = Path(os.environ.get("AI_DIR", "/home/daniil/Sync/Perseverance.Gu/AI")).expanduser()
-TIMEZONE = get_timezone(os.environ.get("INTERVENTION_OUTCOMES_TIMEZONE", "Europe/Paris"))
+TIMEZONE = get_timezone(os.environ.get("INTERVENTION_OUTCOMES_TIMEZONE"))
 
 DEFAULT_DAYS = int(os.environ.get("INTERVENTION_OUTCOMES_DAYS", "7"))
 
