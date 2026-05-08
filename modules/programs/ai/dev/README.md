@@ -1,5 +1,8 @@
 # AI dev workflow
 
+
+Development posture: this is a local-first adaptive AI companion. Make the system more agentic by improving context, proposals, review artifacts, gates, outcomes, diagnostics, and adaptation. Do not make it more agentic by silently expanding mutation authority.
+
 Repo-owned commands for local development, controlled live checks, and before-push validation.
 
 ## Before pushing AI changes
@@ -110,6 +113,25 @@ wl-copy < "$LOG"
 This avoids copying only the output path.
 
 ## Boundary rule
+
+General authority chain:
+
+```text
+Observation reads.
+Context providers summarize.
+Planners and LLMs propose.
+Deterministic gates validate.
+Bridge services execute narrow known actions.
+Durable commitments require review, approval, or a bounded action path.
+```
+
+Obsidian/Templater writes only bounded protocol JSON unless explicitly reviewed otherwise:
+
+* `AI/inbox/obsidian/messages/*.json` for text/action intents.
+* `AI/inbox/obsidian/actions/*.json` for proposal decisions.
+
+It must not directly mutate TaskNotes, call approval bridges, write `AI/inbox/actions`, launch apps, or run shell commands.
+
 
 Phone writes only:
 

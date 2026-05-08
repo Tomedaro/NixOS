@@ -4,6 +4,27 @@ This project is a local-first, file-queue based adaptive productivity companion.
 
 ## Product direction
 
+This project is a local-first adaptive AI companion, not a generic agent and not a passive notes toy. The product should feel like a trustworthy modular friend/coach: attentive, useful, gently persistent, and capable of learning what helps, while staying bounded and explainable.
+
+Engineering rule of thumb:
+
+```text
+add agency by improving observation, context, proposals, review artifacts, outcomes, and adaptation;
+do not add agency by hiding execution, mutating commitments silently, or expanding bridge authority casually.
+```
+
+Authority chain:
+
+```text
+Observation reads.
+Context providers summarize.
+Planners and LLMs propose.
+Deterministic gates validate.
+Bridge services execute only narrow known actions.
+Durable changes require review, approval, or bounded action paths.
+```
+
+
 <!-- AI-CONFIG-RULES:START -->
 
 ## Configuration and path rules
@@ -102,6 +123,19 @@ Use `ai_system.queue.list_stable_json_queue_files` for queue readers. Do not han
 
 ## Canonical Obsidian queues
 
+Obsidian and Templater surfaces should be dumb protocol clients. They may write bounded JSON intents and decisions. They must not call shell commands, approval bridges, TaskNotes apply/promote code, or live action bridges directly.
+
+Active paths:
+
+```text
+AI/inbox/obsidian/messages/*.json   text/action intents
+AI/inbox/obsidian/actions/*.json    proposal approve/reject/revise decisions
+AI/outbox/to-obsidian/*             reviewable proposals, approvals, task drafts, Markdown mirrors
+```
+
+Legacy paths such as `AI/inbox/from-obsidian/...` are not active unless current code proves otherwise.
+
+
 The canonical Obsidian inbox paths are:
 
 ```text
@@ -112,6 +146,15 @@ AI/inbox/obsidian/actions/*.json
 Legacy references to `AI/inbox/from-obsidian/...` should be removed or explicitly marked as historical.
 
 ## Action safety
+
+## TaskNotes safety
+
+TaskNotes is the durable human task surface, not the AI execution backend.
+
+Before a dedicated apply/promote gate exists, code may produce reviewable `obsidian_task_draft.v1` artifacts but must not create or edit real TaskNotes notes. Keep AI review lifecycle in AI vault artifacts; keep TaskNotes task status for human execution state.
+
+Prefer flat, queryable provenance fields for future real task notes, such as `ai_created`, `source_proposal_id`, `source_intent_id`, and `goal_id`. While the live TaskNotes config uses tag identification, generated drafts must include the `task` tag. A future `isTask: true` migration should be explicit and tested.
+
 
 Anything that can trigger user-visible or system-visible side effects must pass through the action/proposal safety boundary.
 

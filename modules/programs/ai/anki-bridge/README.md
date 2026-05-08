@@ -90,7 +90,7 @@ write phone nudges directly
 process Tasker button actions
 own recovery session lifecycle
 decide whether the user is procrastinating
-mutate TaskNotes without explicit authority/configuration
+change TaskNotes task files without explicit authority and configuration
 trigger punishment or strict enforcement
 ```
 
@@ -98,7 +98,7 @@ trigger punishment or strict enforcement
 
 ## TaskNotes authority model
 
-TaskNotes mutation should be conservative.
+TaskNotes changes should stay behind explicit gates.
 
 Preferred flow:
 

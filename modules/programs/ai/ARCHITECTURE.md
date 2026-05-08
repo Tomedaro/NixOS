@@ -1,12 +1,51 @@
 # Local AI Architecture
 
-This project is a local, file-based productivity assistant. The vault is the runtime surface; the NixOS repo is the source of truth for code, services, tests, and installable artifacts.
+This project is a local-first adaptive AI companion system. The vault is the runtime protocol surface; the NixOS repo is the source of truth for code, services, tests, and installable artifacts.
 
 ## Core principle
 
 Use append-only events as the durable record, and materialized state files as caches/views.
 
 State files may be overwritten by bridges/managers. Event logs should explain why state changed.
+
+
+## Product architecture north star
+
+The project should feel agentic, attentive, and friend-like, but not reckless. Its architecture intentionally separates observation, reasoning, validation, execution, and durable commitment.
+
+```text
+local signals and human notes
+        |
+        v
+context providers and summaries
+        |
+        v
+planners, deterministic heuristics, and LLM proposal builders
+        |
+        v
+deterministic contracts and gates
+        |
+        v
+narrow bridge services and human review surfaces
+        |
+        v
+append-only outcomes, corrections, and diagnostics
+```
+
+The AI vault is the machine-readable operational layer. Obsidian and TaskNotes are the human-facing thinking and commitment layer.
+
+The system may adapt from evidence, including inaction, but adaptations must be inspectable, reversible, locally stored, and bounded. It should learn patterns like `late Anki nudges are usually ignored` or `short recovery prompts work after phone distraction`, not make identity judgments or silently increase pressure.
+
+Authority summary:
+
+```text
+Observation reads.
+Context providers summarize.
+Planners and LLMs propose.
+Deterministic gates validate.
+Bridge services execute only narrow known actions.
+Durable changes require review, approval, or bounded action paths.
+```
 
 <!-- AI-ADAPTIVE-ARCHITECTURE:START -->
 
@@ -330,6 +369,40 @@ Architecture docs should describe current contracts and invariants, not preserve
 
 ## Observation, proposal, and diagnostic boundaries
 
+### TaskNotes boundary
+
+TaskNotes is the durable human task surface. It is not the execution backend for an LLM.
+
+Allowed before a dedicated apply/promote gate exists:
+
+* read TaskNotes context;
+* classify and summarize tasks;
+* propose next actions;
+* create `obsidian_task_draft.v1` review artifacts;
+* prepare TaskNotes-compatible frontmatter;
+* render Markdown review surfaces in `AI/outbox/to-obsidian/`.
+
+Not allowed before a dedicated apply/promote gate exists:
+
+* silently create, edit, archive, or delete real TaskNotes notes;
+* write arbitrary files under `TaskNotes/Tasks`;
+* call TaskNotes HTTP API or Obsidian CLI from an LLM-facing path;
+* treat an approved proposal as an executed task mutation.
+
+The future TaskNotes promotion flow should be:
+
+```text
+reviewed proposal
+  -> TaskNotes-compatible draft
+  -> explicit user apply/promote action
+  -> deterministic schema/path gate
+  -> atomic write to allowed TaskNotes folder
+  -> append-only event and diagnostic surface
+```
+
+The current live vault uses tag-based TaskNotes identification with the `task` tag. Property-based identification such as `isTask: true` may become a cleaner future convention, but it is a migration decision, not an implicit assumption.
+
+
 ### Obsidian protocol flow and safety boundary
 
 The active Obsidian flow is a review-first protocol, not an executor path.
@@ -359,7 +432,7 @@ Boundary rules:
 * The approval bridge materializes reviewed artifacts only.
 * TaskNotes draft generation produces reviewable `obsidian_task_draft.v1` artifacts only.
 * No Obsidian protocol module may write `AI/inbox/actions`, edit arbitrary vault notes, launch apps, run shell commands, or mutate live state directly.
-* Real TaskNotes mutation requires a dedicated future apply/promote gate with smoke coverage and explicit approval.
+* Real TaskNotes file changes require a dedicated future apply/promote gate with smoke coverage and explicit approval.
 
 Helper-level contracts:
 

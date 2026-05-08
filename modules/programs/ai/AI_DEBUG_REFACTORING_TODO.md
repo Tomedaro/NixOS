@@ -8,6 +8,10 @@ The project is in Phase 1.5/1.6 stabilization. Queue semantics, action replay sa
 
 ## Immediate before Phase 2
 
+- [ ] Treat the project as a local-first adaptive AI companion: friend/coach-like, agentic-but-gated, and recovery-oriented.
+- [ ] Keep TaskNotes as a human commitment surface, not as an LLM execution backend.
+- [ ] Confirm docs and diagnostics distinguish AI vault operational state from Obsidian/TaskNotes human-facing commitments.
+
 - [ ] Rebuild/switch and verify the committed services are live.
 - [ ] Confirm `AI/inbox/actions-manual-review/` exists after `ai-vault-init.service`.
 - [ ] Confirm canonical Obsidian queues exist after vault init: `AI/inbox/obsidian/messages/` and `AI/inbox/obsidian/actions/`.
@@ -18,6 +22,9 @@ The project is in Phase 1.5/1.6 stabilization. Queue semantics, action replay sa
 - [ ] Keep `DEVELOPMENT.md` as the project operating guide.
 - [ ] Decide whether Obsidian inbox readers should use a nonzero stability delay or whether all Obsidian writers are guaranteed atomic.
 - [ ] Update `TODO.md` Phase 1 status so completed Obsidian proposal/action/draft pieces are not treated as missing.
+- [ ] Update `vault-bridge/README.md` and diagnostics so active Obsidian inbox/outbox directories are visible.
+- [ ] Fix or remove live-vault Templater surfaces that still write stale queues such as `AI/inbox/session-requests`.
+- [ ] Align `obsidian_task_draft.v1` with the live TaskNotes config before designing the apply/promote gate.
 
 <!-- AI-CONFIG-CENTRALIZATION:START -->
 
@@ -37,6 +44,9 @@ Near-term cleanup:
 <!-- AI-CONFIG-CENTRALIZATION:END -->
 
 ## Adaptive personal model track
+
+- [ ] Keep learning evidence-backed and reversible; store behavior patterns, not identity judgments.
+- [ ] Define nudge adaptation as timing/tone/channel/frequency/fallback strategy changes, not hidden pressure escalation.
 
 - [ ] Define approved facts, inferred patterns, preferences, and capacity-state contracts.
 - [ ] Define goal, goal-link, nudge-policy, scheduling-policy, suppression-rule, adaptation-policy, and experiment-policy contracts.

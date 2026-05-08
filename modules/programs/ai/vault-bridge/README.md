@@ -1,6 +1,6 @@
 # vault-bridge
 
-Vault folder initializer for the local AI productivity system.
+Vault folder initializer for the local-first adaptive AI companion system.
 
 Service:
 
@@ -50,7 +50,7 @@ TaskNotes path:
 
 ## Ownership model
 
-The vault is not just notes. It is a local file protocol.
+The vault is not just notes. It is the machine-readable operational protocol layer for the companion system. Obsidian and TaskNotes remain the human-facing thinking, planning, reflection, and commitment layer.
 
 Desktop/local services write:
 
@@ -83,13 +83,18 @@ AI/control/
 AI/policy/
 ```
 
-LLM-created obligations should first go to:
+LLM-created obligations should first become reviewable artifacts, not real commitments:
 
 ```text
-AI/proposed-tasks/
+AI/outbox/to-obsidian/current-proposal.*
+AI/outbox/to-obsidian/current-approved-proposal.*
+AI/outbox/to-obsidian/current-task-draft.*
+AI/outbox/to-obsidian/proposals/
+AI/outbox/to-obsidian/approved-proposals/
+AI/outbox/to-obsidian/task-drafts/
 ```
 
-Real TaskNotes live outside `AI/`:
+Real TaskNotes live outside `AI/` and require a future deterministic apply/promote gate before AI-created drafts may become real task notes:
 
 ```text
 ../TaskNotes/
@@ -115,6 +120,7 @@ AI/state/session/
 AI/state/llm/
 AI/state/action-bridge/
 AI/state/recovery/
+AI/state/obsidian/
 ```
 
 Inboxes:
@@ -128,6 +134,9 @@ AI/inbox/actions-manual-review/
 AI/inbox/from-phone/events/
 AI/inbox/from-phone/processed/
 AI/inbox/from-phone/failed/
+
+AI/inbox/obsidian/messages/
+AI/inbox/obsidian/actions/
 ```
 
 Outboxes:
@@ -135,6 +144,10 @@ Outboxes:
 ```text
 AI/outbox/to-phone/
 AI/outbox/to-desktop/
+AI/outbox/to-obsidian/
+AI/outbox/to-obsidian/proposals/
+AI/outbox/to-obsidian/approved-proposals/
+AI/outbox/to-obsidian/task-drafts/
 ```
 
 Events:
@@ -176,6 +189,38 @@ AI/archive/
 ```
 
 ---
+
+## Obsidian and TaskNotes protocol files
+
+Active Obsidian ingress paths:
+
+```text
+AI/inbox/obsidian/messages/*.json
+AI/inbox/obsidian/actions/*.json
+```
+
+Active Obsidian-facing review output:
+
+```text
+AI/outbox/to-obsidian/current-proposal.json
+AI/outbox/to-obsidian/current-proposal.md
+AI/outbox/to-obsidian/current-approved-proposal.json
+AI/outbox/to-obsidian/current-approved-proposal.md
+AI/outbox/to-obsidian/current-task-draft.json
+AI/outbox/to-obsidian/current-task-draft.md
+AI/outbox/to-obsidian/proposals/
+AI/outbox/to-obsidian/approved-proposals/
+AI/outbox/to-obsidian/task-drafts/
+```
+
+TaskNotes boundary:
+
+```text
+AI/outbox/to-obsidian/current-task-draft.* is reviewable output only.
+../TaskNotes/ is not mutated by vault-bridge or by LLM-facing proposal code.
+```
+
+The future TaskNotes apply/promote gate should be the only component allowed to turn an approved draft into a real TaskNotes note.
 
 ## Phone interaction protocol files
 
@@ -271,6 +316,9 @@ call Ollama
 start sessions
 own recovery lifecycle
 mutate TaskNotes content
+call Obsidian approval bridges
+process Obsidian proposal decisions
+promote task drafts into real tasks
 overwrite user-edited policy files
 ```
 
@@ -282,11 +330,13 @@ Useful next improvements:
 
 ```text
 seed inactive phone JSON files, not only Markdown
+ensure Obsidian inbox/outbox directories are visible in diagnostics
 ensure AI/state/recovery exists
 ensure AI/events/recovery exists
 document schemas in AI/schemas/
 possibly generate protocol example files
 avoid obsolete current-task defaults that imply Anki is always active
+keep TaskNotes drafts reviewable until an apply/promote gate exists
 ```
 
 The initializer should reflect the current architecture:

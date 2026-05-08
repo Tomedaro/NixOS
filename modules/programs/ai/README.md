@@ -1,6 +1,6 @@
-# Local AI Productivity System
+# Local AI Companion System
 
-This module tree defines a local-first, NixOS-native executive-function support system.
+This module tree defines a local-first, NixOS-native adaptive AI companion system for recovery, productivity, planning, and self-direction.
 
 The project is a modular personal AI environment for coordinating:
 
@@ -13,24 +13,90 @@ The project is a modular personal AI environment for coordinating:
 - nudges and questions
 - future proof/reflection/language-learning workflows
 
-The system is not meant to be a generic “productivity app.” It is intended to become a local adaptive development layer:
+The system is not a generic productivity app, not an unconstrained agent, and not a passive note-taking toy. It is intended to become a smart, trustworthy, modular companion: attentive, helpful, gently persistent, capable of noticing patterns and drafting next steps, but bounded by explicit protocols and deterministic safety gates.
 
 ```text
-observe behavior
-→ infer context and friction
-→ intervene at the right intensity
-→ collect response/proof/reflection
-→ update session/task/policy state
-→ learn recurring patterns
-→ make the next correct action smaller and clearer
+observe local signals
+→ infer context, friction, capacity, and goals
+→ propose a small useful next move
+→ render a reviewable nudge, question, plan, or draft
+→ receive an explicit response or bounded action
+→ record outcomes and corrections
+→ adapt timing, tone, frequency, and strategy from evidence
 ```
 
 The guiding idea is that executive dysfunction is often worsened by ambiguity, task size, context switching, shame, and delayed recovery loops. This system should reduce those costs by making intent explicit, monitoring context locally, and offering timely, concrete scaffolding.
 
 The central design rule:
 
-> The LLM should increase agency and precision, but the system must still behave safely and usefully when the LLM fails.
+> The system should feel agentic, but its durable authority must come from explicit protocols, deterministic gates, narrow bridges, reviewable artifacts, append-only evidence, and user correction.
 
+LLMs are welcome, but they are not the authority boundary. They may enrich, explain, draft, rank, summarize, and propose. They must not bypass deterministic validation.
+
+
+---
+
+## 0. Operating philosophy and authority model
+
+The product goal is a local-first adaptive AI companion: a planning partner, recovery coach, and supportive friend-like system that helps the user regain agency when stuck, overloaded, avoidant, distracted, or low-energy.
+
+The intended feel is:
+
+```text
+local
+modular
+inspectable
+agentic-but-gated
+friend-like-but-not-controlling
+adaptive-but-explainable
+helpful under low energy
+safe enough to grow gradually
+```
+
+Agency should come from:
+
+* observing local signals;
+* understanding current context and active goals;
+* proposing useful next moves;
+* keeping short-term and long-term goals in view;
+* remembering outcomes and corrections;
+* adapting timing, tone, channel, frequency, fallback choice, and planning strategy;
+* creating reviewable artifacts;
+* helping the user continue when stuck.
+
+Agency must not come from:
+
+* silently executing arbitrary commands;
+* mutating durable commitments without review;
+* controlling the desktop through hidden side effects;
+* writing to live TaskNotes or vault notes without a deterministic gate;
+* escalating pressure invisibly;
+* hiding decisions behind vague AI magic.
+
+Authority chain:
+
+```text
+Observation reads.
+Context providers summarize.
+Planners and LLMs propose.
+Deterministic gates validate.
+Bridge services execute only narrow known actions from the correct queues.
+Durable commitments require review, approval, or an explicitly bounded action path.
+```
+
+Operational split:
+
+```text
+AI vault:
+  machine-readable operational protocol layer
+  queues, state projections, outboxes, logs, outcomes, diagnostics
+
+Obsidian and TaskNotes:
+  human-facing thinking, planning, reflection, and commitment layer
+  notes, goals, tasks, reviews, decisions, human context
+```
+
+Materialized `current-*` files are convenient views, not the source of truth. Append-only logs, queue history, reviewed artifacts, and outcomes make the system auditable. Diagnostics must make stale projections obvious instead of making old state look alive.
 ---
 
 ## 1. Project status
@@ -49,7 +115,7 @@ start session
 → write nudges/questions/reports
 ```
 
-The current development focus is stabilizing the protocol and interaction architecture before adding more ambitious modules such as browser URL classification, proof handling, TaskNotes mutation, language learning, screenshots, or strictness experiments.
+The current development focus is stabilizing the protocol and interaction architecture before adding more ambitious modules such as browser URL classification, proof handling, TaskNotes apply/promote, language learning, screenshots, or strictness experiments.
 
 
 <!-- AI-ADAPTIVE-PERSONAL-MODEL:START -->
@@ -939,17 +1005,15 @@ ai-session end
 ai-session modes
 ```
 
-Request processor:
+Canonical action path:
 
 ```text
-ai-session-requests
+AI/inbox/actions/*.json
 ```
 
-Services/path:
+Status service:
 
 ```text
-ai-session-requests.service
-ai-session-requests.path
 ai-session-status.service
 ```
 
@@ -960,7 +1024,7 @@ Responsibilities:
 - compile deterministic policy
 - write current session state
 - write current control files
-- process legacy/session request files
+- process start_session and end_session actions delegated by action-bridge
 - archive ended sessions
 - log session events
 
@@ -1767,7 +1831,7 @@ Future: explicit `answer_question`.
 
 Implemented through planner output.
 
-Real TaskNotes mutation still future/authority-gated.
+Real TaskNotes apply/promote still future/authority-gated.
 
 ### FR-PROOF-001 — support context-aware proof
 
@@ -2062,7 +2126,7 @@ This should happen before:
 - browser bridge
 - screenshots
 - proof bridge
-- TaskNotes mutation
+- TaskNotes apply/promote
 - language learning
 - strictness experiments
 
@@ -2241,7 +2305,28 @@ unknown
 
 when uncertain.
 
-### 12.4 TaskNotes proposal and promotion
+### 12.4 TaskNotes proposal, draft, and promotion
+
+TaskNotes is the durable human task surface, not a privileged AI execution backend.
+
+The safe path is:
+
+```text
+obsidian_proposal.v1
+  -> explicit approve/reject/revise decision
+  -> obsidian_reviewed_proposal.v1
+  -> obsidian_task_draft.v1
+  -> explicit apply/promote action
+  -> deterministic TaskNotes apply gate
+  -> real TaskNotes note
+```
+
+A TaskNotes draft is not yet a task. It is a reviewable artifact prepared for possible promotion into a human commitment.
+
+Current TaskNotes integration should prefer the live vault convention: tag-based task identification with `task`, status values such as `open` / `in-progress` / `done`, and flat provenance fields such as `ai_created`, `source_proposal_id`, `source_intent_id`, and `goal_id`. Property-based identification such as `isTask: true` may be a cleaner future migration, but it should be explicit and tested rather than assumed.
+
+Do not encode AI review lifecycle as TaskNotes execution status. Task status describes human execution. AI review lifecycle belongs in AI vault artifacts and provenance fields.
+
 
 Future planner sees:
 

@@ -1,8 +1,8 @@
-# Local AI Mentor Agent TODO
+# Local AI Companion TODO
 
 ## Vision
 
-Build a local-first, Nix-managed, Obsidian-first personal mentor/agent system.
+Build a local-first, Nix-managed adaptive AI companion for recovery, productivity, planning, reflection, and self-direction.
 
 The system should help with:
 
@@ -27,6 +27,9 @@ The agent should communicate through:
 - future voice or richer UI later
 
 The important design rule:
+
+The companion should feel agentic, helpful, and friend-like, but durable authority must remain explicit and gated.
+
 
 ```text
 surfaces are clients;
@@ -328,7 +331,7 @@ Open / not yet valid to mark complete:
 * [ ] Add actual Obsidian / Templater commands or scripts that write inbox files from inside Obsidian.
 * [ ] Decide whether `obsidian_message.v1` / `obsidian_action.v1` remain helper contracts or become primary inbox schemas.
 * [x] Document the active protocol flow in `README.md` or `ARCHITECTURE.md`.
-* [ ] Add a dedicated TaskNotes apply/promote gate before any real TaskNotes mutation.
+* [ ] Add a dedicated TaskNotes apply/promote gate before any real TaskNotes file changes.
 * [ ] Keep future TaskNotes writes reviewable until that gate exists.
 
 Completed recent configuration milestones:
@@ -495,36 +498,42 @@ Completed as a small compatibility cleanup. Direct-run Python tools now honor th
 
 <!-- AI-PHASE-1-6-CONFIG:END -->
 
-## Phase 2: TaskNotes integration
+## Phase 2: TaskNotes draft and promote integration
 
-Goal: make tasks concrete, inspectable Markdown objects.
+Goal: make tasks concrete, inspectable Markdown objects without turning TaskNotes into an unsafe AI execution backend.
 
-TaskNotes should be used as the action/task substrate because each task can be a note with structured YAML metadata.
+TaskNotes should become the durable human task surface. AI components may read, classify, summarize, propose, and prepare reviewable TaskNotes-compatible drafts. Turning a draft into a real task must go through a deterministic apply/promote gate with explicit approval and smoke coverage.
+
+Current convention from the live vault:
+
+* task folder: `TaskNotes/Tasks`;
+* task identification: tag-based, using `task`;
+* execution statuses: `open`, `in-progress`, `done` plus `none` where needed;
+* priorities: `none`, `low`, `normal`, `high`;
+* time estimate field: TaskNotes-configured field name such as `timeEstimate`;
+* AI provenance should be flat and queryable, for example `ai_created`, `source_proposal_id`, `source_intent_id`, and `goal_id`.
+
+Property-based identification such as `isTask: true` may be cleaner later, but it is a deliberate TaskNotes config migration and should not be silently assumed.
 
 Tasks:
 
-* [ ] Decide task folder layout.
-* [ ] Define frontmatter fields:
+* [ ] Decide whether to keep tag-based task identification or plan a separate property-based migration.
+* [ ] Define a TaskNotes adapter/contract that maps internal AI fields to the live TaskNotes config.
+* [ ] Align `obsidian_task_draft.v1` with the current TaskNotes config:
 
-  * [ ] `goal_id`
-  * [ ] `project_id`
-  * [ ] `area`
-  * [ ] `status`
-  * [ ] `priority`
-  * [ ] `energy`
-  * [ ] `estimated_minutes`
-  * [ ] `due`
-  * [ ] `scheduled`
-  * [ ] `source`
-  * [ ] `agent_created`
-  * [ ] `agent_reason`
-* [ ] Create `obsidian_task_context.py`.
-* [ ] Create proposal type `create_task_note`.
-* [ ] Create proposal type `update_task_note`.
+  * [ ] include the identifying `task` tag while tag identification is active;
+  * [ ] use `open` instead of `todo` for new drafts;
+  * [ ] use configured TaskNotes field names such as `timeEstimate` where appropriate;
+  * [ ] prefer richer `draft_task` proposal actions over generic `suggest_next_step` actions;
+  * [ ] keep AI review lifecycle out of TaskNotes execution status.
+* [ ] Create `obsidian_task_context.py` for read-only TaskNotes context.
+* [ ] Create proposal type `draft_task` / `create_task_note` as reviewable proposals only.
+* [ ] Create proposal type `update_task_note` as a reviewed proposal only.
 * [ ] Create proposal type `suggest_next_task`.
-* [ ] Allow direct task creation only inside allowed folders and schemas.
-* [ ] Add approval gate for destructive edits.
-* [ ] Add smoke tests.
+* [ ] Add a deterministic TaskNotes apply/promote gate before any real TaskNotes file changes.
+* [ ] Allow task creation only inside allowed folders and schemas, after explicit approval.
+* [ ] Add smoke tests for draft generation, promote validation, path safety, stale proposals, and rejected proposals.
+* [ ] Keep TaskNotes HTTP API / Obsidian CLI as future bridge candidates, not the initial authority path.
 
 ## Phase 3: Goal model
 
@@ -931,26 +940,25 @@ Tasks:
 
 ## Immediate implementation order
 
-1. Commit current architecture doc update.
-2. Create this TODO.
-3. Implement Obsidian inbox/outbox protocol.
-4. Add minimal Templater scripts for:
+Do not treat older unchecked items as authoritative. Cross-check current code, smoke tests, live diagnostics, and the vault before starting work.
 
-   * send text message
-   * send button action
-   * request plan
-   * request next action
-5. Add Obsidian message bridge.
-6. Add Obsidian context reader.
-7. Add TaskNotes task reader/writer proposal.
-8. Extend `agent_context.py` with Obsidian + TaskNotes facts.
-9. Define `agent_proposal.v1`.
-10. Add `nudge_policy.py`.
-11. Add `preferences.v1`.
+1. Keep the companion philosophy, authority model, Obsidian protocol, and TaskNotes boundary explicit in docs.
+2. Fix stale live-vault surfaces that still write obsolete queues, such as old Templater files writing `AI/inbox/session-requests`.
+3. Add minimal Obsidian / Templater scripts that write bounded JSON only:
+
+   * text/action intent to `AI/inbox/obsidian/messages/*.json`;
+   * approve/reject/revise decisions to `AI/inbox/obsidian/actions/*.json`.
+4. Do not let Obsidian scripts call approval bridges, write `AI/inbox/actions`, mutate TaskNotes, launch apps, or run shell commands.
+5. Align `obsidian_task_draft.v1` with the live TaskNotes configuration.
+6. Add diagnostics for Obsidian inbox/outbox directory presence and stale/pending Obsidian protocol files.
+7. Add read-only TaskNotes context.
+8. Design and smoke-test the deterministic TaskNotes apply/promote gate.
+9. Only after the gate exists, allow approved task drafts to become real TaskNotes notes.
+10. Extend shared context with Obsidian + TaskNotes facts.
+11. Add preference and nudge-policy contracts.
 12. Add ActivityWatch read-only context.
-13. Add daily planning workflow.
-14. Add goal review workflow.
-15. Add durable agent run logs.
-16. Add richer LLM planner.
-17. Only then build the desktop popup UI.
+13. Add daily planning and goal review workflows.
+14. Add durable agent run logs.
+15. Add richer LLM planner behavior.
+16. Build desktop popup UI only after the protocol and lifecycle are boring.
 
