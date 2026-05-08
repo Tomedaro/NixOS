@@ -11,6 +11,11 @@ import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+AI_PYTHON_DIR = Path(__file__).resolve().parents[1] / "python"
+if str(AI_PYTHON_DIR) not in sys.path:
+    sys.path.insert(0, str(AI_PYTHON_DIR))
+
 from typing import Any
 
 from ai_system.interaction_lifecycle import (
