@@ -10,6 +10,7 @@ let
   '';
 in
 {
+  imports = [ ../core ];
   options.my.ai.sessionManager = {
     enable = lib.mkEnableOption "AI productivity session manager";
 
@@ -30,7 +31,9 @@ in
 
       environment = {
         AI_DIR = cfg.aiDir;
-        AI_SESSION_TIMEZONE = "Europe/Paris";
+        AI_TIMEZONE = config.my.ai.core.timezone;
+
+        AI_SESSION_TIMEZONE = config.my.ai.core.timezone;
         PYTHONUNBUFFERED = "1";
       };
 

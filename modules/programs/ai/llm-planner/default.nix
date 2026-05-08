@@ -41,11 +41,14 @@ let
     MAX_POLICY_CHARS = toString cfg.maxPolicyChars;
     MAX_CONTROL_CHARS = toString cfg.maxControlChars;
     MAX_CONTEXT_CHARS = toString cfg.maxContextChars;
-    LLM_PLANNER_TIMEZONE = "Europe/Paris";
+    AI_TIMEZONE = config.my.ai.core.timezone;
+
+    LLM_PLANNER_TIMEZONE = config.my.ai.core.timezone;
     PYTHONUNBUFFERED = "1";
   };
 in
 {
+  imports = [ ../core ];
   options.my.ai.llmPlanner = {
     enable = lib.mkEnableOption "local LLM planner and report generator";
 

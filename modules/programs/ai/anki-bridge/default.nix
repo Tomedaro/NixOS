@@ -15,6 +15,7 @@ let
   '';
 in
 {
+  imports = [ ../core ];
   options.my.ai.ankiBridge = {
     enable = lib.mkEnableOption "read-only Anki status bridge for the productivity system";
 
@@ -90,7 +91,9 @@ in
         CREATE_TASKNOTE = if cfg.createTaskNote then "1" else "0";
         TASKNOTE_MODE = effectiveTaskNoteMode;
         ANKI_DECKS_JSON = decksJson;
-        ANKI_BRIDGE_TIMEZONE = "Europe/Paris";
+        AI_TIMEZONE = config.my.ai.core.timezone;
+
+        ANKI_BRIDGE_TIMEZONE = config.my.ai.core.timezone;
         PYTHONUNBUFFERED = "1";
       };
 

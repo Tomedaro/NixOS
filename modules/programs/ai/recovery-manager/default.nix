@@ -10,6 +10,7 @@ let
   '';
 in
 {
+  imports = [ ../core ];
   options.my.ai.recoveryManager = {
     enable = lib.mkEnableOption "local AI recovery lifecycle manager";
 
@@ -69,7 +70,9 @@ in
 
       environment = {
         AI_DIR = cfg.aiDir;
-        RECOVERY_MANAGER_TIMEZONE = "Europe/Paris";
+        AI_TIMEZONE = config.my.ai.core.timezone;
+
+        RECOVERY_MANAGER_TIMEZONE = config.my.ai.core.timezone;
         RECOVERY_OPEN_GRACE_SECONDS = toString cfg.openGraceSeconds;
         RECOVERY_NO_LAUNCH_EXPIRE_SECONDS = toString cfg.noLaunchExpireSeconds;
         RECOVERY_RAPID_ABORT_SECONDS = toString cfg.rapidAbortSeconds;

@@ -10,6 +10,7 @@ let
   '';
 in
 {
+  imports = [ ../core ];
   options.my.ai.coachDaemon = {
     enable = lib.mkEnableOption "rule-based productivity coach daemon";
 
@@ -81,7 +82,9 @@ in
         EVENT_FRESHNESS_SECONDS = toString cfg.eventFreshnessSeconds;
         STARTUP_GRACE_SECONDS = toString cfg.startupGraceSeconds;
         NOTIFY_SEND = "${pkgs.libnotify}/bin/notify-send";
-        COACH_TIMEZONE = "Europe/Paris";
+        AI_TIMEZONE = config.my.ai.core.timezone;
+
+        COACH_TIMEZONE = config.my.ai.core.timezone;
         PYTHONUNBUFFERED = "1";
       };
 

@@ -10,6 +10,7 @@ let
   '';
 in
 {
+  imports = [ ../core ];
   options.my.ai.dialogBridge = {
     enable = lib.mkEnableOption "desktop dialog bridge for LLM questions";
 
@@ -89,7 +90,9 @@ in
         MAX_QUESTION_AGE_SECONDS = toString cfg.maxQuestionAgeSeconds;
         TRIGGER_PLANNER_ON_ANSWER = if cfg.triggerPlannerOnAnswer then "1" else "0";
         TRIGGER_PLANNER_SERVICE = cfg.plannerServiceOnAnswer;
-        DIALOG_BRIDGE_TIMEZONE = "Europe/Paris";
+        AI_TIMEZONE = config.my.ai.core.timezone;
+
+        DIALOG_BRIDGE_TIMEZONE = config.my.ai.core.timezone;
         PYTHONUNBUFFERED = "1";
       };
 

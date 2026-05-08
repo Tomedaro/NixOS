@@ -10,6 +10,7 @@ let
   '';
 in
 {
+  imports = [ ../core ];
   options.my.ai.interventionOutcomes = {
     enable = lib.mkEnableOption "local AI intervention outcome reporter";
 
@@ -58,7 +59,9 @@ in
 
       environment = {
         AI_DIR = cfg.aiDir;
-        INTERVENTION_OUTCOMES_TIMEZONE = "Europe/Paris";
+        AI_TIMEZONE = config.my.ai.core.timezone;
+
+        INTERVENTION_OUTCOMES_TIMEZONE = config.my.ai.core.timezone;
         INTERVENTION_OUTCOMES_DAYS = toString cfg.days;
         PYTHONUNBUFFERED = "1";
       };
