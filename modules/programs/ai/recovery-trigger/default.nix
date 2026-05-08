@@ -10,6 +10,7 @@ let
   '';
 in
 {
+  imports = [ ../core ];
   options.my.ai.recoveryTrigger = {
     enable = lib.mkEnableOption "local AI deterministic recovery nudge trigger";
 
@@ -57,7 +58,8 @@ in
 
       environment = {
         AI_DIR = cfg.aiDir;
-        RECOVERY_TRIGGER_TIMEZONE = "Europe/Paris";
+        AI_TIMEZONE = config.my.ai.core.timezone;
+        RECOVERY_TRIGGER_TIMEZONE = config.my.ai.core.timezone;
         RECOVERY_TRIGGER_SNOOZE_COOLDOWN_SECONDS = toString cfg.snoozeCooldownSeconds;
         RECOVERY_TRIGGER_RECENT_RECOVERY_COOLDOWN_SECONDS = toString cfg.recentRecoveryCooldownSeconds;
         PYTHONUNBUFFERED = "1";

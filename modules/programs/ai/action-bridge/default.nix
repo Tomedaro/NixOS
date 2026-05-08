@@ -10,6 +10,7 @@ let
   '';
 in
 {
+  imports = [ ../core ];
   options.my.ai.actionBridge = {
     enable = lib.mkEnableOption "unified local AI action bridge";
 
@@ -85,7 +86,8 @@ in
         TASKNOTES_DIR = cfg.taskNotesDir;
         AI_SESSION_BIN = "/run/current-system/sw/bin/ai-session";
         SYSTEMCTL = "${pkgs.systemd}/bin/systemctl";
-        ACTION_BRIDGE_TIMEZONE = "Europe/Paris";
+        AI_TIMEZONE = config.my.ai.core.timezone;
+        ACTION_BRIDGE_TIMEZONE = config.my.ai.core.timezone;
         ACTION_STABILITY_SECONDS = toString cfg.stabilitySeconds;
         ACTION_AUTHORITY_LEVEL = toString cfg.authorityLevel;
         TRIGGER_HELP_NOW = if cfg.triggerHelpNow then "1" else "0";

@@ -1,5 +1,5 @@
 # modules/programs/ai/default.nix
-{ lib, pkgs, ... }:
+{ config, lib, pkgs, ... }:
 
 let
   vaultRoot = "/home/daniil/Sync/Perseverance.Gu";
@@ -8,6 +8,7 @@ let
 in
 {
   imports = [
+    ./core
     ./session-manager
     ./action-bridge
     # Shared foundation / path protocol
@@ -45,9 +46,9 @@ in
   my.ai.vault = {
     enable = lib.mkDefault true;
 
-    root = lib.mkDefault vaultRoot;
-    aiDir = lib.mkDefault aiDir;
-    taskNotesDir = lib.mkDefault taskNotesDir;
+    root = lib.mkDefault config.my.ai.core.vaultRoot;
+    aiDir = lib.mkDefault config.my.ai.core.aiDir;
+    taskNotesDir = lib.mkDefault config.my.ai.core.taskNotesDir;
   };
 
   ###########################################################################
@@ -92,7 +93,7 @@ in
 
     # These are explicit for now, even if coach-daemon defaults to my.ai.vault.aiDir.
     # This keeps the file robust during the transition/refactor.
-    aiDir = lib.mkDefault aiDir;
+    aiDir = lib.mkDefault config.my.ai.core.aiDir;
 
     intervalSeconds = lib.mkDefault 60;
 
@@ -114,8 +115,8 @@ in
   my.ai.ankiBridge = {
     enable = lib.mkDefault true;
 
-    aiDir = lib.mkDefault aiDir;
-    taskNotesDir = lib.mkDefault taskNotesDir;
+    aiDir = lib.mkDefault config.my.ai.core.aiDir;
+    taskNotesDir = lib.mkDefault config.my.ai.core.taskNotesDir;
 
     decks = lib.mkDefault [
       "Language"
@@ -138,7 +139,7 @@ in
   my.ai.phoneBridge = {
     enable = lib.mkDefault true;
 
-    aiDir = lib.mkDefault aiDir;
+    aiDir = lib.mkDefault config.my.ai.core.aiDir;
 
     intervalSeconds = lib.mkDefault 60;
     stabilitySeconds = lib.mkDefault 10;
@@ -156,8 +157,8 @@ in
   my.ai.llmPlanner = {
     enable = lib.mkDefault true;
 
-    aiDir = lib.mkDefault aiDir;
-    taskNotesDir = lib.mkDefault taskNotesDir;
+    aiDir = lib.mkDefault config.my.ai.core.aiDir;
+    taskNotesDir = lib.mkDefault config.my.ai.core.taskNotesDir;
 
     ollamaUrl = lib.mkDefault "http://127.0.0.1:11434";
 
@@ -209,7 +210,7 @@ in
   my.ai.dialogBridge = {
     enable = lib.mkDefault true;
 
-    aiDir = lib.mkDefault aiDir;
+    aiDir = lib.mkDefault config.my.ai.core.aiDir;
 
     # Keep timer off until:
     # 1. planner output quality is acceptable,
@@ -236,8 +237,8 @@ in
 
   my.ai.actionBridge = {
     enable = lib.mkDefault true;
-    aiDir = lib.mkDefault aiDir;
-    taskNotesDir = lib.mkDefault taskNotesDir;
+    aiDir = lib.mkDefault config.my.ai.core.aiDir;
+    taskNotesDir = lib.mkDefault config.my.ai.core.taskNotesDir;
     enablePath = lib.mkDefault true;
     stabilitySeconds = lib.mkDefault 2;
     authorityLevel = lib.mkDefault 2;
@@ -259,7 +260,7 @@ in
 
   my.ai.interventionOutcomes = {
     enable = lib.mkDefault true;
-    aiDir = lib.mkDefault aiDir;
+    aiDir = lib.mkDefault config.my.ai.core.aiDir;
     enableTimer = lib.mkDefault true;
     timerOnCalendar = lib.mkDefault "*:0/30";
     days = lib.mkDefault 7;
@@ -270,7 +271,7 @@ in
   ###########################################################################
 
   my.ai.sessionManager.enable = lib.mkDefault true;
-  my.ai.sessionManager.aiDir = lib.mkDefault aiDir;
+  my.ai.sessionManager.aiDir = lib.mkDefault config.my.ai.core.aiDir;
 
 
   ###########################################################################

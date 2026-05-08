@@ -10,6 +10,7 @@ let
   '';
 in
 {
+  imports = [ ../core ];
   options.my.ai.phoneBridge = {
     enable = lib.mkEnableOption "phone event bridge for Tasker/Syncthing events";
 
@@ -60,7 +61,8 @@ in
         STABILITY_SECONDS = toString cfg.stabilitySeconds;
         PROCESSED_RETENTION_DAYS = toString cfg.processedRetentionDays;
         CREATE_TEMPLATES = if cfg.createTemplates then "1" else "0";
-        PHONE_BRIDGE_TIMEZONE = "Europe/Paris";
+        AI_TIMEZONE = config.my.ai.core.timezone;
+        PHONE_BRIDGE_TIMEZONE = config.my.ai.core.timezone;
         PYTHONUNBUFFERED = "1";
       };
 
