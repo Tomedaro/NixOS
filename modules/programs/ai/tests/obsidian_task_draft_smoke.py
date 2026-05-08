@@ -55,10 +55,46 @@ def test_approved_proposal_normalizes_to_tasknotes_draft() -> None:
     assert draft["writes_live_action_queue"] is False
 
     fm = draft["tasknote_frontmatter"]
+    assert fm["ai_created"] is True
     assert fm["agent_created"] is True
     assert fm["source_proposal_id"] == "proposal-intent-study-1"
+    assert fm["source_intent_id"] == "intent-study-1"
+    assert fm["title"] == "Do one linear algebra exercise"
+    assert fm["status"] == "open"
+    assert fm["timeEstimate"] == 20
+    assert "task" in fm["tags"]
+    assert "ai-task" in fm["tags"]
     assert "tasknotes" in fm["tags"]
+    assert "ai_created: true" in draft["markdown"]
     assert "agent_created: true" in draft["markdown"]
+
+
+def test_task_draft_action_is_preferred_over_next_step_summary() -> None:
+    payload = approved_payload()
+    payload["proposal"]["suggested_actions"].insert(
+        0,
+        {
+            "type": "suggest_next_step",
+            "label": "Do one linear algebra exercise",
+            "estimated_minutes": 5,
+            "priority": "low",
+        },
+    )
+
+    draft = normalize_task_draft(payload)
+
+    assert draft["priority"] == "high"
+    assert draft["estimated_minutes"] == 20
+    assert draft["tasknote_frontmatter"]["timeEstimate"] == 20
+
+
+def test_tasknotes_status_aliases_match_live_config() -> None:
+    payload = approved_payload()
+    payload["proposal"]["suggested_actions"][0]["status"] = "doing"
+
+    draft = normalize_task_draft(payload)
+
+    assert draft["tasknote_frontmatter"]["status"] == "in-progress"
 
 
 def test_rejected_or_unapproved_payload_is_refused() -> None:
@@ -115,6 +151,8 @@ def test_write_outputs_reviewable_outbox_only() -> None:
 def run_all() -> None:
     tests = [
         test_approved_proposal_normalizes_to_tasknotes_draft,
+        test_task_draft_action_is_preferred_over_next_step_summary,
+        test_tasknotes_status_aliases_match_live_config,
         test_rejected_or_unapproved_payload_is_refused,
         test_direct_execution_fields_are_refused,
         test_write_outputs_reviewable_outbox_only,

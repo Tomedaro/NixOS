@@ -43,8 +43,14 @@ TASK_ACTION_TYPES = {
     "select_existing_task",
 }
 
-ALLOWED_STATUSES = {"todo", "doing", "waiting", "done", "cancelled"}
-ALLOWED_PRIORITIES = {"low", "normal", "medium", "high"}
+ALLOWED_STATUSES = {"none", "open", "in-progress", "done"}
+STATUS_ALIASES = {
+    "todo": "open",
+    "doing": "in-progress",
+    "waiting": "open",
+    "cancelled": "none",
+}
+ALLOWED_PRIORITIES = {"none", "low", "normal", "medium", "high"}
 ALLOWED_ENERGIES = {"low", "medium", "high", "unknown"}
 
 
@@ -116,26 +122,35 @@ def extract_task_candidate(proposal: dict[str, Any]) -> dict[str, Any]:
 
     actions = proposal.get("suggested_actions")
     if isinstance(actions, list):
-        for action in actions:
-            action = as_dict(action)
-            if str(action.get("type") or "") in TASK_ACTION_TYPES:
-                return {
-                    "title": action.get("title") or action.get("label"),
-                    "body": action.get("body") or action.get("description"),
-                    "priority": action.get("priority"),
-                    "energy": action.get("energy"),
-                    "estimated_minutes": action.get("estimated_minutes"),
-                    "goal_id": action.get("goal_id"),
-                    "project_id": action.get("project_id"),
-                    "area": action.get("area"),
-                }
+        normalized_actions = [as_dict(action) for action in actions]
+        preferred_types = [
+            "draft_task",
+            "create_task_note",
+            "select_existing_task",
+            "suggest_next_step",
+        ]
+        for preferred_type in preferred_types:
+            for action in normalized_actions:
+                if str(action.get("type") or "") == preferred_type:
+                    return {
+                        "title": action.get("title") or action.get("label"),
+                        "body": action.get("body") or action.get("description"),
+                        "priority": action.get("priority"),
+                        "energy": action.get("energy"),
+                        "estimated_minutes": action.get("estimated_minutes"),
+                        "status": action.get("status"),
+                        "goal_id": action.get("goal_id"),
+                        "project_id": action.get("project_id"),
+                        "area": action.get("area"),
+                    }
 
     return {}
 
 
 def bounded_status(value: Any) -> str:
     status = bounded_line(value, max_len=40).lower()
-    return status if status in ALLOWED_STATUSES else "todo"
+    status = STATUS_ALIASES.get(status, status)
+    return status if status in ALLOWED_STATUSES else "open"
 
 
 def bounded_priority(value: Any) -> str:
@@ -283,10 +298,9 @@ def normalize_task_draft(payload: dict[str, Any]) -> dict[str, Any]:
     )
 
     tags = bounded_list(task.get("tags") or proposal.get("tags"))
-    if "ai-task" not in tags:
-        tags.insert(0, "ai-task")
-    if "tasknotes" not in tags:
-        tags.insert(1, "tasknotes")
+    for required_tag in reversed(["task", "ai-task", "tasknotes"]):
+        if required_tag not in tags:
+            tags.insert(0, required_tag)
 
     agent_reason = bounded_text(
         task.get("agent_reason")
@@ -298,17 +312,20 @@ def normalize_task_draft(payload: dict[str, Any]) -> dict[str, Any]:
     frontmatter = {
         "schema_version": "obsidian_task_draft.v1",
         "task_id": task_id,
+        "title": title,
         "status": bounded_status(task.get("status")),
         "priority": priority,
         "energy": energy,
-        "estimated_minutes": estimated_minutes,
+        "timeEstimate": estimated_minutes,
         "goal_id": goal_id,
         "project_id": project_id,
         "area": area,
         "source": "local-ai",
+        "ai_created": True,
         "agent_created": True,
         "agent_reason": agent_reason,
         "source_proposal_id": proposal_id,
+        "source_intent_id": bounded_line(proposal.get("intent_id"), max_len=MAX_ID),
         "tags": tags,
     }
 
