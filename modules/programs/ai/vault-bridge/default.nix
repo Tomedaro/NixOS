@@ -39,6 +39,9 @@ let
     mkdir -p "$AI_DIR/outbox/to-phone"
     mkdir -p "$AI_DIR/outbox/to-desktop"
     mkdir -p "$AI_DIR/outbox/to-obsidian"
+    mkdir -p "$AI_DIR/outbox/to-obsidian/proposals"
+    mkdir -p "$AI_DIR/outbox/to-obsidian/approved-proposals"
+    mkdir -p "$AI_DIR/outbox/to-obsidian/task-drafts"
 
     mkdir -p "$AI_DIR/events/phone"
     mkdir -p "$AI_DIR/events/desktop"
