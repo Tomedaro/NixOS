@@ -21,7 +21,7 @@ The project is in Phase 1.5/1.6 stabilization. Queue semantics, action replay sa
 - [ ] Remove or explicitly mark all remaining `AI/inbox/from-obsidian/...` references as legacy.
 - [ ] Keep `DEVELOPMENT.md` as the project operating guide.
 - [ ] Decide whether Obsidian inbox readers should use a nonzero stability delay or whether all Obsidian writers are guaranteed atomic.
-- [ ] Update `TODO.md` Phase 1 status so completed Obsidian proposal/action/draft pieces are not treated as missing.
+- [x] Update `TODO.md` Phase 1 status so completed Obsidian proposal/action/draft pieces are not treated as missing.
 - [x] Update `vault-bridge/README.md`, vault init, and diagnostics so active Obsidian inbox/outbox directories are visible.
 - [x] Fix live-vault Templater session-start surface that wrote stale `AI/inbox/session-requests` files. `AI Start Session.md` now writes bounded `action.v1` / `start_session` files to `AI/inbox/actions`.
 - [x] Add diagnostics that scan active Obsidian/Templater launch files for stale protocol paths such as `AI/inbox/session-requests`.

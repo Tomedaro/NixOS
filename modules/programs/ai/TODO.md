@@ -944,21 +944,23 @@ Do not treat older unchecked items as authoritative. Cross-check current code, s
 
 1. Keep the companion philosophy, authority model, Obsidian protocol, and TaskNotes boundary explicit in docs.
 2. Keep diagnostics for live-vault Obsidian/Templater protocol drift. The known stale `AI Start Session.md` surface has been fixed to write `action.v1` / `start_session` files to `AI/inbox/actions`, and live/audit checks now scan active Templater files for stale protocol paths.
-3. Add minimal Obsidian / Templater scripts that write bounded JSON only:
+3. Harden the completed Obsidian protocol path instead of treating it as missing:
 
-   * text/action intent to `AI/inbox/obsidian/messages/*.json`;
-   * approve/reject/revise decisions to `AI/inbox/obsidian/actions/*.json`.
-4. Do not let Obsidian scripts call approval bridges, write `AI/inbox/actions`, mutate TaskNotes, launch apps, or run shell commands.
-5. Align `obsidian_task_draft.v1` with the live TaskNotes configuration.
-6. Add diagnostics for Obsidian inbox/outbox directory presence and stale/pending Obsidian protocol files.
-7. Add read-only TaskNotes context.
-8. Design and smoke-test the deterministic TaskNotes apply/promote gate.
-9. Only after the gate exists, allow approved task drafts to become real TaskNotes notes.
-10. Extend shared context with Obsidian + TaskNotes facts.
-11. Add preference and nudge-policy contracts.
-12. Add ActivityWatch read-only context.
-13. Add daily planning and goal review workflows.
-14. Add durable agent run logs.
-15. Add richer LLM planner behavior.
-16. Build desktop popup UI only after the protocol and lifecycle are boring.
+   * active Templater launch files write bounded JSON only;
+   * natural-language/action intents use `AI/inbox/obsidian/messages/*.json`;
+   * proposal approve/reject/revise decisions use `AI/inbox/obsidian/actions/*.json`;
+   * reviewed task drafts use `AI/outbox/to-obsidian/task-drafts/*.md`;
+   * live/audit diagnostics scan active Templater files for stale protocol drift.
+
+4. Keep real TaskNotes file changes behind a later apply/promote gate.
+5. Add read-only TaskNotes context.
+6. Design and smoke-test the deterministic TaskNotes apply/promote gate.
+7. Only after the gate exists, allow approved task drafts to become real TaskNotes notes.
+8. Extend shared context with Obsidian + TaskNotes facts.
+9. Add preference and nudge-policy contracts.
+10. Add ActivityWatch read-only context.
+11. Add daily planning and goal review workflows.
+12. Add durable agent run logs.
+13. Add richer LLM planner behavior.
+14. Build desktop popup UI only after the protocol and lifecycle are boring.
 
