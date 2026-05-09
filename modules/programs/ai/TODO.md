@@ -277,7 +277,9 @@ Current status after cross-checking code, smoke tests, and live diagnostics.
 
 Paradigm check:
 
-The implemented pieces fit the local-first safety model: planners and LLM-facing modules create bounded proposals and reviewable artifacts only. They do not edit Obsidian notes, write live action queues, launch apps, or execute commands. Real mutation remains behind explicit approval and future capability-specific apply/promote gates.
+The implemented Obsidian protocol pieces fit the local-first safety model: planners and LLM-facing modules create bounded proposals and reviewable artifacts only. They do not edit Obsidian notes, write live action queues, launch apps, or execute commands.
+
+Important correction: some older non-Obsidian paths can already mutate real TaskNotes files, such as `action-bridge` `promote_task_proposal` when authority permits it and `anki-bridge` `taskNoteMode = "direct"`. Treat these as legacy/direct mutation surfaces to consolidate or deprecate, not as the model for new TaskNotes integration.
 
 Implemented active flow:
 
@@ -331,8 +333,12 @@ Open / not yet valid to mark complete:
 * [ ] Add actual Obsidian / Templater commands or scripts that write inbox files from inside Obsidian.
 * [ ] Decide whether `obsidian_message.v1` / `obsidian_action.v1` remain helper contracts or become primary inbox schemas.
 * [x] Document the active protocol flow in `README.md` or `ARCHITECTURE.md`.
-* [ ] Add a dedicated TaskNotes apply/promote gate before any real TaskNotes file changes.
-* [ ] Keep future TaskNotes writes reviewable until that gate exists.
+* [ ] Add a dedicated TaskNotes apply/promote gate before any new real TaskNotes file changes.
+* [ ] Consolidate or deprecate existing legacy/direct TaskNotes mutation surfaces:
+  * `action-bridge` `promote_task_proposal`;
+  * `anki-bridge` `taskNoteMode = "direct"`.
+* [ ] Keep future TaskNotes writes reviewable until the dedicated gate exists.
+* [ ] Split broad action authority so session/check-in/recovery actions do not automatically imply TaskNotes promotion authority.
 
 Completed recent configuration milestones:
 
@@ -502,7 +508,14 @@ Completed as a small compatibility cleanup. Direct-run Python tools now honor th
 
 Goal: make tasks concrete, inspectable Markdown objects without turning TaskNotes into an unsafe AI execution backend.
 
-TaskNotes should become the durable human task surface. AI components may read, classify, summarize, propose, and prepare reviewable TaskNotes-compatible drafts. Turning a draft into a real task must go through a deterministic apply/promote gate with explicit approval and smoke coverage.
+TaskNotes is the durable human commitment surface. The AI vault is the protocol, state, and audit layer. Obsidian is the review/UI surface. LLM-facing paths may read, classify, summarize, propose, and prepare reviewable TaskNotes-compatible drafts; they must not silently create, edit, archive, delete, or reinterpret real TaskNotes notes.
+
+Important current-state correction: real TaskNotes mutation is not purely future work. Older/direct paths already exist:
+
+* `action-bridge` can run `promote_task_proposal` when `ACTION_AUTHORITY_LEVEL` permits it;
+* `anki-bridge` has `taskNoteMode = "direct"`, even though the default is safer `propose`.
+
+Treat those as legacy/direct mutation surfaces to consolidate or deprecate. Do not expand them. New TaskNotes writes should go through a deterministic apply/promote gate with explicit approval, path/schema validation, idempotency, atomic write, event logging, and smoke coverage.
 
 Current convention from the live vault:
 
@@ -515,24 +528,31 @@ Current convention from the live vault:
 
 Property-based identification such as `isTask: true` may be cleaner later, but it is a deliberate TaskNotes config migration and should not be silently assumed.
 
+Implemented / recently aligned:
+
+* [x] `obsidian_task_draft.v1` creates reviewable TaskNotes-compatible artifacts only.
+* [x] Drafts include the identifying `task` tag while tag identification is active.
+* [x] Drafts use `open` instead of `todo` for new tasks.
+* [x] Drafts use the live configured estimate field `timeEstimate`.
+* [x] Draft generation prefers richer `draft_task` / `create_task_note` actions over generic `suggest_next_step` actions.
+* [x] AI review lifecycle stays out of TaskNotes execution status.
+
 Tasks:
 
 * [ ] Decide whether to keep tag-based task identification or plan a separate property-based migration.
 * [ ] Define a TaskNotes adapter/contract that maps internal AI fields to the live TaskNotes config.
-* [ ] Align `obsidian_task_draft.v1` with the current TaskNotes config:
-
-  * [ ] include the identifying `task` tag while tag identification is active;
-  * [ ] use `open` instead of `todo` for new drafts;
-  * [ ] use configured TaskNotes field names such as `timeEstimate` where appropriate;
-  * [ ] prefer richer `draft_task` proposal actions over generic `suggest_next_step` actions;
-  * [ ] keep AI review lifecycle out of TaskNotes execution status.
-* [ ] Create `obsidian_task_context.py` for read-only TaskNotes context.
+* [ ] Create first-class read-only TaskNotes context for the shared context hub; avoid full note bodies by default.
 * [ ] Create proposal type `draft_task` / `create_task_note` as reviewable proposals only.
 * [ ] Create proposal type `update_task_note` as a reviewed proposal only.
 * [ ] Create proposal type `suggest_next_task`.
-* [ ] Add a deterministic TaskNotes apply/promote gate before any real TaskNotes file changes.
+* [ ] Design `tasknotes_apply_request.v1`, `tasknotes_apply_result.v1`, and `tasknotes_apply_event.v1`.
+* [ ] Add a deterministic TaskNotes apply/promote gate before any new real TaskNotes file changes.
 * [ ] Allow task creation only inside allowed folders and schemas, after explicit approval.
-* [ ] Add smoke tests for draft generation, promote validation, path safety, stale proposals, and rejected proposals.
+* [ ] Add smoke tests for draft generation, promote validation, path safety, stale proposals, rejected proposals, collision handling, and idempotency.
+* [ ] Split broad action authority so session/check-in/recovery actions do not automatically imply TaskNotes promotion authority.
+* [ ] Migrate or disable legacy/direct TaskNotes mutation paths:
+  * `action-bridge` `promote_task_proposal`;
+  * `anki-bridge` `taskNoteMode = "direct"`.
 * [ ] Keep TaskNotes HTTP API / Obsidian CLI as future bridge candidates, not the initial authority path.
 
 ## Phase 3: Goal model
@@ -952,15 +972,15 @@ Do not treat older unchecked items as authoritative. Cross-check current code, s
    * reviewed task drafts use `AI/outbox/to-obsidian/task-drafts/*.md`;
    * live/audit diagnostics scan active Templater files for stale protocol drift.
 
-4. Keep real TaskNotes file changes behind a later apply/promote gate.
-5. Add read-only TaskNotes context.
-6. Design and smoke-test the deterministic TaskNotes apply/promote gate.
-7. Only after the gate exists, allow approved task drafts to become real TaskNotes notes.
-8. Extend shared context with Obsidian + TaskNotes facts.
-9. Add preference and nudge-policy contracts.
-10. Add ActivityWatch read-only context.
-11. Add daily planning and goal review workflows.
-12. Add durable agent run logs.
-13. Add richer LLM planner behavior.
-14. Build desktop popup UI only after the protocol and lifecycle are boring.
-
+4. Treat existing TaskNotes mutation as legacy/direct authority: do not expand `promote_task_proposal` or `anki-bridge` direct mode before a dedicated gate exists.
+5. Split or lower broad action authority so ordinary session/check-in/recovery actions do not imply TaskNotes promotion authority.
+6. Add first-class read-only TaskNotes context to the shared context hub.
+7. Design and smoke-test the deterministic TaskNotes apply/promote gate.
+8. Only after the gate exists, allow approved task drafts to become real TaskNotes notes.
+9. Extend shared context with Obsidian + TaskNotes facts.
+10. Add preference and nudge-policy contracts.
+11. Add ActivityWatch read-only context.
+12. Add daily planning and goal review workflows.
+13. Add durable agent run logs.
+14. Add richer LLM planner behavior.
+15. Build desktop popup UI only after the protocol and lifecycle are boring.

@@ -384,8 +384,8 @@ run_interaction_projection_refresh() {
    return 0
  fi
 
- local projection_py="$REPO/modules/programs/ai/python/ai_system/interaction_projection.py"
- local python_lib="$REPO/modules/programs/ai/python"
+ local projection_py="$REPO_ROOT/modules/programs/ai/python/ai_system/interaction_projection.py"
+ local python_lib="$REPO_ROOT/modules/programs/ai/python"
 
  if [ ! -f "$projection_py" ]; then
    echo "ERROR missing interaction projection script: $projection_py"

@@ -151,7 +151,7 @@ Legacy references to `AI/inbox/from-obsidian/...` should be removed or explicitl
 
 TaskNotes is the durable human task surface, not the AI execution backend.
 
-Before a dedicated apply/promote gate exists, code may produce reviewable `obsidian_task_draft.v1` artifacts but must not create or edit real TaskNotes notes. Keep AI review lifecycle in AI vault artifacts; keep TaskNotes task status for human execution state.
+Before a dedicated apply/promote gate exists, new code may produce reviewable `obsidian_task_draft.v1` artifacts but must not add new real TaskNotes create/edit behavior. Existing legacy/direct mutation paths such as `action-bridge` `promote_task_proposal` and `anki-bridge` direct mode should be consolidated behind the gate or deprecated. Keep AI review lifecycle in AI vault artifacts; keep TaskNotes task status for human execution state.
 
 Prefer flat, queryable provenance fields for future real task notes, such as `ai_created`, `source_proposal_id`, `source_intent_id`, and `goal_id`. While the live TaskNotes config uses tag identification, generated drafts must include the `task` tag. A future `isTask: true` migration should be explicit and tested.
 

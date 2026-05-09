@@ -384,12 +384,19 @@ Allowed before a dedicated apply/promote gate exists:
 
 Not allowed before a dedicated apply/promote gate exists:
 
-* silently create, edit, archive, or delete real TaskNotes notes;
+* add new silent create/edit/archive/delete behavior for real TaskNotes notes;
 * write arbitrary files under `TaskNotes/Tasks`;
 * call TaskNotes HTTP API or Obsidian CLI from an LLM-facing path;
 * treat an approved proposal as an executed task mutation.
 
-The future TaskNotes promotion flow should be:
+Known legacy/direct mutation surfaces exist and should be consolidated or deprecated before expansion:
+
+* `action-bridge` `promote_task_proposal` writes real TaskNotes files when action authority permits it;
+* `anki-bridge` `taskNoteMode = "direct"` writes a real Anki recovery TaskNote.
+
+These are not the desired future authority model.
+
+The target TaskNotes promotion flow should be:
 
 ```text
 reviewed proposal
