@@ -97,6 +97,39 @@ def _inactive_nudge_payload(
     }
 
 
+def _date_prefix(value: Any, *, timezone_name: str = DEFAULT_TIMEZONE) -> str:
+    if isinstance(value, str) and len(value) >= 10 and value[4:5] == "-" and value[7:8] == "-":
+        return value[:10]
+    return datetime.now(ZoneInfo(timezone_name)).date().isoformat()
+
+
+def _append_projection_event(ai_dir: Path, result: dict[str, Any]) -> Path:
+    event_date = _date_prefix(result.get("generated_at"))
+    event_path = ai_dir / "events" / "interaction-projection" / f"{event_date}.jsonl"
+    event_path.parent.mkdir(parents=True, exist_ok=True)
+
+    current_nudge = _as_dict(result.get("current_nudge"))
+    marker = _as_dict(current_nudge.get("last_cleared_nudge"))
+
+    event = {
+        "schema_version": "interaction_projection_event.v1",
+        "event": "interaction_projection_cleared_nudge",
+        "generated_at": result.get("generated_at", ""),
+        "cleared_at_epoch": result.get("cleared_at_epoch"),
+        "reason": result.get("reason", ""),
+        "nudge_id": result.get("nudge_id") or marker.get("nudge_id", ""),
+        "planner_mode": current_nudge.get("planner_mode", "unknown"),
+        "source": "interaction-projection",
+        "previous_source": current_nudge.get("previous_source", ""),
+        "status": result.get("status", ""),
+    }
+
+    with event_path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(event, ensure_ascii=False, sort_keys=True) + "\n")
+
+    return event_path
+
+
 def _inactive_nudge_markdown(payload: dict[str, Any]) -> str:
     marker = _as_dict(payload.get("last_cleared_nudge"))
     lines = [
@@ -235,6 +268,7 @@ def refresh_interaction_projection(
         atomic_write_text(current_nudge_md_path, result["current_nudge_md"])
         atomic_write_json(interaction_state_path, result["interaction_state"])
         result["status"] = "cleared"
+        result["event_path"] = str(_append_projection_event(ai_dir, result))
 
     return result
 

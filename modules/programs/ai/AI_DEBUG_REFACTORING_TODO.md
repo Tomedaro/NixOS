@@ -100,7 +100,7 @@ Goals:
   - or a combination of the above.
 - [ ] Keep `interaction_projection.py` dry-run by default until ownership is decided.
 - [ ] If adding a maintainer, implement pure projection logic first, then a dry-run CLI, then an explicit `--write` mode.
-- [ ] If projection refresh mutates live state, append a small local event such as `interaction_projection_cleared_nudge`.
+- [x] If projection refresh mutates live state, append a small local event such as `interaction_projection_cleared_nudge`.
 - [ ] Ensure phone/webview consumers can distinguish active, inactive, expired, and unknown state.
 - [ ] Avoid enabling more autonomous recovery nudges until stale materialized interaction behavior is boring and obvious.
 

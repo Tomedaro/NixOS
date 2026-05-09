@@ -148,6 +148,16 @@ def test_stale_active_nudge_write_materializes_inactive() -> None:
         assert "Status: inactive" in markdown
         assert "expired_help-now_nudge" in markdown
 
+        event_path = ai_dir / "events/interaction-projection/2026-05-05.jsonl"
+        event_lines = event_path.read_text(encoding="utf-8").splitlines()
+        assert len(event_lines) == 1
+        event = json.loads(event_lines[0])
+        assert event["schema_version"] == "interaction_projection_event.v1"
+        assert event["event"] == "interaction_projection_cleared_nudge"
+        assert event["reason"] == "expired_help-now_nudge"
+        assert event["nudge_id"] == "n-stale"
+        assert result["event_path"] == str(event_path)
+
 
 def main() -> None:
     tests = [
