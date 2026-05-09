@@ -17,6 +17,7 @@ PROCESS_ACTIONS=0
 RUN_RECOVERY=0
 RUN_TRIGGER=0
 RUN_OUTCOMES=0
+REFRESH_INTERACTIONS=0
 VERBOSE=0
 
 usage() {
@@ -51,6 +52,9 @@ for arg in "$@"; do
       ;;
     --run-outcomes)
       RUN_OUTCOMES=1
+      ;;
+    --refresh-interactions)
+      REFRESH_INTERACTIONS=1
       ;;
     --verbose|-v)
       VERBOSE=1
@@ -370,6 +374,36 @@ report_obsidian_protocol_surface() {
 }
 
 
+
+run_interaction_projection_refresh() {
+ echo
+ echo "===== refresh stale interaction projection ====="
+
+ if [ "$REFRESH_INTERACTIONS" -ne 1 ]; then
+   echo "SKIP interaction projection refresh; pass --refresh-interactions to clear stale phone interaction projections"
+   return 0
+ fi
+
+ local projection_py="$REPO/modules/programs/ai/python/ai_system/interaction_projection.py"
+ local python_lib="$REPO/modules/programs/ai/python"
+
+ if [ ! -f "$projection_py" ]; then
+   echo "ERROR missing interaction projection script: $projection_py"
+   return 1
+ fi
+
+ if command -v python3 >/dev/null 2>&1; then
+   PYTHONPATH="$python_lib${PYTHONPATH:+:$PYTHONPATH}" \
+     python3 "$projection_py" --ai-dir "$AI_DIR" --write
+ elif command -v nix >/dev/null 2>&1; then
+   PYTHONPATH="$python_lib${PYTHONPATH:+:$PYTHONPATH}" \
+     nix shell nixpkgs#python3 -c python3 "$projection_py" --ai-dir "$AI_DIR" --write
+ else
+   echo "ERROR python3 not found and nix is unavailable"
+   return 1
+ fi
+}
+
 show_compact_state() {
  echo
  echo "===== compact materialized state ====="
@@ -536,6 +570,8 @@ else
 fi
 
 echo
+run_interaction_projection_refresh
+
 echo "===== live queues after check ====="
 list_queue "pending phone telemetry inbox after" "$AI_DIR/inbox/from-phone/events" 1 40
 list_queue "pending action inbox after" "$AI_DIR/inbox/actions" 1 40

@@ -101,6 +101,7 @@ Goals:
 - [ ] Keep `interaction_projection.py` dry-run by default until ownership is decided.
 - [ ] If adding a maintainer, implement pure projection logic first, then a dry-run CLI, then an explicit `--write` mode.
 - [x] If projection refresh mutates live state, append a small local event such as `interaction_projection_cleared_nudge`.
+- [x] Add an explicit live-check repair flag for stale phone interaction projections (`check-ai-live.sh --refresh-interactions`).
 - [ ] Ensure phone/webview consumers can distinguish active, inactive, expired, and unknown state.
 - [ ] Avoid enabling more autonomous recovery nudges until stale materialized interaction behavior is boring and obvious.
 
