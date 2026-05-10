@@ -1,210 +1,117 @@
-# AI System Development Guidelines
+# Development guide
 
-This project is a local-first, file-queue based adaptive productivity companion. Optimize for safety, inspectability, and boring operational behavior before adding autonomy.
+## First rule
 
-## Product direction
+Before changing behavior, read:
 
-This project is a local-first adaptive AI companion, not a generic agent and not a passive notes toy. The product should feel like a trustworthy modular friend/coach: attentive, useful, gently persistent, and capable of learning what helps, while staying bounded and explainable.
+1. `CURRENT_STATE.md`
+2. `SAFETY_MODEL.md`
+3. `PROTOCOLS.md`
+4. `MODULES.md`
+5. `docs/ARCHITECTURE_FINDINGS.md`
+6. `docs/REFACTOR_BACKLOG.md`
 
-Engineering rule of thumb:
+Do not use deleted or historical TODO material as authority.
 
-```text
-add agency by improving observation, context, proposals, review artifacts, outcomes, and adaptation;
-do not add agency by hiding execution, mutating commitments silently, or expanding bridge authority casually.
-```
+## Change classes
 
-Authority chain:
+### Documentation-only changes
 
-```text
-Observation reads.
-Context providers summarize.
-Planners and LLMs propose.
-Deterministic gates validate.
-Bridge services execute only narrow known actions.
-Durable changes require review, approval, or bounded action paths.
-```
+Allowed when they clarify current behavior, roadmap, protocols, safety boundaries, operations, or audit findings. Documentation may be rewritten aggressively if it improves truth and reduces stale ambiguity.
 
+### Protocol changes
 
-<!-- AI-CONFIG-RULES:START -->
+Require updates to:
 
-## Configuration and path rules
+- `PROTOCOLS.md`;
+- tests or smoke checks;
+- module docs for every writer/reader;
+- safety notes if side effects are involved.
 
-Treat `modules/programs/ai/default.nix` as the high-level profile layer for this project.
+### Behavior changes
 
-Best practice for new code:
+Require a small patch, explicit verification, and no hidden expansion of authority. Behavior changes that affect TaskNotes, live actions, or question/session lifecycle require tests.
 
-* expose a typed Nix option when behavior should be adjustable;
-* set user-facing defaults in `modules/programs/ai/default.nix`;
-* pass resolved values into scripts through environment variables or CLI flags;
-* use `AI_DIR` instead of hardcoded absolute vault paths;
-* use `AI_TIMEZONE` instead of hardcoded timezone strings;
-* keep protocol-relative paths stable and documented;
-* use temporary directories in tests;
-* avoid mixing docs-only updates with behavior changes unless the diff is explicitly reviewed as behavior.
+### Dangerous changes
 
-Acceptable:
+Treat these as high-risk:
 
-```python
-ai_dir = Path(os.environ.get("AI_DIR", default))
-```
+- adding direct TaskNotes writes;
+- broadening action authority;
+- allowing LLM/planner code to write live action queue entries;
+- executing shell commands from Obsidian/Templater surfaces;
+- replaying stale action files automatically;
+- making adaptive learning automatic without controls and evidence.
 
-Preferred for CLIs:
+## Boundary rules
 
-```text
---ai-dir "$AI_DIR"
-```
+### LLM/planner paths
 
-Avoid in active runtime code:
+LLM-facing code may read, classify, summarize, propose, and draft. It must not silently create, edit, archive, delete, launch, execute, or mutate durable commitments.
 
-```python
-Path("/home/daniil/Sync/Perseverance.Gu/AI")
-```
+### Obsidian paths
 
-Hardcoded absolute paths may appear in examples or migration notes, but docs must not imply they are the authority.
+Obsidian surfaces are review clients. They may write bounded message/action decisions to the Obsidian protocol paths. They must not call shell commands, approval bridges, live action bridges, or TaskNotes apply/promote code directly.
 
-<!-- AI-CONFIG-RULES:END -->
+### Action bridge
 
-The system should help the user reach long-term and short-term goals by observing behavior, learning patterns, adapting nudges/plans, asking useful questions, and recording outcomes. It should value sustainable goal progress and quality productive hours over raw time or notification volume.
+Live actions belong in `AI/inbox/actions/*.json`. The action bridge owns validation, idempotency, journaling, and side effects.
 
-The system may automatically adapt from evidence, including inaction, but adaptations must be inspectable, reversible, locally stored, and bounded by explicit goals, safety policies, capacity state, and user correction.
+### TaskNotes
 
-## Running checks
+TaskNotes is the durable human commitment surface. New code should produce reviewable drafts unless a deterministic reviewed apply gate exists. Existing direct writers are legacy/direct and should not be copied.
 
-From the NixOS repo root:
+## Required verification before behavior patches
+
+Run from the repository root on the target machine:
 
 ```bash
-cd /home/daniil/NixOS || exit 1
-```
-
-Focused smoke test:
-
-```bash
-nix shell nixpkgs#python3 -c python3 modules/programs/ai/tests/<name>_smoke.py
-```
-
-Full smoke suite:
-
-```bash
-modules/programs/ai/dev/run-smoke.sh
-```
-
-Live/project audit:
-
-```bash
-modules/programs/ai/dev/audit-ai-project.sh --verbose
-```
-
-Compile all Python files:
-
-```bash
-nix shell nixpkgs#python3 -c python3 -m compileall -q modules/programs/ai
-```
-
-When running scripts directly, make the shared Python library importable:
-
-```bash
-PYTHONPATH=/home/daniil/NixOS/modules/programs/ai/python   python3 modules/programs/ai/path/to/script.py
-```
-
-## Queue semantics
-
-File inboxes are queues, not shared mutable state.
-
-Queue readers must:
-
-1. process only complete non-hidden `.json` files;
-2. ignore dotfiles, editor/sync temp files, backup files, partial files, and non-JSON files;
-3. wait for file stability when reading live queues unless all writers are proven atomic;
-4. drain all ready files on each activation;
-5. treat systemd path activation only as a wakeup signal;
-6. archive raw files to processed, failed, or manual-review directories.
-
-Use `ai_system.queue.list_stable_json_queue_files` for queue readers. Do not hand-roll `glob("*.json")` for live inboxes unless the reason is documented.
-
-## Canonical Obsidian queues
-
-Obsidian and Templater surfaces should be dumb protocol clients. They may write bounded JSON intents and decisions. They must not call shell commands, approval bridges, TaskNotes apply/promote code, or live action bridges directly.
-
-Active paths:
-
-```text
-AI/inbox/obsidian/messages/*.json   text/action intents
-AI/inbox/obsidian/actions/*.json    proposal approve/reject/revise decisions
-AI/outbox/to-obsidian/*             reviewable proposals, approvals, task drafts, Markdown mirrors
-```
-
-Legacy paths such as `AI/inbox/from-obsidian/...` are not active unless current code proves otherwise.
-
-
-The canonical Obsidian inbox paths are:
-
-```text
-AI/inbox/obsidian/messages/*.json
-AI/inbox/obsidian/actions/*.json
-```
-
-Legacy references to `AI/inbox/from-obsidian/...` should be removed or explicitly marked as historical.
-
-## Action safety
-
-## TaskNotes safety
-
-TaskNotes is the durable human task surface, not the AI execution backend.
-
-Before a dedicated apply/promote gate exists, new code may produce reviewable `obsidian_task_draft.v1` artifacts but must not add new real TaskNotes create/edit behavior. Existing legacy/direct mutation paths such as `action-bridge` `promote_task_proposal` and `anki-bridge` direct mode should be consolidated behind the gate or deprecated. Keep AI review lifecycle in AI vault artifacts; keep TaskNotes task status for human execution state.
-
-Prefer flat, queryable provenance fields for future real task notes, such as `ai_created`, `source_proposal_id`, `source_intent_id`, and `goal_id`. While the live TaskNotes config uses tag identification, generated drafts must include the `task` tag. A future `isTask: true` migration should be explicit and tested.
-
-
-Anything that can trigger user-visible or system-visible side effects must pass through the action/proposal safety boundary.
-
-Rules:
-
-* Obsidian planning writes reviewable proposals only.
-* Proposal approval writes reviewed artifacts only.
-* Live actions go through `AI/inbox/actions`.
-* The action bridge writes a durable journal before side effects.
-* Duplicate processed action ids must not repeat side effects.
-* Stale `processing` journals must go to manual review, not replay.
-
-To retry a manual-review action, inspect the archived file and create a new action with a new `action_id` or `idempotency_key`. Never move the same raw file back into `AI/inbox/actions`.
-
-## Adaptive personal model rules
-
-Personalization must not become opaque or manipulative.
-
-Use these distinctions:
-
-* approved facts: explicit user-provided or confirmed information;
-* inferred patterns: confidence-scored hypotheses backed by local evidence;
-* policies: behavior-changing rules for nudging, scheduling, suppression, adaptation, and review;
-* goals: desired outcomes, habits, projects, recovery targets, and maintenance baselines;
-* interventions: nudges, questions, plans, reviews, and fallback suggestions;
-* outcomes: acted, ignored, snoozed, dismissed, quick-exit, sustained, fallback accepted, completed, or corrected.
-
-Learning modules may automatically adjust timing, tone, channel, frequency, fallback choice, planning strategy, and question style when evidence supports it. They should require a proposal or confirmation for durable commitments, external writes, increased pressure, disabling important goals, or enabling new executors/services.
-
-Store behavior patterns, not identity judgments. Prefer "late Anki nudges have low response" over "user is undisciplined at night".
-
-## Live state
-
-The live vault under `AI/` contains queues, state, outboxes, logs, and archives. Tests must use temporary directories and must not mutate the live vault.
-
-Status files are materialized views. They may be stale if the corresponding service/timer is disabled or not installed. Prefer dev scripts that show unit state next to status files.
-
-## Formatting and commits
-
-Avoid mixing behavior changes with large formatting-only changes. Run formatters only on files intentionally touched for the change. If a broad formatting pass is useful, commit it separately.
-
-Before committing behavior changes:
-
-```bash
-git diff --stat
+cd /home/daniil/NixOS
 git diff --check
 modules/programs/ai/dev/run-smoke.sh
+modules/programs/ai/dev/check-ai-live.sh
 modules/programs/ai/dev/audit-ai-project.sh --verbose
+git status --short --branch
+stale_typo='They''do'
+stale_repo='$''REPO/'
+stale_obsidian='AI/inbox/from-'"obsidian"
+grep -RIn --color=never "$stale_typo\|$stale_repo\|$stale_obsidian" modules/programs/ai || true
 ```
 
-## Systemd hardening approach
+For docs-only patches, at minimum run `git diff --check` and the grep consistency check. The grep check may report explicitly marked legacy/diagnostic references; unmarked dependencies are the concern. Run smoke tests when docs change protocol names, commands, paths, or safety claims.
 
-Add hardening incrementally and per service. Start with low-risk guardrails such as `NoNewPrivileges`, `PrivateTmp`, and resource limits after live queue behavior is verified. Do not enable `ProtectSystem=strict`, `ProtectHome`, `ReadWritePaths`, or syscall filters until each service has an explicit read/write path inventory.
+## Documentation rules
+
+- `CURRENT_STATE.md` contains implementation truth.
+- `ROADMAP.md` contains planned work.
+- `docs/REFACTOR_BACKLOG.md` contains actionable refactors and risks.
+- `PROTOCOLS.md` contains path/schema contracts.
+- `SAFETY_MODEL.md` contains authority and side-effect boundaries.
+- ADRs record decisions that should survive future refactors.
+
+Do not duplicate stale claims across many files. Link to the canonical source instead.
+
+## Product intelligence rules
+
+Adaptive behavior must be introduced slowly:
+
+1. document the learning loop;
+2. add explicit feedback controls;
+3. add scenario evals;
+4. add optional planner metadata;
+5. only then make policy adaptation automatic.
+
+Silence, deferral, and smaller steps are valid successful outputs.
+
+## Commit style
+
+Prefer small commits:
+
+1. docs truth surfaces;
+2. tests for current dangerous paths;
+3. behavior hardening;
+4. new capability model;
+5. product evals;
+6. adaptive features.
+
+Each commit should be reviewable without requiring the reviewer to infer hidden authority changes.
