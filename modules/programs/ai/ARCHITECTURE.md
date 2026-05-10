@@ -167,3 +167,7 @@ The important design constraint is reversibility. The system may learn, but the 
 | Safe mutation | Centralize mutation behind explicit gates and tests. |
 | Future-proof | Separate current state, roadmap, protocols, and safety boundaries. |
 | Learnable | Introduce personal model changes through evidence, feedback, and evals. |
+
+## Philosophy alignment
+
+The architecture should be read through [PHILOSOPHY.md](./PHILOSOPHY.md): the system exists to improve goal achievement through local-first context, inspectable memory, proposal-side intelligence, bounded agency, modular instruments, review surfaces, deterministic mutation gates, and outcome-driven learning.

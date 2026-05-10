@@ -64,3 +64,7 @@ Old TODO-style documents were removed to avoid stale instructions overriding cod
 ## Extending the system
 
 For adding new functionality, read [EXTENSION_MODEL.md](./EXTENSION_MODEL.md). It defines instruments, capability modules, manifests, and modularity rules for future goal-achievement features.
+
+## Project philosophy
+
+Start with [PHILOSOPHY.md](./PHILOSOPHY.md) for the project idea: local-first goal achievement, useful memory, bounded agency, modular instruments, inspectable smartness, efficient progress, recovery-oriented coaching, and human-owned commitments.
