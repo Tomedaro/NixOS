@@ -27,3 +27,7 @@ This directory contains audit detail, design review material, ADRs, and implemen
 ## Decisions
 
 ADRs live in `docs/adr/`. They record decisions that should not be lost during refactors.
+
+## Future capabilities and modularity
+
+For future LLM/neural capabilities and modular extension design, read [FUTURE_CAPABILITIES_AND_MODULARITY.md](./FUTURE_CAPABILITIES_AND_MODULARITY.md) and [../EXTENSION_MODEL.md](../EXTENSION_MODEL.md).

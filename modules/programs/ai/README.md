@@ -60,3 +60,7 @@ This documentation set intentionally replaces earlier sprawling README/TODO mate
 - safety truth in `SAFETY_MODEL.md`.
 
 Old TODO-style documents were removed to avoid stale instructions overriding code and tests.
+
+## Extending the system
+
+For adding new functionality, read [EXTENSION_MODEL.md](./EXTENSION_MODEL.md). It defines instruments, capability modules, manifests, and modularity rules for future goal-achievement features.

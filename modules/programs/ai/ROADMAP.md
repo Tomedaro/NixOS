@@ -40,3 +40,15 @@ This file is planned work only. Do not use it as current-state documentation.
 ## Priority 6 - UI expansion only after protocols are boring
 
 Desktop popup UI, richer phone controls, and more autonomous behavior should wait until protocols, authority, and review gates are stable and well tested.
+
+## Extension-model follow-up
+
+Before adding many new goal-achievement instruments, add a lightweight capability/instrument registry:
+
+1. define a module manifest shape;
+2. list context providers, planners, review surfaces, action adapters, memory modules, and evaluators;
+3. require each side-effecting instrument to declare reads, writes, authority, schemas, tests, and disable switch;
+4. add a registry consistency check;
+5. use one small new instrument as the reference implementation.
+
+This keeps future functionality easy to add without creating a giant unbounded agent.
