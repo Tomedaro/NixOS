@@ -44,6 +44,8 @@
         google-chrome
         protonup-qt
         steam
+        tor-browser
+
 
         # Terminal tools
         fuzzel
@@ -60,6 +62,10 @@
         unzip
         grim
         bun
+        tldr
+        yt-dlg
+        yt-dlp
+        yt-study
 
         # Creative
         krita

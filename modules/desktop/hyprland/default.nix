@@ -170,8 +170,8 @@ in
               "/run/current-system/sw/bin/screenpipe-start"
             ];
           input = {
-            kb_layout = "us, ua";
-            kb_variant = "colemak_dh,";          # default fallback
+            kb_layout = "us, us, ua";
+            kb_variant = "colemak_dh, , ";          # default fallback
             kb_options = "caps:backspace";        # caps as backspace for all devices
             repeat_delay = 275;
             repeat_rate = 35;
@@ -190,14 +190,14 @@ in
           device = [
             {
               name = "at-translated-set-2-keyboard";   # laptop keyboard
-              kb_layout = "us, ua";
-              kb_variant = "colemak_dh,";
+              kb_layout = "us, us, ua";
+              kb_variant = "colemak_dh, , ";
               kb_options = "caps:backspace";
             }
             {
               name = "urchin-keyboard";                # Bluetooth split keyboard
-              kb_layout = "us, ua";
-              kb_variant = "colemak_dh_ortho,";
+              kb_layout = "us, us, ua";
+              kb_variant = "colemak_dh_ortho, , ";
               kb_options = "caps:backspace";
             }
           ];
