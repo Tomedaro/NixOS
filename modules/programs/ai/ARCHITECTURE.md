@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This subsystem is a local-first adaptive AI productivity companion. It helps with recovery, reflection, planning, review, and bounded action. It should become smarter over time, but only through inspectable evidence, reviewable proposals, explicit controls, and safe gates.
+This subsystem is a local-first adaptive AI goal-achievement companion. It helps with recovery, reflection, planning, review, and bounded action. It should become smarter over time, but only through inspectable evidence, reviewable proposals, explicit controls, and safe gates.
 
 ## System context
 

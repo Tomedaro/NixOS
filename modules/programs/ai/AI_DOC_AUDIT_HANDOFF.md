@@ -17,7 +17,7 @@ The AI documentation has been reorganized into canonical truth surfaces. Future 
 
 ## Philosophy to preserve
 
-This project is a local-first adaptive AI productivity companion.
+This project is a local-first adaptive AI goal-achievement companion.
 
 It should be:
 

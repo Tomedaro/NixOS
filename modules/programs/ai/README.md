@@ -1,6 +1,6 @@
-# Local-first AI productivity companion
+# Local-first AI goal-achievement companion
 
-This directory contains the AI subsystem for a local-first, inspectable, recovery-oriented productivity companion.
+This directory contains the AI subsystem for a local-first, inspectable, recovery-oriented goal-achievement companion.
 
 The system is intentionally not a broad autonomous agent. It is a set of local protocols, bridges, planners, review surfaces, and safe action gates that help the user reflect, recover, plan, and act while preserving control.
 

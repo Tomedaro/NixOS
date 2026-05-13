@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-The project is a local-first adaptive AI productivity companion. It must be inspectable, recovery-oriented, explicit about authority, and careful with durable state and TaskNotes.
+The project is a local-first adaptive AI goal-achievement companion. It must be inspectable, recovery-oriented, explicit about authority, and careful with durable state and TaskNotes.
 
 ## Decision
 
