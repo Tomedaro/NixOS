@@ -1,17 +1,20 @@
 { pkgs, defaultWallpaper, ... }:
+let
+  awww = "${pkgs.awww}/bin/awww";
+  awww-daemon = "${pkgs.awww}/bin/awww-daemon";
+in
 pkgs.writeShellScriptBin "wallpaper" ''
-  # Wait for daemon to be ready (up to 5s)
-  timeout=50
-  until awww query &>/dev/null || [ $timeout -eq 0 ]; do
-    sleep 0.1
-    timeout=$((timeout - 1))
-  done
 
-  awww restore &>/dev/null
+if ! pgrep awww-daemon &> /dev/null; then
+  ${awww-daemon} &
+  sleep 0.5
+fi
 
-  if ! awww query | grep -qi "image:"; then
-    awww img "${../../../themes/wallpapers/${defaultWallpaper}}" \
-      --transition-step 255 --transition-duration 1 \
-      --transition-fps 60 --transition-type none
-  fi
+# Restore
+${awww} restore &> /dev/null
+
+# If there is no wallpaper then set the default
+if ! ${awww} query | grep -q "image:" &> /dev/null; then
+  ${awww} img "${../../../themes/wallpapers/${defaultWallpaper}}" --transition-step 255 --transition-duration 1 --transition-fps 60 --transition-type none
+fi
 ''
