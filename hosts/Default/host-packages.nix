@@ -1,8 +1,24 @@
 { pkgs, inputs, ... }:
+
+let
+  # Create a custom wrapped version of Anki
+  anki-wayland-fixed = pkgs.symlinkJoin {
+    name = "anki";
+    paths = [ pkgs.anki-bin ];
+    buildInputs = [ pkgs.makeWrapper ];
+    postBuild = ''
+      wrapProgram $out/bin/anki \
+        --set QTWEBENGINE_CHROMIUM_FLAGS "--no-sandbox"
+    '';
+  };
+in
+
 {
   environment.systemPackages = with pkgs; [
     # Personal tools
+    anki-wayland-fixed
     captive-browser
+    bleachbit
     qimgv
     killall
     android-tools
@@ -36,8 +52,7 @@
   home-manager.sharedModules = [
     (_: {
       home.packages = with pkgs; [
-        # Applications
-        anki-bin
+        # Applicationws
         qbittorrent
         telegram-desktop
         zoom-us
@@ -45,6 +60,7 @@
         protonup-qt
         steam
         tor-browser
+        localsend
 
 
         # Terminal tools
@@ -65,7 +81,6 @@
         tldr
         yt-dlg
         yt-dlp
-        yt-study
 
         # Creative
         krita

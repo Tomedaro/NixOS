@@ -15,7 +15,7 @@
   terminal = "kitty"; # kitty, alacritty
   editor = "nixvim"; # nixvim, vscode, helix, doom-emacs, nvchad, neovim
   browser = "zen-beta"; # zen-beta, firefox, floorp
-  tuiFileManager = "yazi"; # yazi, lf
+  fileManager = "yazi"; # yazi, lf
   shell = "zsh"; # zsh, bash
   games = true; # Enable/Disable gaming module
 
@@ -31,4 +31,5 @@
   kbdLayout = "us";
   kbdVariant = "colemak_dh_ortho";
   consoleKeymap = "colemak";
+  capslockAsESC = false;
 }

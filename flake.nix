@@ -4,6 +4,7 @@
   inputs = {
     nixpkgs.url        = "github:nixos/nixpkgs/nixos-unstable";
     nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-25.11"; # upstream: updated from 24.11
+    hyprland.url = "github:hyprwm/Hyprland";
 
     home-manager = {
       url = "github:nix-community/home-manager";
@@ -16,7 +17,7 @@
 
     # Editors
     nixvim = {
-      url = "github:Tomedaro/nixvim"; # Personal fork — keep yours
+      url = "github:niksingh710/nvix"; # Personal fork — keep yours
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nvchad4nix = {

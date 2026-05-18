@@ -22,11 +22,25 @@ hl.on("hyprland.start", function()
 	hl.exec_cmd(bar)
 	hl.exec_cmd("swaync")
 	hl.exec_cmd("nm-applet --indicator")
-	hl.exec_cmd("wl-paste --type text --watch cliphist store") -- clipboard store text data
-	hl.exec_cmd("wl-paste --type image --watch cliphist store") -- clipboard store image data
-	hl.exec_cmd("rm '$XDG_CACHE_HOME/cliphist/db'")
+
+	-- Optional: clear cliphist on login.
+	-- Use double quotes so $XDG_CACHE_HOME expands.
+	hl.exec_cmd('rm -f "$XDG_CACHE_HOME/cliphist/db"')
+
+	-- Keep Wayland clipboard alive after the source app exits.
+	hl.exec_cmd("wl-clip-persist --clipboard regular")
+
+	-- Store clipboard history.
+	hl.exec_cmd("wl-paste --type text --watch cliphist store")
+	hl.exec_cmd("wl-paste --type image --watch cliphist store")
+
+	-- Valent background daemon for Android/KDE Connect integration.
+	hl.exec_cmd("valent --gapplication-service")
+
 	hl.exec_cmd(batterynotify)
-	hl.exec_cmd("polkit-agent-helper-1")
+
+	-- You probably do not need this if hyprpolkitagent is already started by systemd.
+	-- hl.exec_cmd("polkit-agent-helper-1")
 end)
 
 hl.config({
@@ -120,7 +134,7 @@ hl.config({
 		vrr = 2, -- enable variable refresh rate (0=off, 1=on, 2=fullscreen only, 3 = fullscreen games/media)
 	},
 	xwayland = {
-		force_zero_scaling = false,
+		force_zero_scaling = true,
 	},
 	dwindle = {
 		preserve_split = true,

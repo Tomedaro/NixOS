@@ -14,7 +14,7 @@
     ./ollama
 
     # Sensors / telemetry
-    ./activitywatch
+    # ./activitywatch
     ./anki-bridge
     ./phone-bridge
     ./recovery-manager
@@ -69,9 +69,9 @@
   # ActivityWatch
   ###########################################################################
 
-  my.ai.activitywatch = {
-    enable = lib.mkDefault true;
-  };
+  # my.ai.activitywatch = {
+  #   enable = lib.mkDefault true;
+  # };
 
   ###########################################################################
   # Immediate desktop coach

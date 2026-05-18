@@ -27,6 +27,7 @@ in
     swappy
     cliphist
     wl-clipboard
+    wl-clip-persist
     brightnessctl
     playerctl
     pamixer

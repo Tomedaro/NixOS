@@ -12,8 +12,8 @@ hl.monitor({
 hl.monitor({
 	output   = "eDP-1",
 	mode     = "1920x1080@60",
-	position = "0x0",
-	scale    = "1.15",
+	position = "auto",
+	scale    = "1",
 })
 
 -- Main external HDMI monitor with 10‑bit color

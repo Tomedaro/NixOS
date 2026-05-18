@@ -39,7 +39,7 @@ in
     #../../modules/programs/browser/${vars.browser}
     ../../modules/programs/terminal/${vars.terminal}
     ../../modules/programs/editor/${vars.editor}
-    ../../modules/programs/cli/${vars.tuiFileManager}
+    ../../modules/programs/cli/${vars.fileManager}
     ../../modules/programs/cli/tmux
     ../../modules/programs/cli/direnv
     ../../modules/programs/cli/lazygit
