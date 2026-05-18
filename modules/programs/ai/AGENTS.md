@@ -94,3 +94,24 @@ modules/programs/ai/dev/llm/verify-staged-ai.sh
 ```
 
 If checks fail, the change is not done. It is only drafted.
+
+## ChatGPT workflow routing
+
+When using ChatGPT web, also follow:
+
+- `workflow/CHATGPT_WORKFLOW.md`
+
+For every substantial answer, end with a `Next action` section that tells the user:
+- whether to stay in the current chat or move to another chat;
+- the exact target chat name if moving;
+- what files or bundle to attach;
+- what exact prompt or text to paste;
+- what terminal commands to run locally;
+- what not to do yet;
+- stop conditions.
+
+Do not say "continue in the appropriate chat." Name the chat.
+
+Do not say "run checks." Provide exact commands.
+
+Prefer the smallest safe next action.

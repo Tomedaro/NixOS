@@ -52,3 +52,26 @@ No verification entries yet.
   - Live checks were not run.
 - Human notes:
   - Generated ChatGPT bundle is intentionally ignored.
+
+## 2026-05-18 20:15 - Add ChatGPT workflow routing guide
+
+- Change:
+  - Added `workflow/CHATGPT_WORKFLOW.md`.
+  - Updated `AGENTS.md` to point assistants to the workflow routing guide.
+  - Updated `make-docs-tar.sh` so future bundles include the workflow guide.
+- Commands run:
+  - `modules/programs/ai/dev/llm/check-ai-docs.sh`
+  - `modules/programs/ai/dev/llm/check-llm-patch.sh`
+  - `modules/programs/ai/dev/llm/verify-staged-ai.sh`
+- Result:
+  - Docs checks passed.
+  - Patch checks passed.
+  - Staged AI verification passed.
+  - Smoke tests passed.
+- Failures:
+  - None for this change.
+- Follow-up:
+  - Existing smoke output still contains pre-existing typo `writtento`; leave for a separate focused task.
+  - Live checks were not run.
+- Human notes:
+  - ChatGPT Project settings were also manually updated with the workflow routing requirement.

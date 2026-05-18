@@ -26,6 +26,7 @@ add_if_exists "$AI_DIR/workflow/LLM_HANDOFF.md"
 add_if_exists "$AI_DIR/workflow/DECISIONS.md"
 add_if_exists "$AI_DIR/workflow/VERIFICATION_LOG.md"
 add_if_exists "$AI_DIR/workflow/OPEN_QUESTIONS.md"
+add_if_exists "$AI_DIR/workflow/CHATGPT_WORKFLOW.md"
 
 add_if_exists "$AI_DIR/README.md"
 add_if_exists "$AI_DIR/CURRENT_STATE.md"
