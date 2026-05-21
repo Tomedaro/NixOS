@@ -1,5 +1,7 @@
 # Review inventory - draft
 
+> Superseded status: later patches disabled the previously identified direct TaskNotes mutation paths. `36f5813` removed/hard-disabled Anki direct TaskNotes mode, and `ac274a9` disabled action-bridge `promote_task_proposal`. Reviewable proposal/draft paths remain; deterministic TaskNotes apply/promote is still future work.
+
 This file records the accepted audit draft for `modules/programs/ai/docs/REVIEW_INVENTORY.md`.
 
 ## Review basis
@@ -138,7 +140,7 @@ Primary current paths:
 - `AI/state/*`
 - `AI/events/*/*.jsonl`
 - `AI/proposed-tasks/*.md`
-- real `TaskNotes/` only via legacy/direct paths right now.
+- Real `TaskNotes/` direct mutation through legacy paths is removed or disabled; reviewable drafts remain under `AI/outbox/to-obsidian/task-drafts/*`.
 
 ## Side-effecting paths found
 
@@ -154,16 +156,16 @@ Low/normal side-effect surfaces:
 
 High-risk side-effect surfaces:
 
-- `action-bridge` can write real TaskNotes via `promote_task_proposal` when `ACTION_AUTHORITY_LEVEL >= 2`.
-- `anki-bridge` can write real TaskNotes when `TASKNOTE_MODE=direct`.
+- `action-bridge promote_task_proposal` is disabled by ac274a9 and no longer writes real TaskNotes.
+- `anki-bridge` direct TaskNotes mode is removed/hard-disabled by 36f5813; raw `TASKNOTE_MODE=direct` falls back to `propose`.
 - `session-manager` rewrites human-facing control files under `AI/control` as part of session start/end.
 - `dialog-bridge` currently writes answer lifecycle events directly instead of delegating to canonical action files.
 - JSONL event append is not crash-consistent/audit-grade in the same way as `atomic_write_text/json`.
 
 ## Unsafe or legacy paths found
 
-- `action-bridge` `promote_task_proposal`: legacy/direct mutation surface.
-- `anki-bridge` `taskNoteMode = "direct"`: legacy/direct mutation surface.
+- `action-bridge promote_task_proposal`: disabled legacy/direct mutation surface.
+- `anki-bridge taskNoteMode = "direct"`: removed/hard-disabled legacy/direct mutation surface.
 - `dialog-bridge` answer handling: duplicated lifecycle ownership; should emit canonical action files.
 - `AI/inbox/from-obsidian/...`: not active in Python code; appears only as legacy/diagnostic references.
 - `TaskNotes/Tasks` appears in older TODO documentation and should be corrected against actual TaskNotes path/config before implementation.

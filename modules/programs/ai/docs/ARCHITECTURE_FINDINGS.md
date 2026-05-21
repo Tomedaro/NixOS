@@ -1,23 +1,25 @@
 # Architecture findings - draft
 
+> Superseded status: later patches disabled the previously identified direct TaskNotes mutation paths. `36f5813` removed/hard-disabled Anki direct TaskNotes mode, and `ac274a9` disabled action-bridge `promote_task_proposal`. Reviewable proposal/draft paths remain; deterministic TaskNotes apply/promote is still future work.
+
 This file records the accepted audit draft for `modules/programs/ai/docs/ARCHITECTURE_FINDINGS.md`.
 
 ## Executive summary
 
-The system's strongest architectural property is the Obsidian/LLM proposal boundary: ingestion, planning, approval, and task drafting are bounded, explicit, and non-executing. The weakest architectural property is live action authority: the unified `action-bridge` handles both routine user/interaction actions and the legacy ability to write real TaskNotes.
+Resolved by 36f5813 and ac274a9: the identified direct TaskNotes mutation paths are now removed or disabled; the remaining future work is deterministic apply/promote.
 
 No critical code failure was found in the read-only audit. The main blockers before implementation are high-severity safety/design issues, not failing tests.
 
 ## Findings
 
-### HIGH-001 - Broad action authority enables real TaskNotes mutation
+### HIGH-001 - Resolved: action TaskNotes promotion disabled
 
 - Severity: high
 - Area: action authority / TaskNotes boundary
 - Evidence:
   - `modules/programs/ai/default.nix` sets `my.ai.actionBridge.authorityLevel = 2` by default.
   - `action_bridge.py` defaults `ACTION_AUTHORITY_LEVEL` to `2`.
-  - `handle_promote_task_proposal` requires only `AUTHORITY_LEVEL >= 2`, then writes a real TaskNotes target with `atomic_write_text`.
+  - Resolved by ac274a9: `handle_promote_task_proposal` rejects promotion before any TaskNotes write.
 - Why it matters:
   - The same live bridge that handles low-risk interaction/session actions can also create or overwrite durable human commitments.
   - This conflicts with the desired split between AI vault protocol/state and TaskNotes as a human commitment surface.
@@ -26,14 +28,14 @@ No critical code failure was found in the read-only audit. The main blockers bef
   - Existing target is not overwritten unless action sets `overwrite=true`.
   - Action journal/idempotency reduces replay risk.
 - Remaining risk:
-  - A valid action file can still create real TaskNotes under ordinary authority level 2.
+  - Resolved by ac274a9: action files can no longer promote proposals into real TaskNotes through `promote_task_proposal`.
 - Recommended treatment:
   - Disable by default and mark as legacy/direct.
-  - Split authority into named capabilities or at minimum require a separate `allowLegacyTaskNotesPromotion` flag.
+  - Resolved by ac274a9: legacy TaskNotes promotion option/env wiring was removed, and `promote_task_proposal` is disabled.
   - Remove promotion template from ordinary template generation.
   - Add smoke test proving default config cannot mutate TaskNotes.
 
-### HIGH-002 - `anki-bridge` direct TaskNotes mode remains a live option
+### HIGH-002 - Resolved: Anki direct TaskNotes mode removed
 
 - Severity: high
 - Area: TaskNotes boundary
@@ -42,7 +44,7 @@ No critical code failure was found in the read-only audit. The main blockers bef
   - `anki_bridge.py` writes `DIRECT_RECOVERY_TASK` when `TASKNOTE_MODE == "direct"`.
   - Top-level default is safer: `taskNoteMode = "propose"`.
 - Why it matters:
-  - Direct mode bypasses the planned deterministic TaskNotes apply/promote gate.
+  - Resolved by 36f5813: Anki direct mode is removed/hard-disabled; deterministic apply/promote remains future work.
   - It is telemetry-driven and can make durable human commitment changes.
 - Current mitigations:
   - Default is propose mode.

@@ -1,5 +1,7 @@
 # Refactor backlog - draft
 
+> Superseded status: later patches disabled the previously identified direct TaskNotes mutation paths. `36f5813` removed/hard-disabled Anki direct TaskNotes mode, and `ac274a9` disabled action-bridge `promote_task_proposal`. Reviewable proposal/draft paths remain; deterministic TaskNotes apply/promote is still future work.
+
 This file records the accepted audit draft for `modules/programs/ai/docs/REFACTOR_BACKLOG.md`.
 
 ## Priority 0 - must precede richer agent behavior
@@ -13,17 +15,17 @@ This file records the accepted audit draft for `modules/programs/ai/docs/REFACTO
   - `modules/programs/ai/action-bridge/default.nix`
   - `modules/programs/ai/action-bridge/action_bridge.py`
   - `modules/programs/ai/tests/action_bridge_smoke.py`
-- Current problem: ordinary action authority and TaskNotes promotion authority are coupled through `authorityLevel >= 2`.
+- Resolved by ac274a9: `promote_task_proposal` is disabled, so ordinary action authority no longer enables TaskNotes promotion.
 - Proposed change:
   - Add explicit capability flags or split authority levels by action class.
-  - Default TaskNotes promotion off.
+  - Done by ac274a9: action TaskNotes promotion is disabled and legacy promotion option/env wiring was removed.
   - Keep ordinary answer/nudge/session/check-in behavior working.
 - Acceptance tests:
-  - Default config cannot execute `promote_task_proposal`.
+  - Done by ac274a9: `promote_task_proposal` is disabled.
   - Ordinary `answer_question`, `ack_nudge`, `snooze_nudge`, `start_recovery_target` still pass.
   - Enabling legacy promotion requires explicit config and is reported in status.
 
-### R-0002 Deprecate legacy/direct TaskNotes mutation surfaces
+### R-0002 Completed - Legacy/direct TaskNotes mutation surfaces removed or disabled
 
 - Severity: high
 - Depends on: R-0001 partly
@@ -34,14 +36,14 @@ This file records the accepted audit draft for `modules/programs/ai/docs/REFACTO
   - `anki-bridge/default.nix`
   - docs: `SAFETY_MODEL.md`, `PROTOCOLS.md`, `ROADMAP.md`
 - Current problem:
-  - `action-bridge promote_task_proposal` mutates real TaskNotes.
-  - `anki-bridge taskNoteMode = direct` mutates real TaskNotes.
+  - Resolved by ac274a9: `action-bridge promote_task_proposal` is disabled and no longer mutates real TaskNotes.
+  - Resolved by 36f5813: Anki direct TaskNotes mode is removed/hard-disabled.
 - Proposed change:
   - Mark both as legacy/deprecated.
   - Emit warnings when enabled/used.
   - Move templates/examples away from direct promotion.
 - Acceptance tests:
-  - Direct TaskNotes paths are enumerated in `SAFETY_MODEL.md`.
+  - Updated current truth: direct TaskNotes mutation paths are removed or disabled; future writes require deterministic apply/promote.
   - Direct mode status includes warning.
   - Default mode produces proposal/draft only.
 

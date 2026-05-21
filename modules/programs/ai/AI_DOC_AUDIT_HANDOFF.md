@@ -1,5 +1,7 @@
 # AI documentation audit handoff
 
+> Superseded status: later patches disabled the previously identified direct TaskNotes mutation paths. `36f5813` removed/hard-disabled Anki direct TaskNotes mode, and `ac274a9` disabled action-bridge `promote_task_proposal`. Reviewable proposal/draft paths remain; deterministic TaskNotes apply/promote is still future work.
+
 ## Status
 
 The AI documentation has been reorganized into canonical truth surfaces. Future work should read the new docs first and should not resurrect old TODO-style material as authority.
@@ -44,16 +46,16 @@ LLM-facing paths may read, classify, summarize, propose, and draft. They must no
 
 These paths currently exist and must not be treated as the target architecture:
 
-- `action-bridge promote_task_proposal` can mutate real TaskNotes when authority permits it.
-- `anki-bridge taskNoteMode = "direct"` can mutate a real TaskNotes recovery task.
+- Superseded by ac274a9: `action-bridge promote_task_proposal` is disabled and no longer writes real TaskNotes.
+- Superseded by 36f5813: `anki-bridge taskNoteMode = "direct"` is removed/hard-disabled; raw `TASKNOTE_MODE=direct` falls back to `propose`.
 - `dialog-bridge` still has lifecycle behavior that should move behind canonical `answer_question` / `dismiss_question` actions.
 
 ## Next implementation order
 
 1. Add/verify tests around legacy/direct mutation behavior.
 2. Split or lower broad `action-bridge` authority.
-3. Disable or hard-gate `promote_task_proposal` outside explicit break-glass/debug use.
-4. Deprecate `anki-bridge taskNoteMode = "direct"`.
+- Done by ac274a9: keep `promote_task_proposal` disabled until deterministic TaskNotes apply/promote exists.
+- Done by 36f5813: keep Anki direct TaskNotes mode removed/hard-disabled.
 5. Move `dialog-bridge` answer/dismiss handling to canonical action files.
 6. Add first-class read-only TaskNotes context.
 7. Build deterministic TaskNotes apply/promote gate.

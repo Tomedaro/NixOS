@@ -1,5 +1,7 @@
 # Module review register - draft
 
+> Superseded status: later patches disabled the previously identified direct TaskNotes mutation paths. `36f5813` removed/hard-disabled Anki direct TaskNotes mode, and `ac274a9` disabled action-bridge `promote_task_proposal`. Reviewable proposal/draft paths remain; deterministic TaskNotes apply/promote is still future work.
+
 This file records the accepted audit draft for `modules/programs/ai/docs/MODULE_REVIEW_REGISTER.md`.
 
 Severity legend: critical, high, medium, low, cleanup, docs-only.
@@ -21,7 +23,7 @@ Authority legend: observe, draft/propose, review, local-state mutate, live-actio
 - Side effects: none directly; config enables/starts services via imported modules.
 - Authority: configuration authority.
 - Issues:
-  - HIGH: `actionBridge.authorityLevel = 2` enables TaskNotes promotion in the same broad action bridge that handles routine interactions.
+  - Resolved by ac274a9: broad action authority no longer enables real TaskNotes promotion because `promote_task_proposal` is disabled.
   - LOW: comments are generally useful but should move lasting architecture rationale into docs/ADRs.
 - Actions:
   - Split action authority into ordinary interaction/session authority and explicit TaskNotes apply/promote authority.
@@ -74,37 +76,37 @@ Authority legend: observe, draft/propose, review, local-state mutate, live-actio
   - phone outbox interaction state
   - recovery state
   - events under `AI/events/actions`, `phone`, `desktop`, `tasknotes`, `proofs`, `recovery`
-  - real `TaskNotes/` files for `promote_task_proposal`
+  - Resolved by ac274a9: `promote_task_proposal` is disabled and no longer writes real `TaskNotes/` files.
 - Side effects:
   - file mutation;
   - subprocess/systemd calls;
-  - TaskNotes mutation for promotion;
+  - Resolved by ac274a9: promotion no longer mutates TaskNotes.
   - queue moves.
-- Authority: live-action and legacy TaskNotes mutate.
+- Resolved by ac274a9 and 36f5813: legacy/direct TaskNotes mutation paths are disabled or removed.
 - Evidence:
   - defaults `ACTION_AUTHORITY_LEVEL` to 2 at line 30.
   - defines current action queues at lines 38-41.
   - defines current phone outbox files at lines 72-77.
-  - `handle_promote_task_proposal` requires `AUTHORITY_LEVEL >= 2` and writes to `TaskNotes` at lines 641-715.
+  - Resolved by ac274a9: `handle_promote_task_proposal` now rejects promotion before any TaskNotes write.
   - action dispatch includes `start_session`, `end_session`, `check_in`, `answer_question`, `ack_nudge`, `snooze_nudge`, `dismiss_question`, `start_recovery_target`, `promote_task_proposal`, and `submit_proof` at lines 1447-1470.
   - replay protection uses action journals and sends stale `processing`, previous `failed`, or previous `manual_review` to manual review at lines 1513-1566.
   - action status records include processed/failed/manual_review/unstable/ignored and authority level at lines 1691-1698.
 - Tests:
   - `action_bridge_smoke.py` covers nudge/question actions, invalid JSON, duplicate IDs, action journal, stale processing journal, and process lock.
 - Issues:
-  - HIGH: broad authority level 2 is enabled by default through Nix and is enough for TaskNotes promotion.
-  - HIGH: `promote_task_proposal` is a real TaskNotes writer and should be marked legacy/direct or disabled outside break-glass use.
+  - Resolved by ac274a9: broad authority level 2 is no longer sufficient for TaskNotes mutation because promotion is disabled.
+  - Resolved by ac274a9: `promote_task_proposal` is disabled and is no longer a real TaskNotes writer.
   - MEDIUM: templates include `promote-anki-recovery.json`; this normalizes a legacy behavior in the action template directory.
   - MEDIUM: JSONL events are useful evidence but not authoritative audit logs yet.
 - Actions:
-  - Split `authorityLevel` into named capabilities: e.g. `allowSessionActions`, `allowInteractionActions`, `allowRecoveryActions`, `allowProofActions`, `allowLegacyTaskNotesPromotion`.
-  - Default `allowLegacyTaskNotesPromotion = false`.
+  - Superseded by ac274a9: the legacy TaskNotes promotion option/env wiring was removed because promotion is disabled.
+  - Superseded by ac274a9: the legacy TaskNotes promotion option/env wiring was removed because promotion is disabled.
   - Remove or quarantine `promote_task_proposal` templates from ordinary template creation.
   - Add tests proving default config cannot mutate TaskNotes.
 
 ### `anki-bridge/anki_bridge.py`
 
-- Purpose: polls AnkiConnect, writes Anki status, and emits either a proposed recovery task or direct TaskNotes task depending on mode.
+- Updated by 36f5813: Anki bridge emits proposal output; direct TaskNotes mode is removed/hard-disabled.
 - Current status: current; safer default but legacy direct mode remains.
 - Inputs:
   - AnkiConnect HTTP API;
@@ -113,18 +115,18 @@ Authority legend: observe, draft/propose, review, local-state mutate, live-actio
 - Outputs:
   - `AI/state/anki/status.*` and legacy `AI/anki/status.json` style compatibility;
   - `AI/proposed-tasks/anki-recovery.md` in propose mode;
-  - `TaskNotes/AI/anki-due-recovery.md` in direct mode;
+  - Removed by 36f5813: direct Anki TaskNotes output is no longer written.
   - `AI/events/anki/YYYY-MM-DD.jsonl`.
-- Side effects: Anki API reads; AI state/report writes; optional TaskNotes direct write.
-- Authority: observe + draft/propose; optional legacy TaskNotes mutate.
+- Resolved by 36f5813: Anki direct TaskNotes write is removed/hard-disabled.
+- Resolved by ac274a9 and 36f5813: legacy/direct TaskNotes mutation paths are disabled or removed.
 - Evidence:
-  - Nix option `taskNoteMode = enum [ "off" "propose" "direct" ]`, default `propose`, with `direct` documented as writing real TaskNotes at lines 58-72 of `anki-bridge/default.nix`.
+  - Updated by 36f5813: Nix `taskNoteMode` supports only `off` and `propose`; raw `TASKNOTE_MODE=direct` falls back to `propose`.
   - `write_recovery_task_or_proposal` writes `DIRECT_RECOVERY_TASK` when `TASKNOTE_MODE == "direct"` at lines 437-449 of `anki_bridge.py`.
   - Nix top-level default keeps `taskNoteMode = "propose"` at `default.nix` lines 117-122.
 - Tests:
   - Anki behavior is partly covered through integration/context tests; direct-mode mutation needs explicit default-deny tests.
 - Issues:
-  - HIGH: direct TaskNotes mode remains a live code path and option.
+  - Resolved by 36f5813: direct TaskNotes mode is removed/hard-disabled.
   - MEDIUM: option text says bridge is read-only, but direct mode contradicts that label.
 - Actions:
   - Mark direct mode deprecated in option docs.
