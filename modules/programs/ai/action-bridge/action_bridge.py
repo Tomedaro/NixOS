@@ -28,6 +28,7 @@ SYSTEMCTL = os.environ.get("SYSTEMCTL", "systemctl")
 
 STABILITY_SECONDS = int(os.environ.get("ACTION_STABILITY_SECONDS", "2"))
 AUTHORITY_LEVEL = int(os.environ.get("ACTION_AUTHORITY_LEVEL", "2"))
+ALLOW_PROOF_SUBMIT = os.environ.get("ALLOW_PROOF_SUBMIT", "1") == "1"
 TRIGGER_HELP_NOW = os.environ.get("TRIGGER_HELP_NOW", "1") == "1"
 TRIGGER_HELP_NOW_SERVICE = os.environ.get(
     "TRIGGER_HELP_NOW_SERVICE", "llm-planner-help-now.service"
@@ -645,6 +646,9 @@ def handle_promote_task_proposal(action, path, action_id):
 
 
 def handle_submit_proof(action, path, action_id):
+    if not ALLOW_PROOF_SUBMIT:
+        raise PermissionError("submit_proof requires ALLOW_PROOF_SUBMIT=1")
+
     if AUTHORITY_LEVEL < 1:
         raise PermissionError("submit_proof requires ACTION_AUTHORITY_LEVEL >= 1")
 

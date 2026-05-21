@@ -44,7 +44,7 @@ The action bridge still has a broad numeric `ACTION_AUTHORITY_LEVEL` setting. Un
 | `end_session` | `session.lifecycle` | Supported | Writes session completion, archive/control state, and events. |
 | `check_in` | `session.check_in` | Supported | Writes check-in state/events and may trigger help-now planning. |
 | `start_recovery_target` | `recovery.target.start` | Supported | Writes recovery state/events and starts the configured recovery target flow. |
-| `submit_proof` | `proof.submit` | Supported with `ACTION_AUTHORITY_LEVEL >= 1` | Writes proof artifacts/events. |
+| `submit_proof` | `proof.submit` | Supported when `ALLOW_PROOF_SUBMIT=1` and `ACTION_AUTHORITY_LEVEL >= 1` | Writes proof artifacts/events. |
 | `promote_task_proposal` / `promote_proposal` | `disabled.legacy` | Disabled | Must fail without writing real TaskNotes. |
 
 There is no live `tasknotes.promote` capability. Future real TaskNotes writes must wait for deterministic reviewed apply/promote.

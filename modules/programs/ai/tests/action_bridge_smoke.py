@@ -687,6 +687,50 @@ def test_tasknotes_promotion_is_disabled_even_with_legacy_env() -> None:
         )
         assert "promote_task_proposal is disabled" in error_text
 
+
+def test_proof_submit_requires_named_capability() -> None:
+    with tempfile.TemporaryDirectory(prefix="ai-action-proof-capability-") as tmp:
+        ai_dir = Path(tmp) / "AI"
+        tasknotes_dir = Path(tmp) / "TaskNotes"
+        setup_base(ai_dir)
+
+        action_file(
+            ai_dir,
+            "1000_submit_proof.json",
+            {
+                "schema_version": "action.v1",
+                "action": "submit_proof",
+                "action_id": "proof-submit-capability-blocked",
+                "source": "test",
+                "device": "phone",
+                "proof_id": "blocked-proof",
+                "message": "This proof should not be written.",
+                "timestamp_epoch": int(time.time()),
+            },
+        )
+
+        proc = run_action_bridge(
+            ai_dir,
+            tasknotes_dir,
+            extra_env={
+                "ACTION_AUTHORITY_LEVEL": "1",
+                "ALLOW_PROOF_SUBMIT": "0",
+            },
+        )
+        assert_bridge_ok(proc)
+
+        assert not processed_files(ai_dir)
+        assert failed_files(ai_dir)
+        assert not any((ai_dir / "proofs").rglob("*"))
+        assert not any((ai_dir / "events/proofs").rglob("*.jsonl"))
+
+        error_text = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in (ai_dir / "inbox/actions-failed").rglob("*.error.txt")
+        )
+        assert "ALLOW_PROOF_SUBMIT=1" in error_text
+
+
 def test_action_journal_records_processed_action() -> None:
     with tempfile.TemporaryDirectory(prefix="ai-action-journal-success-") as tmp:
         ai_dir = Path(tmp) / "AI"
@@ -865,6 +909,7 @@ def main() -> None:
         test_invalid_json_moves_to_failed_once,
         test_duplicate_action_id_is_skipped_without_duplicate_effects,
         test_tasknotes_promotion_is_disabled_even_with_legacy_env,
+        test_proof_submit_requires_named_capability,
         test_action_journal_records_processed_action,
         test_processing_journal_blocks_replay_without_side_effects,
         test_process_lock_is_non_blocking,
