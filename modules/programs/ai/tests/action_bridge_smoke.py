@@ -635,6 +635,48 @@ def test_duplicate_action_id_is_skipped_without_duplicate_effects() -> None:
         assert "dedupe-action-smoke" in cache["ids"]
 
 
+
+def test_dispatched_actions_have_capability_policy() -> None:
+    shared_python = str(REPO / "modules/programs/ai/python")
+    if shared_python not in sys.path:
+        sys.path.insert(0, shared_python)
+
+    module_name = f"action_bridge_policy_smoke_{time.time_ns()}"
+    spec = importlib.util.spec_from_file_location(module_name, ACTION_BRIDGE)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+
+    expected = {
+        "ack_nudge",
+        "snooze_nudge",
+        "answer_question",
+        "dismiss_question",
+        "start_session",
+        "end_session",
+        "check_in",
+        "start_recovery_target",
+        "submit_proof",
+        "promote_task_proposal",
+        "promote_proposal",
+    }
+
+    policy = module.ACTION_CAPABILITY_POLICY
+
+    assert set(policy) == expected
+    assert policy["ack_nudge"]["capability"] == "interaction.nudge.respond"
+    assert policy["snooze_nudge"]["capability"] == "interaction.nudge.respond"
+    assert policy["answer_question"]["capability"] == "interaction.question.respond"
+    assert policy["dismiss_question"]["capability"] == "interaction.question.respond"
+    assert policy["start_session"]["capability"] == "session.lifecycle"
+    assert policy["end_session"]["capability"] == "session.lifecycle"
+    assert policy["check_in"]["capability"] == "session.check_in"
+    assert policy["start_recovery_target"]["capability"] == "recovery.target.start"
+    assert policy["submit_proof"]["capability"] == "proof.submit"
+    assert policy["promote_task_proposal"]["capability"] == "disabled.legacy"
+    assert policy["promote_proposal"]["capability"] == "disabled.legacy"
+
+
 def test_tasknotes_promotion_is_disabled_even_with_legacy_env() -> None:
     with tempfile.TemporaryDirectory(prefix="ai-action-tasknotes-disabled-") as tmp:
         ai_dir = Path(tmp) / "AI"
@@ -1021,6 +1063,7 @@ def main() -> None:
         test_queue_ignores_partial_dotfiles_and_non_json,
         test_invalid_json_moves_to_failed_once,
         test_duplicate_action_id_is_skipped_without_duplicate_effects,
+        test_dispatched_actions_have_capability_policy,
         test_tasknotes_promotion_is_disabled_even_with_legacy_env,
         test_proof_submit_requires_named_capability,
         test_start_recovery_target_requires_named_capability,

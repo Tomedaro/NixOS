@@ -33,6 +33,76 @@ ALLOW_RECOVERY_TARGET_START = (
     os.environ.get("ALLOW_RECOVERY_TARGET_START", "1") == "1"
 )
 ALLOW_SESSION_CHECK_IN = os.environ.get("ALLOW_SESSION_CHECK_IN", "1") == "1"
+
+ACTION_CAPABILITY_POLICY = {
+    "ack_nudge": {
+        "capability": "interaction.nudge.respond",
+        "enabled": True,
+    },
+    "snooze_nudge": {
+        "capability": "interaction.nudge.respond",
+        "enabled": True,
+    },
+    "answer_question": {
+        "capability": "interaction.question.respond",
+        "enabled": True,
+    },
+    "dismiss_question": {
+        "capability": "interaction.question.respond",
+        "enabled": True,
+    },
+    "start_session": {
+        "capability": "session.lifecycle",
+        "enabled": True,
+    },
+    "end_session": {
+        "capability": "session.lifecycle",
+        "enabled": True,
+    },
+    "check_in": {
+        "capability": "session.check_in",
+        "enabled": lambda: ALLOW_SESSION_CHECK_IN,
+        "error": "check_in requires ALLOW_SESSION_CHECK_IN=1",
+    },
+    "start_recovery_target": {
+        "capability": "recovery.target.start",
+        "enabled": lambda: ALLOW_RECOVERY_TARGET_START,
+        "error": "start_recovery_target requires ALLOW_RECOVERY_TARGET_START=1",
+    },
+    "submit_proof": {
+        "capability": "proof.submit",
+        "enabled": lambda: ALLOW_PROOF_SUBMIT,
+        "error": "submit_proof requires ALLOW_PROOF_SUBMIT=1",
+    },
+    "promote_task_proposal": {
+        "capability": "disabled.legacy",
+        "enabled": False,
+        "error": "promote_task_proposal is disabled; use reviewable TaskNotes drafts until deterministic apply/promote exists",
+    },
+    "promote_proposal": {
+        "capability": "disabled.legacy",
+        "enabled": False,
+        "error": "promote_task_proposal is disabled; use reviewable TaskNotes drafts until deterministic apply/promote exists",
+    },
+}
+
+
+def require_action_capability(action_name):
+    policy = ACTION_CAPABILITY_POLICY.get(action_name)
+    if policy is None:
+        raise ValueError(f"missing action capability policy: {action_name}")
+
+    enabled = policy.get("enabled", True)
+    if callable(enabled):
+        enabled = enabled()
+
+    if not enabled:
+        raise PermissionError(
+            policy.get("error") or f"{action_name} capability disabled"
+        )
+
+    return policy
+
 TRIGGER_HELP_NOW = os.environ.get("TRIGGER_HELP_NOW", "1") == "1"
 TRIGGER_HELP_NOW_SERVICE = os.environ.get(
     "TRIGGER_HELP_NOW_SERVICE", "llm-planner-help-now.service"
@@ -583,9 +653,6 @@ def handle_end_session(action):
 
 
 def handle_check_in(action, path, action_id):
-    if not ALLOW_SESSION_CHECK_IN:
-        raise PermissionError("check_in requires ALLOW_SESSION_CHECK_IN=1")
-
     event = base_event(action, path, action_id)
     event["event"] = "check_in"
     event["event_type"] = "check_in"
@@ -653,9 +720,6 @@ def handle_promote_task_proposal(action, path, action_id):
 
 
 def handle_submit_proof(action, path, action_id):
-    if not ALLOW_PROOF_SUBMIT:
-        raise PermissionError("submit_proof requires ALLOW_PROOF_SUBMIT=1")
-
     if AUTHORITY_LEVEL < 1:
         raise PermissionError("submit_proof requires ACTION_AUTHORITY_LEVEL >= 1")
 
@@ -1261,11 +1325,6 @@ def known_recovery_target(target_id):
 
 
 def handle_start_recovery_target(action, path, action_id):
-    if not ALLOW_RECOVERY_TARGET_START:
-        raise PermissionError(
-            "start_recovery_target requires ALLOW_RECOVERY_TARGET_START=1"
-        )
-
     target_id = (
         str(action.get("target_id") or action.get("target") or "anki").strip().lower()
     )
@@ -1387,6 +1446,7 @@ def handle_action(path):
     elif action_name in {"end_session", "end"}:
         result["command_result"] = handle_end_session(action)
     elif action_name in {"check_in", "manual_checkin"}:
+        require_action_capability("check_in")
         result["check_in_result"] = handle_check_in(action, path, action_id)
     elif action_name in {"answer_question", "question_answered"}:
         result["answer_result"] = handle_answer_question(action, path, action_id)
@@ -1397,14 +1457,17 @@ def handle_action(path):
     elif action_name in {"dismiss_question", "question_dismissed"}:
         result["dismiss_result"] = handle_dismiss_question(action, path, action_id)
     elif action_name in {"start_recovery_target", "start_recovery", "recovery_start"}:
+        require_action_capability("start_recovery_target")
         result["recovery_result"] = handle_start_recovery_target(
             action, path, action_id
         )
     elif action_name in {"promote_task_proposal", "promote_proposal"}:
+        require_action_capability(action_name)
         result["promotion_result"] = handle_promote_task_proposal(
             action, path, action_id
         )
     elif action_name in {"submit_proof", "proof_submitted"}:
+        require_action_capability("submit_proof")
         result["proof_result"] = handle_submit_proof(action, path, action_id)
     else:
         raise ValueError(f"unknown action: {action_name}")
