@@ -30,6 +30,26 @@ Future work should move toward named capabilities such as:
 
 Dangerous capabilities should default off.
 
+## Action bridge capability inventory
+
+The action bridge still has a broad numeric `ACTION_AUTHORITY_LEVEL` setting. Until named capability gates exist, treat each action as belonging to one current capability class:
+
+| Action | Capability | Current behavior | Side-effect class |
+| --- | --- | --- | --- |
+| `ack_nudge` | `interaction.nudge.respond` | Supported | Updates nudge/interaction state and action events. |
+| `snooze_nudge` | `interaction.nudge.respond` | Supported | Updates nudge/interaction state, snooze metadata, and action events. |
+| `answer_question` | `interaction.question.respond` | Supported | Records question answer state/events. |
+| `dismiss_question` | `interaction.question.respond` | Supported | Records question dismissal state/events. |
+| `start_session` | `session.lifecycle` | Supported | Writes session state, control files, and action/session events. |
+| `end_session` | `session.lifecycle` | Supported | Writes session completion, archive/control state, and events. |
+| `check_in` | `session.check_in` | Supported | Writes check-in state/events and may trigger help-now planning. |
+| `start_recovery_target` | `recovery.target.start` | Supported | Writes recovery state/events and starts the configured recovery target flow. |
+| `submit_proof` | `proof.submit` | Supported with `ACTION_AUTHORITY_LEVEL >= 1` | Writes proof artifacts/events. |
+| `promote_task_proposal` / `promote_proposal` | `disabled.legacy` | Disabled | Must fail without writing real TaskNotes. |
+
+There is no live `tasknotes.promote` capability. Future real TaskNotes writes must wait for deterministic reviewed apply/promote.
+
+
 ## Real TaskNotes mutation paths
 
 Current direct TaskNotes mutation paths are removed or disabled:
