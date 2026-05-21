@@ -128,7 +128,13 @@ The LLM should never bypass the deterministic gate or write action files directl
 
 ## Smoke tests
 
-Run the current AI safety smoke suite:
+Canonical smoke verification from the repository root:
+
+```zsh
+modules/programs/ai/dev/run-smoke.sh
+```
+
+Targeted local diagnostics, when narrowing shared-package smoke failures:
 
 ```zsh
 PYTHONPATH=modules/programs/ai/python nix run nixpkgs#python3 -- modules/programs/ai/tests/agent_context_smoke.py
@@ -269,6 +275,8 @@ This keeps `recovery-trigger` as orchestration glue instead of the owner of prop
 
 ### Recovery proposal smoke test
 
+Targeted local diagnostic, when narrowing recovery proposal failures:
+
 ```zsh
 PYTHONPATH=modules/programs/ai/python nix run nixpkgs#python3 -- modules/programs/ai/tests/recovery_proposals_smoke.py
 ```
@@ -289,6 +297,8 @@ intervention_nudge_written
 These records support later outcome analysis without giving the LLM or trigger new execution authority.
 
 ### Intervention smoke test
+
+Targeted local diagnostic, when narrowing intervention failures:
 
 ```zsh
 PYTHONPATH=modules/programs/ai/python nix run nixpkgs#python3 -- modules/programs/ai/tests/interventions_smoke.py
@@ -335,6 +345,8 @@ This is a learning/readout layer only. It must not write files, execute actions,
 
 ### Intervention outcome smoke test
 
+Targeted local diagnostic, when narrowing intervention outcome failures:
+
 ```zsh
 PYTHONPATH=modules/programs/ai/python nix run nixpkgs#python3 -- modules/programs/ai/tests/intervention_outcomes_smoke.py
 ```
@@ -364,7 +376,7 @@ AI/state/interventions/stats.json
 AI/state/interventions/status.md
 ```
 
-Smoke test:
+Targeted local diagnostic, when narrowing intervention outcome reporter failures:
 
 ```zsh
 PYTHONPATH=modules/programs/ai/python nix run nixpkgs#python3 -- modules/programs/ai/tests/intervention_outcomes_reporter_smoke.py

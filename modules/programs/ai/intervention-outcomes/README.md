@@ -36,6 +36,14 @@ ai-intervention-outcomes --days 7 --write
 
 ## Smoke test
 
+Canonical smoke verification from the repository root:
+
+```zsh
+modules/programs/ai/dev/run-smoke.sh
+```
+
+Targeted local diagnostic, when narrowing intervention outcome reporter failures:
+
 ```zsh
 PYTHONPATH=modules/programs/ai/python nix run nixpkgs#python3 -- modules/programs/ai/tests/intervention_outcomes_reporter_smoke.py
 ```

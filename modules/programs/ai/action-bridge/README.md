@@ -251,7 +251,13 @@ dismiss_question
 
 The tests run against a temporary `AI_DIR` and verify state writes, event writes, and action queue movement without touching the real vault.
 
-Run with:
+Canonical smoke verification from the repository root:
+
+```zsh
+modules/programs/ai/dev/run-smoke.sh
+```
+
+Targeted local diagnostic, when narrowing action-bridge failures:
 
 ```zsh
 PYTHONPATH=modules/programs/ai/python nix run nixpkgs#python3 -- modules/programs/ai/tests/action_bridge_smoke.py
