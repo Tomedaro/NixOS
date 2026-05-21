@@ -56,7 +56,6 @@ dismiss_question
 ack_nudge
 snooze_nudge
 start_recovery_target
-promote_task_proposal
 submit_proof
 ```
 
@@ -225,7 +224,7 @@ It should not:
 ```text
 own passive telemetry
 invent planner output
-mutate TaskNotes without explicit action
+mutate TaskNotes
 treat completed sessions as active context
 ```
 

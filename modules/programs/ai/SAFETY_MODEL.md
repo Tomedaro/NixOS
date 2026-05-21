@@ -26,21 +26,19 @@ Future work should move toward named capabilities such as:
 - `session.start`
 - `session.stop`
 - `recovery.propose`
-- `tasknotes.promote_legacy`
 - `tasknotes.apply_reviewed_draft`
 
 Dangerous capabilities should default off.
 
 ## Real TaskNotes mutation paths
 
-The following are known real TaskNotes writers and must be treated as legacy/direct until consolidated:
+Current direct TaskNotes mutation paths are removed or disabled:
 
-1. `action-bridge promote_task_proposal`
-   - writes a TaskNotes target only when elevated action authority and explicit legacy TaskNotes promotion opt-in both permit;
-   - should be disabled/hard-gated in a later behavior patch.
-Removed/hard-disabled Anki direct mode:
+- `action-bridge promote_task_proposal` is disabled and should fail without writing TaskNotes.
 - `anki-bridge` no longer supports `taskNoteMode = "direct"` in Nix config.
 - Raw `TASKNOTE_MODE=direct` falls back to `propose` and does not write real TaskNotes.
+
+Future real TaskNotes writes should go through a deterministic, explicit, reviewed apply/promote gate.
 
 ## Obsidian and LLM boundary
 
@@ -76,7 +74,7 @@ The companion should be friendly and recovery-oriented:
 
 ## Dangerous or legacy paths
 
-- `promote_task_proposal` real TaskNotes mutation now requires both elevated action authority and explicit legacy TaskNotes promotion opt-in.
+- `promote_task_proposal` real TaskNotes mutation is disabled.
 - `anki-bridge direct` real TaskNotes mutation is removed/hard-disabled; raw `TASKNOTE_MODE=direct` falls back to `propose`.
 - Legacy Obsidian paths such as `AI/inbox/from-obsidian` should remain marked legacy if mentioned.
 - Any future desktop popup or automation that executes without review must be treated as high risk until explicitly modeled.

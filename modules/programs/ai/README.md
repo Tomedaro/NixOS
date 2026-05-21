@@ -42,12 +42,12 @@ Audit detail and design review material live under `docs/`.
 
 ## Current caution
 
-Two existing paths can mutate real TaskNotes and must be treated as legacy/direct surfaces until consolidated or removed:
+Direct TaskNotes mutation paths are removed or disabled:
 
-- `action-bridge promote_task_proposal` when authority permits it;
-- `anki-bridge taskNoteMode = "direct"`.
+- `action-bridge promote_task_proposal` is disabled;
+- `anki-bridge taskNoteMode = "direct"` is no longer a supported Nix option, and raw `TASKNOTE_MODE=direct` falls back to `propose`.
 
-Do not add new direct TaskNotes mutation. Use reviewable drafts and documented gates.
+Do not add new direct TaskNotes mutation. Use reviewable drafts until a deterministic apply/promote gate exists.
 
 ## Documentation transition
 

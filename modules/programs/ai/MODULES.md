@@ -4,7 +4,7 @@ This is the high-level module map. Detailed evidence belongs in `docs/MODULE_REV
 
 | Module | Purpose | Side-effect level | Notes |
 | --- | --- | --- | --- |
-| `action-bridge` | Processes live action queue and selected actions. | High | Includes legacy/direct TaskNotes promotion path. |
+| `action-bridge` | Processes live action queue and selected actions. | High | Legacy/direct TaskNotes promotion is disabled; reviewable drafts remain separate. |
 | `phone-bridge` | Phone-facing message/status bridge. | Medium | Writes phone outbox/state. |
 | `dialog-bridge` | Desktop/dialog interaction bridge. | Medium | Currently has direct answer lifecycle behavior; should migrate to canonical actions. |
 | `session-manager` | Session lifecycle and state. | Medium | Supports recovery/session flows. |

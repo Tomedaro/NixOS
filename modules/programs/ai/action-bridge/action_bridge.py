@@ -28,9 +28,6 @@ SYSTEMCTL = os.environ.get("SYSTEMCTL", "systemctl")
 
 STABILITY_SECONDS = int(os.environ.get("ACTION_STABILITY_SECONDS", "2"))
 AUTHORITY_LEVEL = int(os.environ.get("ACTION_AUTHORITY_LEVEL", "2"))
-ALLOW_LEGACY_TASKNOTES_PROMOTION = (
-    os.environ.get("ALLOW_LEGACY_TASKNOTES_PROMOTION", "0") == "1"
-)
 TRIGGER_HELP_NOW = os.environ.get("TRIGGER_HELP_NOW", "1") == "1"
 TRIGGER_HELP_NOW_SERVICE = os.environ.get(
     "TRIGGER_HELP_NOW_SERVICE", "llm-planner-help-now.service"
@@ -642,92 +639,9 @@ def target_for_proposal(action, proposal_name):
 
 
 def handle_promote_task_proposal(action, path, action_id):
-    if AUTHORITY_LEVEL < 2:
-        raise PermissionError(
-            "promote_task_proposal requires ACTION_AUTHORITY_LEVEL >= 2"
-        )
-
-    if not ALLOW_LEGACY_TASKNOTES_PROMOTION:
-        raise PermissionError(
-            "promote_task_proposal requires ALLOW_LEGACY_TASKNOTES_PROMOTION=1"
-        )
-
-    proposal_name = slugify(
-        action.get("proposal") or action.get("proposal_id") or "anki-recovery",
-        "proposal",
+    raise PermissionError(
+        "promote_task_proposal is disabled; use reviewable TaskNotes drafts until deterministic apply/promote exists"
     )
-    proposal_path = AI_DIR / "proposed-tasks" / f"{proposal_name}.md"
-
-    if not proposal_path.exists():
-        raise FileNotFoundError(f"proposal not found: {proposal_path}")
-
-    proposal_text = proposal_path.read_text(encoding="utf-8")
-    target = target_for_proposal(action, proposal_name)
-    ensure_tasknotes_target(target)
-
-    overwrite = bool(action.get("overwrite", False))
-
-    if target.exists() and not overwrite:
-        raise FileExistsError(f"target exists and overwrite is false: {target}")
-
-    title = str(
-        action.get("title")
-        or title_from_markdown(proposal_text, proposal_name.replace("-", " ").title())
-    )
-    priority = str(action.get("priority") or priority_from_text(proposal_text))
-    status = str(action.get("status", "todo"))
-    project = str(
-        action.get(
-            "project",
-            "Anki Recovery" if proposal_name == "anki-recovery" else "AI Proposals",
-        )
-    )
-    scheduled = str(action.get("scheduled", today()))
-
-    body = []
-    body.append("---")
-    body.append("tags:")
-    body.append("  - task")
-    body.append("  - ai")
-    body.append("  - promoted")
-    body.append(f'title: "{title}"')
-    body.append(f"status: {status}")
-    body.append(f"priority: {priority}")
-    body.append(f"scheduled: {scheduled}")
-    body.append("contexts:")
-    body.append('  - "@computer"')
-    body.append("projects:")
-    body.append(f'  - "[[{project}]]"')
-    body.append("---")
-    body.append("")
-    body.append(f"# {title}")
-    body.append("")
-    body.append(
-        f"> Promoted from `{proposal_path.relative_to(AI_DIR)}` by action `{action_id}`."
-    )
-    body.append("")
-    body.append(proposal_text)
-
-    atomic_write_text(target, "\n".join(body))
-
-    event = base_event(action, path, action_id)
-    event["event"] = "task_proposal_promoted"
-    event["event_type"] = "task_proposal_promoted"
-    event["proposal"] = proposal_name
-    event["proposal_path"] = str(proposal_path)
-    event["target_path"] = str(target)
-    event["overwrite"] = overwrite
-    event["authority_level"] = AUTHORITY_LEVEL
-
-    append_jsonl(EVENTS_TASKNOTES_DIR / f"{today()}.jsonl", event)
-    append_jsonl(EVENTS_ACTIONS_DIR / f"{today()}.jsonl", event)
-
-    return {
-        "proposal": proposal_name,
-        "proposal_path": str(proposal_path),
-        "target_path": str(target),
-        "event": event,
-    }
 
 
 def handle_submit_proof(action, path, action_id):
@@ -1747,16 +1661,6 @@ def create_templates():
             "answer_label": "Overwhelmed",
             "free_text": "",
         },
-        "promote-anki-recovery.json": {
-            "schema_version": "action.v1",
-            "action": "promote_task_proposal",
-            "source": "action-template",
-            "device": "desktop",
-            "proposal": "anki-recovery",
-            "target": "AI/anki-due-recovery.md",
-            "overwrite": True,
-            "project": "Anki Recovery",
-        },
         "submit-proof.json": {
             "schema_version": "action.v1",
             "action": "submit_proof",
@@ -1803,7 +1707,7 @@ def create_templates():
             schema_path,
             {
                 "schema_version": "action.v1",
-                "action": "start_session|end_session|check_in|answer_question|ack_nudge|dismiss_question|promote_task_proposal|submit_proof",
+                "action": "start_session|end_session|check_in|answer_question|ack_nudge|dismiss_question|submit_proof",
                 "source": "obsidian|tasker|desktop-panel|llm-proposal|manual",
                 "device": "desktop|phone",
                 "created_at": "ISO-8601 timestamp",

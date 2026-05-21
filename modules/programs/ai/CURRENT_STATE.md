@@ -17,13 +17,13 @@ This file records what is true in the current implementation. It intentionally s
 - Obsidian/LLM paths are mostly proposal, review, and draft oriented rather than silent execution.
 - Atomic JSON writes are used for many state/protocol files.
 - Live diagnostics default to read-only unless mutating flags are passed.
-- TaskNotes direct mutation is limited to identifiable paths rather than scattered everywhere.
+- TaskNotes direct mutation paths are removed or disabled rather than scattered everywhere.
 
 ## Known legacy/direct behavior
 
 These are real mutation paths and should not be treated as the future design:
 
-- `action-bridge promote_task_proposal` can write real TaskNotes only when elevated action authority and explicit legacy TaskNotes promotion opt-in both permit it.
+- `action-bridge promote_task_proposal` is disabled and does not write real TaskNotes.
 - `anki-bridge` supports only `off` and `propose`; legacy `TASKNOTE_MODE=direct` falls back to `propose` and does not write real TaskNotes.
 
 ## Partial or transitional behavior
@@ -37,7 +37,7 @@ These are real mutation paths and should not be treated as the future design:
 ## Planned but not complete
 
 - Split or lower broad action authority.
-- Deprecate direct TaskNotes mutation surfaces.
+- Keep direct TaskNotes mutation disabled until deterministic apply/promote exists.
 - Build deterministic TaskNotes apply/promote gate.
 - Add first-class read-only TaskNotes context.
 - Add richer goal/preference/policy contracts.
