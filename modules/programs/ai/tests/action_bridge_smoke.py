@@ -13,6 +13,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[4]
 ACTION_BRIDGE = REPO / "modules/programs/ai/action-bridge/action_bridge.py"
+ACTION_BRIDGE_DEFAULT_NIX = REPO / "modules/programs/ai/action-bridge/default.nix"
 
 
 def write_json(path: Path, data: dict) -> None:
@@ -752,6 +753,101 @@ def test_action_capability_policy_metadata_invariants() -> None:
     )
 
 
+
+def test_action_capability_policy_defaults_match_runtime_and_nix_wiring() -> None:
+    shared_python = str(REPO / "modules/programs/ai/python")
+    if shared_python not in sys.path:
+        sys.path.insert(0, shared_python)
+
+    env_keys = [
+        "ACTION_AUTHORITY_LEVEL",
+        "ALLOW_PROOF_SUBMIT",
+        "ALLOW_RECOVERY_TARGET_START",
+        "ALLOW_SESSION_CHECK_IN",
+    ]
+    old_env = {key: os.environ.get(key) for key in env_keys}
+
+    try:
+        for key in env_keys:
+            os.environ.pop(key, None)
+
+        module_name = f"action_bridge_default_authority_smoke_{time.time_ns()}"
+        spec = importlib.util.spec_from_file_location(module_name, ACTION_BRIDGE)
+        module = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        spec.loader.exec_module(module)
+    finally:
+        for key, value in old_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+    assert module.AUTHORITY_LEVEL == 2
+    assert module.ALLOW_PROOF_SUBMIT is True
+    assert module.ALLOW_RECOVERY_TARGET_START is True
+    assert module.ALLOW_SESSION_CHECK_IN is True
+
+    gated = {
+        "check_in": ("ALLOW_SESSION_CHECK_IN", "allowSessionCheckIn"),
+        "start_recovery_target": (
+            "ALLOW_RECOVERY_TARGET_START",
+            "allowRecoveryTargetStart",
+        ),
+        "submit_proof": ("ALLOW_PROOF_SUBMIT", "allowProofSubmit"),
+    }
+
+    for action_name, (env_name, _nix_option) in gated.items():
+        policy = module.ACTION_CAPABILITY_POLICY[action_name]
+        assert policy["status"] == "gated", action_name
+        assert policy["default_enabled"] is True, action_name
+        assert policy["gate_env"] == env_name, action_name
+        assert policy["enabled"]() is True, action_name
+
+    assert module.ACTION_CAPABILITY_POLICY["submit_proof"]["min_authority"] == 1
+
+    capabilities = {
+        policy["capability"]
+        for policy in module.ACTION_CAPABILITY_POLICY.values()
+    }
+    assert "tasknotes.promote" not in capabilities
+
+    action_source = ACTION_BRIDGE.read_text(encoding="utf-8")
+    nix_source = ACTION_BRIDGE_DEFAULT_NIX.read_text(encoding="utf-8")
+
+    assert 'ACTION_AUTHORITY_LEVEL", "2"' in action_source
+    assert 'ALLOW_PROOF_SUBMIT", "1"' in action_source
+    assert 'ALLOW_RECOVERY_TARGET_START", "1"' in action_source
+    assert 'ALLOW_SESSION_CHECK_IN", "1"' in action_source
+
+    assert "if AUTHORITY_LEVEL < 1:" in action_source
+    assert "submit_proof requires ACTION_AUTHORITY_LEVEL >= 1" in action_source
+
+    assert "allowLegacyTaskNotesPromotion" not in nix_source
+    assert "ALLOW_LEGACY_TASKNOTES_PROMOTION" not in nix_source
+    assert "ALLOW_LEGACY_TASKNOTES_PROMOTION" not in action_source
+
+    def nix_option_block(option_name: str) -> str:
+        marker = f"    {option_name} = lib.mkOption {{"
+        start = nix_source.find(marker)
+        assert start >= 0, option_name
+        end_marker = "\n    };"
+        end = nix_source.find(end_marker, start)
+        assert end >= 0, option_name
+        return nix_source[start : end + len(end_marker)]
+
+    for _action_name, (env_name, nix_option) in gated.items():
+        block = nix_option_block(nix_option)
+        assert "default = true;" in block, nix_option
+        assert (
+            f'{env_name} = if cfg.{nix_option} then "1" else "0";'
+            in nix_source
+        ), env_name
+
+    authority_block = nix_option_block("authorityLevel")
+    assert "default = 2;" in authority_block
+
+
 def test_dispatch_aliases_have_capability_policy() -> None:
     shared_python = str(REPO / "modules/programs/ai/python")
     if shared_python not in sys.path:
@@ -1181,6 +1277,7 @@ def main() -> None:
         test_duplicate_action_id_is_skipped_without_duplicate_effects,
         test_dispatched_actions_have_capability_policy,
         test_action_capability_policy_metadata_invariants,
+        test_action_capability_policy_defaults_match_runtime_and_nix_wiring,
         test_dispatch_aliases_have_capability_policy,
         test_tasknotes_promotion_is_disabled_even_with_legacy_env,
         test_proof_submit_requires_named_capability,
