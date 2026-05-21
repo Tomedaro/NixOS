@@ -52,7 +52,7 @@ in
     createTaskNote = lib.mkOption {
       type = lib.types.bool;
       default = true;
-      description = "Legacy gate for Anki task output. If false, taskNoteMode is forced to off.";
+      description = "Legacy gate for Anki task/proposal output. If false, taskNoteMode is forced to off.";
     };
 
     taskNoteMode = lib.mkOption {
@@ -68,7 +68,8 @@ in
           Write an inspectable proposal under AI/proposed-tasks/anki-recovery.md.
 
         direct:
-          Write/update the real TaskNotes task directly.
+          Legacy/deprecated compatibility mode. Write/update the real TaskNotes task directly.
+          Do not use for new flows; prefer propose until a deterministic TaskNotes apply/promote gate exists.
       '';
     };
   };

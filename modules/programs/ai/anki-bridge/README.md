@@ -114,12 +114,16 @@ Avoid silently creating obligations.
 Current intended modes:
 
 ```text
-none
+off
 propose
-write
+direct
 ```
 
-`propose` is preferred during active development.
+`propose` is the default and preferred mode during active development. It writes an inspectable proposal under `AI/proposed-tasks/anki-recovery.md` and does not write real TaskNotes.
+
+`off` disables Anki task/proposal output.
+
+`direct` is a legacy/deprecated compatibility mode. It writes the configured recovery TaskNote directly and should not be used for new flows. Keep it only for explicit compatibility until a deterministic TaskNotes apply/promote gate replaces it.
 
 ---
 
