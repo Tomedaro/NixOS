@@ -28,6 +28,9 @@ SYSTEMCTL = os.environ.get("SYSTEMCTL", "systemctl")
 
 STABILITY_SECONDS = int(os.environ.get("ACTION_STABILITY_SECONDS", "2"))
 AUTHORITY_LEVEL = int(os.environ.get("ACTION_AUTHORITY_LEVEL", "2"))
+ALLOW_LEGACY_TASKNOTES_PROMOTION = (
+    os.environ.get("ALLOW_LEGACY_TASKNOTES_PROMOTION", "0") == "1"
+)
 TRIGGER_HELP_NOW = os.environ.get("TRIGGER_HELP_NOW", "1") == "1"
 TRIGGER_HELP_NOW_SERVICE = os.environ.get(
     "TRIGGER_HELP_NOW_SERVICE", "llm-planner-help-now.service"
@@ -642,6 +645,11 @@ def handle_promote_task_proposal(action, path, action_id):
     if AUTHORITY_LEVEL < 2:
         raise PermissionError(
             "promote_task_proposal requires ACTION_AUTHORITY_LEVEL >= 2"
+        )
+
+    if not ALLOW_LEGACY_TASKNOTES_PROMOTION:
+        raise PermissionError(
+            "promote_task_proposal requires ALLOW_LEGACY_TASKNOTES_PROMOTION=1"
         )
 
     proposal_name = slugify(

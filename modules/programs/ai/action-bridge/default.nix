@@ -38,6 +38,12 @@ in
       description = "Seconds an action file must be unchanged before processing.";
     };
 
+    allowLegacyTaskNotesPromotion = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Allow legacy action-bridge promote_task_proposal to write real TaskNotes.";
+    };
+
     authorityLevel = lib.mkOption {
       type = lib.types.int;
       default = 2;
@@ -90,6 +96,7 @@ in
         ACTION_BRIDGE_TIMEZONE = config.my.ai.core.timezone;
         ACTION_STABILITY_SECONDS = toString cfg.stabilitySeconds;
         ACTION_AUTHORITY_LEVEL = toString cfg.authorityLevel;
+        ALLOW_LEGACY_TASKNOTES_PROMOTION = if cfg.allowLegacyTaskNotesPromotion then "1" else "0";
         TRIGGER_HELP_NOW = if cfg.triggerHelpNow then "1" else "0";
         TRIGGER_HELP_NOW_SERVICE = cfg.helpNowService;
         PYTHONUNBUFFERED = "1";

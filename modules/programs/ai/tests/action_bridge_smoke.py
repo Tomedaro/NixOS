@@ -685,6 +685,106 @@ def test_default_authority_rejects_tasknotes_promotion_without_real_tasknotes_wr
         )
         assert "ACTION_AUTHORITY_LEVEL >= 2" in error_text
 
+
+def test_elevated_authority_without_legacy_tasknotes_opt_in_rejects_promotion() -> None:
+    with tempfile.TemporaryDirectory(prefix="ai-action-tasknotes-hard-gate-") as tmp:
+        ai_dir = Path(tmp) / "AI"
+        tasknotes_dir = Path(tmp) / "TaskNotes"
+        setup_base(ai_dir)
+
+        proposal_name = "hard-gate-tasknotes-promotion-blocked"
+        proposal_dir = ai_dir / "proposed-tasks"
+        proposal_dir.mkdir(parents=True, exist_ok=True)
+        (proposal_dir / f"{proposal_name}.md").write_text(
+            "# Should not be promoted\n",
+            encoding="utf-8",
+        )
+
+        target = tasknotes_dir / "Tasks/hard-gate-should-not-write.md"
+
+        action_file(
+            ai_dir,
+            "1000_promote_task_proposal.json",
+            {
+                "schema_version": "action.v1",
+                "action": "promote_task_proposal",
+                "action_id": "hard-gate-tasknotes-promotion-blocked",
+                "source": "test",
+                "device": "phone",
+                "timestamp_epoch": int(time.time()),
+                "proposal": proposal_name,
+                "target": "Tasks/hard-gate-should-not-write.md",
+            },
+        )
+
+        proc = run_action_bridge(
+            ai_dir,
+            tasknotes_dir,
+            extra_env={
+                "ACTION_AUTHORITY_LEVEL": "2",
+                "ALLOW_LEGACY_TASKNOTES_PROMOTION": "0",
+            },
+        )
+        assert_bridge_ok(proc)
+
+        assert not target.exists()
+        assert not any(tasknotes_dir.rglob("*"))
+        assert not processed_files(ai_dir)
+        assert failed_files(ai_dir)
+
+        error_text = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in (ai_dir / "inbox/actions-failed").rglob("*.error.txt")
+        )
+        assert "ALLOW_LEGACY_TASKNOTES_PROMOTION=1" in error_text
+
+
+def test_explicit_legacy_tasknotes_opt_in_allows_promotion_to_temp_tasknotes() -> None:
+    with tempfile.TemporaryDirectory(prefix="ai-action-tasknotes-opt-in-") as tmp:
+        ai_dir = Path(tmp) / "AI"
+        tasknotes_dir = Path(tmp) / "TaskNotes"
+        setup_base(ai_dir)
+
+        proposal_name = "legacy-tasknotes-promotion-allowed"
+        proposal_dir = ai_dir / "proposed-tasks"
+        proposal_dir.mkdir(parents=True, exist_ok=True)
+        (proposal_dir / f"{proposal_name}.md").write_text(
+            "# Legacy opt-in promotion\n",
+            encoding="utf-8",
+        )
+
+        target = tasknotes_dir / "Tasks/legacy-opt-in.md"
+
+        action_file(
+            ai_dir,
+            "1000_promote_task_proposal.json",
+            {
+                "schema_version": "action.v1",
+                "action": "promote_task_proposal",
+                "action_id": "legacy-tasknotes-promotion-allowed",
+                "source": "test",
+                "device": "phone",
+                "timestamp_epoch": int(time.time()),
+                "proposal": proposal_name,
+                "target": "Tasks/legacy-opt-in.md",
+            },
+        )
+
+        proc = run_action_bridge(
+            ai_dir,
+            tasknotes_dir,
+            extra_env={
+                "ACTION_AUTHORITY_LEVEL": "2",
+                "ALLOW_LEGACY_TASKNOTES_PROMOTION": "1",
+            },
+        )
+        assert_bridge_ok(proc)
+
+        assert target.exists()
+        assert "Legacy opt-in promotion" in target.read_text(encoding="utf-8")
+        assert processed_files(ai_dir)
+        assert not failed_files(ai_dir)
+
 def test_action_journal_records_processed_action() -> None:
     with tempfile.TemporaryDirectory(prefix="ai-action-journal-success-") as tmp:
         ai_dir = Path(tmp) / "AI"
@@ -863,6 +963,8 @@ def main() -> None:
         test_invalid_json_moves_to_failed_once,
         test_duplicate_action_id_is_skipped_without_duplicate_effects,
         test_default_authority_rejects_tasknotes_promotion_without_real_tasknotes_write,
+        test_elevated_authority_without_legacy_tasknotes_opt_in_rejects_promotion,
+        test_explicit_legacy_tasknotes_opt_in_allows_promotion_to_temp_tasknotes,
         test_action_journal_records_processed_action,
         test_processing_journal_blocks_replay_without_side_effects,
         test_process_lock_is_non_blocking,

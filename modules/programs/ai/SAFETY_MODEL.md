@@ -36,7 +36,7 @@ Dangerous capabilities should default off.
 The following are known real TaskNotes writers and must be treated as legacy/direct until consolidated:
 
 1. `action-bridge promote_task_proposal`
-   - writes a TaskNotes target when authority permits;
+   - writes a TaskNotes target only when elevated action authority and explicit legacy TaskNotes promotion opt-in both permit;
    - should be disabled/hard-gated in a later behavior patch.
 2. `anki-bridge taskNoteMode = "direct"`
    - writes/updates a direct recovery TaskNote;
@@ -77,7 +77,7 @@ The companion should be friendly and recovery-oriented:
 
 ## Dangerous or legacy paths
 
-- `promote_task_proposal` real TaskNotes mutation.
+- `promote_task_proposal` real TaskNotes mutation now requires both elevated action authority and explicit legacy TaskNotes promotion opt-in.
 - `anki-bridge direct` real TaskNotes mutation.
 - Legacy Obsidian paths such as `AI/inbox/from-obsidian` should remain marked legacy if mentioned.
 - Any future desktop popup or automation that executes without review must be treated as high risk until explicitly modeled.

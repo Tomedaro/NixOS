@@ -5,7 +5,7 @@ This file is planned work only. Do not use it as current-state documentation.
 ## Priority 1 - Stabilize authority and direct mutation boundaries
 
 1. Split/lower broad `action-bridge` authority.
-2. Mark, hard-gate, or disable `promote_task_proposal` as legacy/direct.
+2. Keep `promote_task_proposal` hard-gated as legacy/direct until it is disabled or replaced by deterministic apply/promote.
 3. Deprecate `anki-bridge taskNoteMode = "direct"`.
 4. Add tests proving default configuration cannot mutate real TaskNotes through legacy/direct paths.
 

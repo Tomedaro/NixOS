@@ -23,7 +23,7 @@ This file records what is true in the current implementation. It intentionally s
 
 These are real mutation paths and should not be treated as the future design:
 
-- `action-bridge promote_task_proposal` can write real TaskNotes when authority permits it.
+- `action-bridge promote_task_proposal` can write real TaskNotes only when elevated action authority and explicit legacy TaskNotes promotion opt-in both permit it.
 - `anki-bridge taskNoteMode = "direct"` can write/update a real TaskNotes recovery task.
 
 ## Partial or transitional behavior
