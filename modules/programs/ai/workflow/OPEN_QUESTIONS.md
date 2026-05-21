@@ -11,4 +11,4 @@ This file tracks unresolved questions that affect implementation, safety, docs, 
 
 ## Current open questions
 
-- Which TaskNotes integration points are current implementation versus roadmap?
+None.
