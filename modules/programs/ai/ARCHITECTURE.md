@@ -86,7 +86,7 @@ intent or proposal
   -> event and provenance record
 ```
 
-Current exception: `action-bridge promote_task_proposal` and `anki-bridge taskNoteMode = "direct"` can mutate real TaskNotes. They are legacy/direct surfaces and should be deprecated or hard-gated.
+Current exception: `action-bridge promote_task_proposal` can mutate real TaskNotes only through its hard-gated legacy/direct path. `anki-bridge` direct TaskNotes mode is removed/hard-disabled.
 
 ## Runtime views
 

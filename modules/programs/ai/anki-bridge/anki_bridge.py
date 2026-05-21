@@ -23,7 +23,7 @@ TIMEZONE = get_timezone(os.environ.get("ANKI_BRIDGE_TIMEZONE"))
 if not CREATE_TASKNOTE:
     TASKNOTE_MODE = "off"
 
-if TASKNOTE_MODE not in {"off", "propose", "direct"}:
+if TASKNOTE_MODE not in {"off", "propose"}:
     TASKNOTE_MODE = "propose"
 
 DECKS = json.loads(os.environ.get("ANKI_DECKS_JSON", "[]"))
@@ -48,8 +48,6 @@ def ensure_dirs():
     ]:
         path.mkdir(parents=True, exist_ok=True)
 
-    if TASKNOTE_MODE == "direct":
-        TASKNOTE_AI_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def anki_request(action, params=None, timeout=8):
@@ -352,7 +350,7 @@ def task_status_for_due(due):
     return "todo"
 
 
-def recovery_markdown(status, destination_kind):
+def recovery_markdown(status):
     totals = status["totals"]
     due = totals["due"]
     priority = priority_for_due(due)
@@ -361,31 +359,10 @@ def recovery_markdown(status, destination_kind):
 
     body = []
 
-    if destination_kind == "direct":
-        body.append("---")
-        body.append("tags:")
-        body.append("  - task")
-        body.append("  - ai")
-        body.append("  - anki")
-        body.append('title: "Recover Anki backlog"')
-        body.append(f"status: {status_value}")
-        body.append(f"priority: {priority}")
-        body.append(f"scheduled: {today_value}")
-        body.append(f"due: {today_value}")
-        body.append("contexts:")
-        body.append('  - "@computer"')
-        body.append("projects:")
-        body.append('  - "[[Anki Recovery]]"')
-        body.append("---")
-        body.append("")
-
     body.append("# Recover Anki backlog")
     body.append("")
 
-    if destination_kind == "direct":
-        body.append("> Managed by the local AI Anki bridge in direct mode.")
-    else:
-        body.append("> Proposed by the local AI Anki bridge. Review before turning into a real TaskNote.")
+    body.append("> Proposed by the local AI Anki bridge. Review before turning into a real TaskNote.")
 
     body.append("")
     body.append("## Current status")
@@ -441,14 +418,7 @@ def write_recovery_task_or_proposal(status):
     if TASKNOTE_MODE == "off":
         return None
 
-    if TASKNOTE_MODE == "direct":
-        atomic_write_text(DIRECT_RECOVERY_TASK, recovery_markdown(status, "direct"))
-        return {
-            "mode": "direct",
-            "path": str(DIRECT_RECOVERY_TASK),
-        }
-
-    atomic_write_text(PROPOSED_RECOVERY_TASK, recovery_markdown(status, "propose"))
+    atomic_write_text(PROPOSED_RECOVERY_TASK, recovery_markdown(status))
     return {
         "mode": "propose",
         "path": str(PROPOSED_RECOVERY_TASK),

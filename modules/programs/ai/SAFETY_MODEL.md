@@ -38,10 +38,9 @@ The following are known real TaskNotes writers and must be treated as legacy/dir
 1. `action-bridge promote_task_proposal`
    - writes a TaskNotes target only when elevated action authority and explicit legacy TaskNotes promotion opt-in both permit;
    - should be disabled/hard-gated in a later behavior patch.
-2. `anki-bridge taskNoteMode = "direct"`
-   - writes/updates a direct recovery TaskNote;
-   - default should remain safer `propose` behavior;
-   - direct mode should be deprecated.
+Removed/hard-disabled Anki direct mode:
+- `anki-bridge` no longer supports `taskNoteMode = "direct"` in Nix config.
+- Raw `TASKNOTE_MODE=direct` falls back to `propose` and does not write real TaskNotes.
 
 ## Obsidian and LLM boundary
 
@@ -78,6 +77,6 @@ The companion should be friendly and recovery-oriented:
 ## Dangerous or legacy paths
 
 - `promote_task_proposal` real TaskNotes mutation now requires both elevated action authority and explicit legacy TaskNotes promotion opt-in.
-- `anki-bridge direct` real TaskNotes mutation.
+- `anki-bridge direct` real TaskNotes mutation is removed/hard-disabled; raw `TASKNOTE_MODE=direct` falls back to `propose`.
 - Legacy Obsidian paths such as `AI/inbox/from-obsidian` should remain marked legacy if mentioned.
 - Any future desktop popup or automation that executes without review must be treated as high risk until explicitly modeled.

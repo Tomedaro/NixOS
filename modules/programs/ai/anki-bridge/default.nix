@@ -56,7 +56,7 @@ in
     };
 
     taskNoteMode = lib.mkOption {
-      type = lib.types.enum [ "off" "propose" "direct" ];
+      type = lib.types.enum [ "off" "propose" ];
       default = "propose";
       description = ''
         Authority mode for Anki recovery task output.
@@ -67,9 +67,8 @@ in
         propose:
           Write an inspectable proposal under AI/proposed-tasks/anki-recovery.md.
 
-        direct:
-          Legacy/deprecated compatibility mode. Write/update the real TaskNotes task directly.
-          Do not use for new flows; prefer propose until a deterministic TaskNotes apply/promote gate exists.
+        Direct TaskNotes writes are no longer supported by anki-bridge.
+        Use propose until a deterministic TaskNotes apply/promote gate exists.
       '';
     };
   };

@@ -123,8 +123,8 @@ def test_create_tasknote_false_forces_off_without_task_writes() -> None:
         assert not any(tasknotes_dir.rglob("*"))
 
 
-def test_direct_mode_writes_only_to_temp_tasknotes_when_explicit() -> None:
-    with tempfile.TemporaryDirectory(prefix="ai-anki-bridge-direct-") as tmp:
+def test_direct_mode_falls_back_to_propose_without_tasknotes_write() -> None:
+    with tempfile.TemporaryDirectory(prefix="ai-anki-bridge-direct-disabled-") as tmp:
         ai_dir = Path(tmp) / "AI"
         tasknotes_dir = Path(tmp) / "TaskNotes"
         tasknotes_dir.mkdir(parents=True)
@@ -138,28 +138,26 @@ def test_direct_mode_writes_only_to_temp_tasknotes_when_explicit() -> None:
             },
         )
 
-        assert module.TASKNOTE_MODE == "direct"
+        assert module.TASKNOTE_MODE == "propose"
         module.ensure_dirs()
         output = module.write_recovery_task_or_proposal(available_status())
 
         proposal = ai_dir / "proposed-tasks/anki-recovery.md"
         direct_tasknote = tasknotes_dir / "AI/anki-due-recovery.md"
 
-        assert output["mode"] == "direct"
-        assert output["path"] == str(direct_tasknote)
-        assert direct_tasknote.exists()
-        assert "Managed by the local AI Anki bridge in direct mode" in direct_tasknote.read_text(encoding="utf-8")
-        assert not proposal.exists()
-
-        written = [path for path in tasknotes_dir.rglob("*") if path.is_file()]
-        assert written == [direct_tasknote]
+        assert output["mode"] == "propose"
+        assert output["path"] == str(proposal)
+        assert proposal.exists()
+        assert "Proposed by the local AI Anki bridge" in proposal.read_text(encoding="utf-8")
+        assert not direct_tasknote.exists()
+        assert not any(tasknotes_dir.rglob("*"))
 
 
 def run_all() -> None:
     tests = [
         test_default_propose_mode_writes_proposal_not_real_tasknotes,
         test_create_tasknote_false_forces_off_without_task_writes,
-        test_direct_mode_writes_only_to_temp_tasknotes_when_explicit,
+        test_direct_mode_falls_back_to_propose_without_tasknotes_write,
     ]
 
     for test in tests:

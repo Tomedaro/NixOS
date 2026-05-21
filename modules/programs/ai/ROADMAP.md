@@ -6,7 +6,7 @@ This file is planned work only. Do not use it as current-state documentation.
 
 1. Split/lower broad `action-bridge` authority.
 2. Keep `promote_task_proposal` hard-gated as legacy/direct until it is disabled or replaced by deterministic apply/promote.
-3. Deprecate `anki-bridge taskNoteMode = "direct"`.
+3. Keep Anki task output proposal/off only until deterministic TaskNotes apply/promote exists.
 4. Add tests proving default configuration cannot mutate real TaskNotes through legacy/direct paths.
 
 ## Priority 2 - Canonicalize action and TaskNotes flows

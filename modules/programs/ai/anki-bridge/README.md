@@ -40,14 +40,13 @@ AI/anki/status.json
 AI/anki/status.md
 ```
 
-Optional/proposal outputs may include:
+Proposal outputs may include:
 
 ```text
 AI/proposed-tasks/
-TaskNotes/AI/
 ```
 
-depending on configuration.
+`anki-bridge` no longer writes real TaskNotes directly.
 
 ---
 
@@ -116,14 +115,13 @@ Current intended modes:
 ```text
 off
 propose
-direct
 ```
 
 `propose` is the default and preferred mode during active development. It writes an inspectable proposal under `AI/proposed-tasks/anki-recovery.md` and does not write real TaskNotes.
 
 `off` disables Anki task/proposal output.
 
-`direct` is a legacy/deprecated compatibility mode. It writes the configured recovery TaskNote directly and should not be used for new flows. Keep it only for explicit compatibility until a deterministic TaskNotes apply/promote gate replaces it.
+Direct TaskNotes writes are no longer supported by `anki-bridge`. Use `propose` until a deterministic TaskNotes apply/promote gate exists.
 
 ---
 

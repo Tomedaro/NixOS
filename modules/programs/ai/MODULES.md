@@ -12,7 +12,7 @@ This is the high-level module map. Detailed evidence belongs in `docs/MODULE_REV
 | `recovery-manager` | Recovery proposal/status handling. | Medium | Should propose rather than silently commit. |
 | `recovery-trigger` | Trigger recovery flow from signals/state. | Medium | Must avoid nag loops and respect attention policy. |
 | `intervention-outcomes` | Outcome recording/reporting. | Low/Medium | Useful basis for learning loop, but not full product eval yet. |
-| `anki-bridge` | Anki/recovery bridge. | High when direct | `direct` TaskNotes mode is legacy/direct; `propose` is safer. |
+| `anki-bridge` | Anki/recovery bridge. | Observe + draft/propose | Direct TaskNotes mode is removed/hard-disabled; `propose` is the supported task output mode. |
 | `vault-bridge` | AI vault integration/config. | Medium | Protocol/state bridge. |
 | `llm-planner` | Planner/proposal generation. | Low | Proposal-oriented; should include richer metadata over time. |
 | `obsidian_*` Python modules | Obsidian protocol, context, proposals, approval, task drafts. | Low/Medium | Strong review/draft boundary. |
