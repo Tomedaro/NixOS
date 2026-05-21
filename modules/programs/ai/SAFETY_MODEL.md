@@ -32,7 +32,7 @@ Dangerous capabilities should default off.
 
 ## Action bridge capability inventory
 
-The action bridge still has a broad numeric `ACTION_AUTHORITY_LEVEL` setting. The source now keeps a small `ACTION_CAPABILITY_POLICY` registry for dispatched action capability classes. This is an inventory and incremental enforcement point, not a full policy engine. Existing named gates remain default-enabled except disabled legacy actions:
+The action bridge still has a broad numeric `ACTION_AUTHORITY_LEVEL` setting. The source now keeps a small `ACTION_CAPABILITY_POLICY` registry for dispatched action capability classes. Each entry declares status, side-effect class, default-enabled state, and gate metadata where applicable so policy drift is visible before adding more gates. This is an inventory and incremental enforcement point, not a full policy engine. Existing named gates remain default-enabled except disabled legacy actions:
 
 | Action | Capability | Current behavior | Side-effect class |
 | --- | --- | --- | --- |

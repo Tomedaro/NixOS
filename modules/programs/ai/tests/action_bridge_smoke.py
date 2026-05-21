@@ -678,6 +678,80 @@ def test_dispatched_actions_have_capability_policy() -> None:
 
 
 
+
+def test_action_capability_policy_metadata_invariants() -> None:
+    shared_python = str(REPO / "modules/programs/ai/python")
+    if shared_python not in sys.path:
+        sys.path.insert(0, shared_python)
+
+    module_name = f"action_bridge_policy_metadata_smoke_{time.time_ns()}"
+    spec = importlib.util.spec_from_file_location(module_name, ACTION_BRIDGE)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+
+    valid_statuses = {"supported", "gated", "disabled"}
+    required_fields = {
+        "capability",
+        "status",
+        "side_effect",
+        "default_enabled",
+        "enabled",
+    }
+
+    for action_name, policy in module.ACTION_CAPABILITY_POLICY.items():
+        assert required_fields <= set(policy), action_name
+        assert policy["status"] in valid_statuses, action_name
+        assert isinstance(policy["side_effect"], str), action_name
+        assert policy["side_effect"], action_name
+        assert isinstance(policy["default_enabled"], bool), action_name
+
+        if policy["status"] == "supported":
+            assert policy["default_enabled"] is True, action_name
+            assert policy["enabled"] is True, action_name
+            assert "gate_env" not in policy, action_name
+            assert "min_authority" not in policy, action_name
+
+        if policy["status"] == "gated":
+            assert policy["default_enabled"] is True, action_name
+            assert "gate_env" in policy, action_name
+            assert policy["gate_env"].startswith("ALLOW_"), action_name
+            assert callable(policy["enabled"]), action_name
+
+        if policy["status"] == "disabled":
+            assert policy["default_enabled"] is False, action_name
+            assert policy["enabled"] is False, action_name
+            assert policy["capability"] == "disabled.legacy", action_name
+
+    for policy in module.ACTION_CAPABILITY_POLICY.values():
+        assert policy["capability"] != "tasknotes.promote"
+
+    assert (
+        module.ACTION_CAPABILITY_POLICY["check_in"]["gate_env"]
+        == "ALLOW_SESSION_CHECK_IN"
+    )
+    assert (
+        module.ACTION_CAPABILITY_POLICY["start_recovery_target"]["gate_env"]
+        == "ALLOW_RECOVERY_TARGET_START"
+    )
+    assert (
+        module.ACTION_CAPABILITY_POLICY["submit_proof"]["gate_env"]
+        == "ALLOW_PROOF_SUBMIT"
+    )
+    assert module.ACTION_CAPABILITY_POLICY["submit_proof"]["min_authority"] == 1
+
+    assert module.ACTION_CAPABILITY_POLICY["promote_task_proposal"]["status"] == "disabled"
+    assert module.ACTION_CAPABILITY_POLICY["promote_proposal"]["status"] == "disabled"
+    assert (
+        module.ACTION_CAPABILITY_POLICY["promote_task_proposal"]["side_effect"]
+        == "none_disabled_tasknotes"
+    )
+    assert (
+        module.ACTION_CAPABILITY_POLICY["promote_proposal"]["side_effect"]
+        == "none_disabled_tasknotes"
+    )
+
+
 def test_dispatch_aliases_have_capability_policy() -> None:
     shared_python = str(REPO / "modules/programs/ai/python")
     if shared_python not in sys.path:
@@ -1106,6 +1180,7 @@ def main() -> None:
         test_invalid_json_moves_to_failed_once,
         test_duplicate_action_id_is_skipped_without_duplicate_effects,
         test_dispatched_actions_have_capability_policy,
+        test_action_capability_policy_metadata_invariants,
         test_dispatch_aliases_have_capability_policy,
         test_tasknotes_promotion_is_disabled_even_with_legacy_env,
         test_proof_submit_requires_named_capability,
