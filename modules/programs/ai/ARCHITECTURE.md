@@ -47,7 +47,8 @@ Action bridge
 
 TaskNotes apply/promote path
   -> target design: deterministic reviewed apply gate
-  -> current caveat: legacy/direct writers still exist
+  -> current status: direct TaskNotes mutation paths are removed or disabled
+  -> future work: deterministic reviewed apply gate
 ```
 
 ## Building blocks

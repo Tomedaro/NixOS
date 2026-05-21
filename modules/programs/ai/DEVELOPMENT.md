@@ -59,7 +59,7 @@ Live actions belong in `AI/inbox/actions/*.json`. The action bridge owns validat
 
 ### TaskNotes
 
-TaskNotes is the durable human commitment surface. New code should produce reviewable drafts unless a deterministic reviewed apply gate exists. Existing direct writers are legacy/direct and should not be copied.
+TaskNotes is the durable human commitment surface. New code should produce reviewable drafts unless a deterministic reviewed apply gate exists. Historical direct writers have been removed or disabled and should not be reintroduced.
 
 ## Required verification before behavior patches
 

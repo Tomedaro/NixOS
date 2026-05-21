@@ -7,7 +7,7 @@ This file is planned work only. Do not use it as current-state documentation.
 1. Split/lower broad `action-bridge` authority.
 2. Keep direct TaskNotes mutation disabled until deterministic apply/promote exists.
 3. Keep Anki task output proposal/off only until deterministic TaskNotes apply/promote exists.
-4. Add tests proving default configuration cannot mutate real TaskNotes through legacy/direct paths.
+4. Preserve regression coverage proving default/reviewable paths cannot mutate real TaskNotes.
 
 ## Priority 2 - Canonicalize action and TaskNotes flows
 

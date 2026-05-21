@@ -19,8 +19,8 @@ This is the reference for AI vault paths and protocol status. Status values: cur
 | `AI/state/phone/ai-pi-gruvbox-card-v1.html` | current generated UI artifact | phone-webview installer/build step | phone/webview surfaces | Local phone card HTML copied into the vault. |
 | `AI/events/*` and JSONL event files | current evidence | many modules | diagnostics/review | Evidence/event records; not authoritative crash-safe/tamper-evident audit logs yet. |
 | `AI/events/phone/YYYY-MM-DD.jsonl` | current evidence | `phone-bridge` | diagnostics/review | Appended passive phone telemetry events. |
-| `TaskNotes/` | current external durable surface | humans and legacy/direct paths | TaskNotes/Obsidian/humans | Durable human commitments. |
-| `TaskNotes/Tasks` | current external durable surface | TaskNotes/humans and legacy/direct paths | TaskNotes/Obsidian/humans | Common task directory under TaskNotes. |
+| `TaskNotes/` | current external durable surface | humans and future deterministic apply/promote only | TaskNotes/Obsidian/humans | Durable human commitments. Current AI paths produce reviewable drafts/proposals, not real TaskNotes writes. |
+| `TaskNotes/Tasks` | current external durable surface | TaskNotes/humans and future deterministic apply/promote only | TaskNotes/Obsidian/humans | Common task directory under TaskNotes. Current AI paths should not write here directly. |
 
 ## Legacy/deprecated paths
 
