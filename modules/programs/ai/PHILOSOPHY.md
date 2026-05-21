@@ -496,7 +496,7 @@ The future direction is a deterministic apply/promote gate:
 - the apply gate validates and writes;
 - the system records what changed, why, and which goal it supports.
 
-Legacy/direct TaskNotes mutation paths should be treated as temporary compatibility surfaces to deprecate or hard-gate.
+Historical legacy/direct TaskNotes mutation paths have been removed or disabled; future TaskNotes mutation must stay behind deterministic, explicit, reviewed apply/promote gates.
 
 ## Inspectability
 

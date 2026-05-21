@@ -121,16 +121,15 @@ Authority legend: observe, draft/propose, review, local-state mutate, live-actio
 - Resolved by ac274a9 and 36f5813: legacy/direct TaskNotes mutation paths are disabled or removed.
 - Evidence:
   - Updated by 36f5813: Nix `taskNoteMode` supports only `off` and `propose`; raw `TASKNOTE_MODE=direct` falls back to `propose`.
-  - `write_recovery_task_or_proposal` writes `DIRECT_RECOVERY_TASK` when `TASKNOTE_MODE == "direct"` at lines 437-449 of `anki_bridge.py`.
+  - Resolved by 36f5813: `write_recovery_task_or_proposal` no longer writes `DIRECT_RECOVERY_TASK`; raw `TASKNOTE_MODE=direct` falls back to `propose`.
   - Nix top-level default keeps `taskNoteMode = "propose"` at `default.nix` lines 117-122.
 - Tests:
-  - Anki behavior is partly covered through integration/context tests; direct-mode mutation needs explicit default-deny tests.
+  - Resolved by 2bb0fa1 and 36f5813: offline Anki smoke coverage verifies default/propose behavior, `CREATE_TASKNOTE=0`, and raw direct fallback do not write real TaskNotes.
 - Issues:
   - Resolved by 36f5813: direct TaskNotes mode is removed/hard-disabled.
-  - MEDIUM: option text says bridge is read-only, but direct mode contradicts that label.
+  - Resolved by 36f5813: direct mode is removed/hard-disabled, so the read-only/status bridge label is no longer contradicted by direct TaskNotes writes.
 - Actions:
-  - Mark direct mode deprecated in option docs.
-  - Add warning status/event when direct mode is enabled.
+  - No further Anki direct-mode deprecation work is needed; preserve reviewable proposal behavior until deterministic apply/promote exists.
   - Consider removing direct mode after deterministic apply gate exists.
 
 ### `session-manager/session_manager.py`

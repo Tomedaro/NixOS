@@ -95,10 +95,10 @@ Optional/stub modules reviewed at Nix level:
 |---|---:|---|
 | core | current | Canonical local paths/timezone defaults. |
 | vault-bridge | current | Creates AI vault directory/protocol skeleton. |
-| action-bridge | current / high-risk | Live action authority; includes legacy TaskNotes promotion. |
+| action-bridge | current / high-risk | Live action authority; legacy TaskNotes promotion is disabled. |
 | session-manager | current | Session state and control-file writer. |
 | phone-bridge | current | Passive phone telemetry ingestion; rejects misrouted actions. |
-| anki-bridge | current / legacy option | Status/proposal writer; has deprecated direct TaskNotes mode. |
+| anki-bridge | current | Status/proposal writer; direct TaskNotes mode is removed/hard-disabled. |
 | coach-daemon | current | ActivityWatch-based desktop coach and telemetry writer. |
 | llm-planner | current but timer off | Local Ollama planner; writes reports, current question/nudge, proposed tasks. |
 | dialog-bridge | current but timer off | Notification/answer loop; should hand answers to action queue. |

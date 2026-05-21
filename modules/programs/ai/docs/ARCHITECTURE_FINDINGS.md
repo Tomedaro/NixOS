@@ -40,20 +40,19 @@ No critical code failure was found in the read-only audit. The main blockers bef
 - Severity: high
 - Area: TaskNotes boundary
 - Evidence:
-  - `anki-bridge/default.nix` exposes `taskNoteMode = enum [ "off" "propose" "direct" ]` and documents `direct` as writing/updating a real TaskNotes task.
-  - `anki_bridge.py` writes `DIRECT_RECOVERY_TASK` when `TASKNOTE_MODE == "direct"`.
-  - Top-level default is safer: `taskNoteMode = "propose"`.
+  - Resolved by 36f5813: `anki-bridge/default.nix` no longer exposes `taskNoteMode = "direct"`; raw `TASKNOTE_MODE=direct` falls back to `propose`.
+  - Resolved by 36f5813: `anki_bridge.py` no longer writes `DIRECT_RECOVERY_TASK`; raw `TASKNOTE_MODE=direct` falls back to `propose`.
+  - Current safe behavior is `propose`; direct TaskNotes writes are removed/hard-disabled.
 - Why it matters:
   - Resolved by 36f5813: Anki direct mode is removed/hard-disabled; deterministic apply/promote remains future work.
-  - It is telemetry-driven and can make durable human commitment changes.
+  - Historical risk: telemetry-driven code could make durable human commitment changes; resolved by 36f5813 for Anki direct mode.
 - Current mitigations:
-  - Default is propose mode.
-  - Direct mode must be configured explicitly.
+  - Direct mode is removed/hard-disabled; raw `TASKNOTE_MODE=direct` falls back to `propose`.
+  - Offline smoke coverage verifies default/propose behavior and raw direct fallback do not write real TaskNotes.
 - Remaining risk:
-  - The code path and option remain normalized and documented as an available mode.
+  - Deterministic TaskNotes apply/promote remains future work; reviewable drafts must not be treated as real TaskNotes.
 - Recommended treatment:
-  - Mark direct mode deprecated immediately.
-  - Emit warning status/event when enabled.
+  - No further Anki direct-mode deprecation work is needed; preserve reviewable proposal/draft paths until deterministic apply/promote exists.
   - Remove after the deterministic apply gate is available.
 
 ### MEDIUM-001 - `dialog-bridge` owns answer lifecycle outside canonical action queue
