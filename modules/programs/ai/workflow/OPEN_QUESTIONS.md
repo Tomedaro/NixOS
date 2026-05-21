@@ -11,7 +11,5 @@ This file tracks unresolved questions that affect implementation, safety, docs, 
 
 ## Current open questions
 
-- Which existing AI project checks are authoritative for normal development?
-- Which docs are canonical versus transitional after the documentation restructure?
+- Which verification tier applies to docs-only, behavior, staged, and live-diagnostic AI changes?
 - Which TaskNotes integration points are current implementation versus roadmap?
-- Which verification checks should be mandatory before every AI project commit?
