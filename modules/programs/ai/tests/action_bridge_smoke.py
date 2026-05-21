@@ -50,7 +50,7 @@ def read_jsonl(path: Path) -> list[dict]:
     return out
 
 
-def run_action_bridge(ai_dir: Path, tasknotes_dir: Path) -> subprocess.CompletedProcess:
+def run_action_bridge(ai_dir: Path, tasknotes_dir: Path, extra_env=None) -> subprocess.CompletedProcess:
     env = dict(os.environ)
     env["AI_DIR"] = str(ai_dir)
     env["TASKNOTES_DIR"] = str(tasknotes_dir)
@@ -64,6 +64,9 @@ def run_action_bridge(ai_dir: Path, tasknotes_dir: Path) -> subprocess.Completed
     env["PYTHONPATH"] = (
         shared_python if not old_pythonpath else shared_python + ":" + old_pythonpath
     )
+
+    if extra_env is not None:
+        env.update(extra_env)
 
     return subprocess.run(
         [sys.executable, str(ACTION_BRIDGE)],
@@ -211,7 +214,11 @@ def test_ack_nudge() -> None:
             },
         )
 
-        proc = run_action_bridge(ai_dir, tasknotes_dir)
+        proc = run_action_bridge(
+            ai_dir,
+            tasknotes_dir,
+            extra_env={"ACTION_AUTHORITY_LEVEL": "1"},
+        )
         assert_bridge_ok(proc)
 
         nudge = read_json(ai_dir / "outbox/to-phone/current-nudge.json")
@@ -628,6 +635,56 @@ def test_duplicate_action_id_is_skipped_without_duplicate_effects() -> None:
         assert "dedupe-action-smoke" in cache["ids"]
 
 
+def test_default_authority_rejects_tasknotes_promotion_without_real_tasknotes_write() -> None:
+    with tempfile.TemporaryDirectory(prefix="ai-action-tasknotes-default-") as tmp:
+        ai_dir = Path(tmp) / "AI"
+        tasknotes_dir = Path(tmp) / "TaskNotes"
+        setup_base(ai_dir)
+
+        target = tasknotes_dir / "Tasks/default-should-not-write.md"
+        action_id = "default-tasknotes-promotion-blocked"
+        proposal_name = "default-tasknotes-promotion-blocked"
+        proposal_dir = ai_dir / "proposed-tasks"
+        proposal_dir.mkdir(parents=True, exist_ok=True)
+        (proposal_dir / f"{proposal_name}.md").write_text(
+            "# Should not be written\n",
+            encoding="utf-8",
+        )
+
+        action_file(
+            ai_dir,
+            "1000_promote_task_proposal.json",
+            {
+                "schema_version": "action.v1",
+                "action": "promote_task_proposal",
+                "action_id": action_id,
+                "source": "test",
+                "device": "phone",
+                "timestamp_epoch": int(time.time()),
+                "proposal": proposal_name,
+                "target": "Tasks/default-should-not-write.md",
+            },
+        )
+
+        proc = run_action_bridge(
+            ai_dir,
+            tasknotes_dir,
+            extra_env={"ACTION_AUTHORITY_LEVEL": "1"},
+        )
+        assert_bridge_ok(proc)
+
+        assert not target.exists()
+        assert not any(tasknotes_dir.rglob("*"))
+
+        assert not processed_files(ai_dir)
+        assert failed_files(ai_dir)
+
+        error_text = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in (ai_dir / "inbox/actions-failed").rglob("*.error.txt")
+        )
+        assert "ACTION_AUTHORITY_LEVEL >= 2" in error_text
+
 def test_action_journal_records_processed_action() -> None:
     with tempfile.TemporaryDirectory(prefix="ai-action-journal-success-") as tmp:
         ai_dir = Path(tmp) / "AI"
@@ -805,6 +862,7 @@ def main() -> None:
         test_queue_ignores_partial_dotfiles_and_non_json,
         test_invalid_json_moves_to_failed_once,
         test_duplicate_action_id_is_skipped_without_duplicate_effects,
+        test_default_authority_rejects_tasknotes_promotion_without_real_tasknotes_write,
         test_action_journal_records_processed_action,
         test_processing_journal_blocks_replay_without_side_effects,
         test_process_lock_is_non_blocking,

@@ -125,6 +125,8 @@ def test_direct_execution_fields_are_refused() -> None:
 def test_write_outputs_reviewable_outbox_only() -> None:
     with tempfile.TemporaryDirectory(prefix="ai-obsidian-task-draft-") as tmp:
         ai_dir = Path(tmp) / "AI"
+        tasknotes_dir = Path(tmp) / "TaskNotes"
+        tasknotes_dir.mkdir()
         result = write_task_draft(approved_payload(), ai_dir=ai_dir)
 
         paths = result["written_paths"]
@@ -142,6 +144,8 @@ def test_write_outputs_reviewable_outbox_only() -> None:
 
         assert draft_json.parent == ai_dir / "outbox/to-obsidian/task-drafts"
         assert not (ai_dir / "inbox/actions").exists()
+        assert not any(tasknotes_dir.rglob("*"))
+        assert not (tasknotes_dir / "Tasks").exists()
 
         loaded = json.loads(current_json.read_text(encoding="utf-8"))
         assert loaded["title"] == "Do one linear algebra exercise"
