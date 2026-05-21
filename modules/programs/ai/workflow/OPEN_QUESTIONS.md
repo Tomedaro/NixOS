@@ -11,5 +11,4 @@ This file tracks unresolved questions that affect implementation, safety, docs, 
 
 ## Current open questions
 
-- Which verification tier applies to docs-only, behavior, staged, and live-diagnostic AI changes?
 - Which TaskNotes integration points are current implementation versus roadmap?

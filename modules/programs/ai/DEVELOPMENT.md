@@ -80,6 +80,17 @@ grep -RIn --color=never "$stale_typo\|$stale_repo\|$stale_obsidian" modules/prog
 
 For docs-only patches, at minimum run `git diff --check` and the grep consistency check. The grep check may report explicitly marked legacy/diagnostic references; unmarked dependencies are the concern. Run smoke tests when docs change protocol names, commands, paths, or safety claims.
 
+## Verification tiers
+
+Use the smallest tier that matches the change, and escalate when a patch touches commands, paths, safety claims, schemas, live state, or side-effect boundaries.
+
+| Tier | Applies to | Verification |
+| --- | --- | --- |
+| Docs-only | Documentation truth cleanup that does not change behavior, commands, paths, schemas, or safety claims. | `git diff --check`; `modules/programs/ai/dev/llm/check-ai-docs.sh`; `modules/programs/ai/dev/llm/check-llm-patch.sh`; stale-pattern grep when relevant. |
+| Behavior | Source, script, test, protocol, bridge, or documentation changes that affect commands, paths, schemas, safety claims, or side-effect boundaries. | Docs-only checks plus `modules/programs/ai/dev/run-smoke.sh`; add targeted checks for the touched module when needed. |
+| Staged | Any AI project patch that is ready to commit. | Stage the intended AI files, then run `modules/programs/ai/dev/llm/verify-staged-ai.sh`. This command intentionally fails with `[error] no staged AI project changes` when no AI patch is staged. |
+| Live diagnostic | Inspection of live AI project state. | Prefer safe-by-default diagnostics: `modules/programs/ai/dev/check-ai-live.sh` and `modules/programs/ai/dev/audit-ai-project.sh --verbose`. Do not mutate live queues unless explicitly testing a mutating flow. |
+
 ## Documentation rules
 
 - `CURRENT_STATE.md` contains implementation truth.
