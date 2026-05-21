@@ -29,6 +29,9 @@ SYSTEMCTL = os.environ.get("SYSTEMCTL", "systemctl")
 STABILITY_SECONDS = int(os.environ.get("ACTION_STABILITY_SECONDS", "2"))
 AUTHORITY_LEVEL = int(os.environ.get("ACTION_AUTHORITY_LEVEL", "2"))
 ALLOW_PROOF_SUBMIT = os.environ.get("ALLOW_PROOF_SUBMIT", "1") == "1"
+ALLOW_RECOVERY_TARGET_START = (
+    os.environ.get("ALLOW_RECOVERY_TARGET_START", "1") == "1"
+)
 TRIGGER_HELP_NOW = os.environ.get("TRIGGER_HELP_NOW", "1") == "1"
 TRIGGER_HELP_NOW_SERVICE = os.environ.get(
     "TRIGGER_HELP_NOW_SERVICE", "llm-planner-help-now.service"
@@ -1254,6 +1257,11 @@ def known_recovery_target(target_id):
 
 
 def handle_start_recovery_target(action, path, action_id):
+    if not ALLOW_RECOVERY_TARGET_START:
+        raise PermissionError(
+            "start_recovery_target requires ALLOW_RECOVERY_TARGET_START=1"
+        )
+
     target_id = (
         str(action.get("target_id") or action.get("target") or "anki").strip().lower()
     )

@@ -731,6 +731,66 @@ def test_proof_submit_requires_named_capability() -> None:
         assert "ALLOW_PROOF_SUBMIT=1" in error_text
 
 
+
+def test_start_recovery_target_requires_named_capability() -> None:
+    with tempfile.TemporaryDirectory(prefix="ai-action-recovery-capability-") as tmp:
+        ai_dir = Path(tmp) / "AI"
+        tasknotes_dir = Path(tmp) / "TaskNotes"
+        setup_base(ai_dir)
+
+        write_json(
+            ai_dir / "outbox/to-phone/current-nudge.json",
+            {
+                "schema_version": "phone_interaction.v1",
+                "kind": "nudge",
+                "status": "active",
+                "nudge_id": "n-recovery-capability-blocked",
+                "intervention_id": "i-recovery-capability-blocked",
+                "message": "Recovery capability blocked nudge",
+                "recommended_next_action": "Start Anki.",
+                "target": {
+                    "target_id": "anki",
+                    "label": "Anki",
+                    "android_package": "com.ichi2.anki",
+                },
+                "actions": [{"action": "start_recovery_target", "label": "Start Anki"}],
+            },
+        )
+
+        action_file(
+            ai_dir,
+            "1000_start_recovery_target.json",
+            {
+                "schema_version": "action.v1",
+                "action": "start_recovery_target",
+                "action_id": "recovery-target-capability-blocked",
+                "source": "test",
+                "device": "phone",
+                "target_id": "anki",
+                "recovery_id": "recovery-capability-blocked",
+                "timestamp_epoch": int(time.time()),
+            },
+        )
+
+        proc = run_action_bridge(
+            ai_dir,
+            tasknotes_dir,
+            extra_env={"ALLOW_RECOVERY_TARGET_START": "0"},
+        )
+        assert_bridge_ok(proc)
+
+        assert not processed_files(ai_dir)
+        assert failed_files(ai_dir)
+        assert not (ai_dir / "state/recovery/current.json").exists()
+        assert not any((ai_dir / "events/recovery").rglob("*.jsonl"))
+
+        error_text = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in (ai_dir / "inbox/actions-failed").rglob("*.error.txt")
+        )
+        assert "ALLOW_RECOVERY_TARGET_START=1" in error_text
+
+
 def test_action_journal_records_processed_action() -> None:
     with tempfile.TemporaryDirectory(prefix="ai-action-journal-success-") as tmp:
         ai_dir = Path(tmp) / "AI"
@@ -910,6 +970,7 @@ def main() -> None:
         test_duplicate_action_id_is_skipped_without_duplicate_effects,
         test_tasknotes_promotion_is_disabled_even_with_legacy_env,
         test_proof_submit_requires_named_capability,
+        test_start_recovery_target_requires_named_capability,
         test_action_journal_records_processed_action,
         test_processing_journal_blocks_replay_without_side_effects,
         test_process_lock_is_non_blocking,

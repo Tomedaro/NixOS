@@ -44,6 +44,12 @@ in
       description = "Allow action-bridge submit_proof to write proof artifacts and events.";
     };
 
+    allowRecoveryTargetStart = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Allow action-bridge start_recovery_target to write recovery state/events and start the configured recovery target flow.";
+    };
+
     authorityLevel = lib.mkOption {
       type = lib.types.int;
       default = 2;
@@ -97,6 +103,7 @@ in
         ACTION_STABILITY_SECONDS = toString cfg.stabilitySeconds;
         ACTION_AUTHORITY_LEVEL = toString cfg.authorityLevel;
         ALLOW_PROOF_SUBMIT = if cfg.allowProofSubmit then "1" else "0";
+        ALLOW_RECOVERY_TARGET_START = if cfg.allowRecoveryTargetStart then "1" else "0";
         TRIGGER_HELP_NOW = if cfg.triggerHelpNow then "1" else "0";
         TRIGGER_HELP_NOW_SERVICE = cfg.helpNowService;
         PYTHONUNBUFFERED = "1";
