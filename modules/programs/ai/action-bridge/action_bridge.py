@@ -32,6 +32,7 @@ ALLOW_PROOF_SUBMIT = os.environ.get("ALLOW_PROOF_SUBMIT", "1") == "1"
 ALLOW_RECOVERY_TARGET_START = (
     os.environ.get("ALLOW_RECOVERY_TARGET_START", "1") == "1"
 )
+ALLOW_SESSION_CHECK_IN = os.environ.get("ALLOW_SESSION_CHECK_IN", "1") == "1"
 TRIGGER_HELP_NOW = os.environ.get("TRIGGER_HELP_NOW", "1") == "1"
 TRIGGER_HELP_NOW_SERVICE = os.environ.get(
     "TRIGGER_HELP_NOW_SERVICE", "llm-planner-help-now.service"
@@ -582,6 +583,9 @@ def handle_end_session(action):
 
 
 def handle_check_in(action, path, action_id):
+    if not ALLOW_SESSION_CHECK_IN:
+        raise PermissionError("check_in requires ALLOW_SESSION_CHECK_IN=1")
+
     event = base_event(action, path, action_id)
     event["event"] = "check_in"
     event["event_type"] = "check_in"

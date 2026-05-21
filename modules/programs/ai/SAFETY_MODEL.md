@@ -42,7 +42,7 @@ The action bridge still has a broad numeric `ACTION_AUTHORITY_LEVEL` setting. Un
 | `dismiss_question` | `interaction.question.respond` | Supported | Records question dismissal state/events. |
 | `start_session` | `session.lifecycle` | Supported | Writes session state, control files, and action/session events. |
 | `end_session` | `session.lifecycle` | Supported | Writes session completion, archive/control state, and events. |
-| `check_in` | `session.check_in` | Supported | Writes check-in state/events and may trigger help-now planning. |
+| `check_in` | `session.check_in` | Supported when `ALLOW_SESSION_CHECK_IN=1` | Writes check-in state/events and may trigger help-now planning. |
 | `start_recovery_target` | `recovery.target.start` | Supported when `ALLOW_RECOVERY_TARGET_START=1` | Writes recovery state/events and starts the configured recovery target flow. |
 | `submit_proof` | `proof.submit` | Supported when `ALLOW_PROOF_SUBMIT=1` and `ACTION_AUTHORITY_LEVEL >= 1` | Writes proof artifacts/events. |
 | `promote_task_proposal` / `promote_proposal` | `disabled.legacy` | Disabled | Must fail without writing real TaskNotes. |

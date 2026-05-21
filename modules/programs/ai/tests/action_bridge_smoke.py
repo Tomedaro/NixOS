@@ -791,6 +791,59 @@ def test_start_recovery_target_requires_named_capability() -> None:
         assert "ALLOW_RECOVERY_TARGET_START=1" in error_text
 
 
+
+def test_check_in_requires_named_capability() -> None:
+    with tempfile.TemporaryDirectory(prefix="ai-action-check-in-capability-") as tmp:
+        ai_dir = Path(tmp) / "AI"
+        tasknotes_dir = Path(tmp) / "TaskNotes"
+        setup_base(ai_dir)
+
+        action_id = "check-in-capability-blocked"
+
+        action_file(
+            ai_dir,
+            "1000_check_in.json",
+            {
+                "schema_version": "action.v1",
+                "action": "check_in",
+                "action_id": action_id,
+                "source": "test",
+                "device": "desktop",
+                "answer": "blocked",
+                "answer_label": "Blocked",
+                "free_text": "This check-in should not be recorded.",
+                "timestamp_epoch": int(time.time()),
+            },
+        )
+
+        proc = run_action_bridge(
+            ai_dir,
+            tasknotes_dir,
+            extra_env={
+                "ALLOW_SESSION_CHECK_IN": "0",
+                "TRIGGER_HELP_NOW": "0",
+            },
+        )
+        assert_bridge_ok(proc)
+
+        assert not processed_files(ai_dir)
+        assert failed_files(ai_dir)
+
+        events = [
+            event
+            for event in latest_action_events(ai_dir)
+            if event.get("event") == "check_in"
+            and event.get("action_id") == action_id
+        ]
+        assert not events
+
+        error_text = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in (ai_dir / "inbox/actions-failed").rglob("*.error.txt")
+        )
+        assert "ALLOW_SESSION_CHECK_IN=1" in error_text
+
+
 def test_action_journal_records_processed_action() -> None:
     with tempfile.TemporaryDirectory(prefix="ai-action-journal-success-") as tmp:
         ai_dir = Path(tmp) / "AI"
@@ -971,6 +1024,7 @@ def main() -> None:
         test_tasknotes_promotion_is_disabled_even_with_legacy_env,
         test_proof_submit_requires_named_capability,
         test_start_recovery_target_requires_named_capability,
+        test_check_in_requires_named_capability,
         test_action_journal_records_processed_action,
         test_processing_journal_blocks_replay_without_side_effects,
         test_process_lock_is_non_blocking,
