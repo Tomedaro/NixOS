@@ -87,6 +87,22 @@ ACTION_CAPABILITY_POLICY = {
 }
 
 
+ACTION_CAPABILITY_ALIASES = {
+    "start": "start_session",
+    "end": "end_session",
+    "manual_checkin": "check_in",
+    "question_answered": "answer_question",
+    "nudge_acknowledged": "ack_nudge",
+    "defer_nudge": "snooze_nudge",
+    "nudge_snoozed": "snooze_nudge",
+    "question_dismissed": "dismiss_question",
+    "start_recovery": "start_recovery_target",
+    "recovery_start": "start_recovery_target",
+    "proof_submitted": "submit_proof",
+    "promote_proposal": "promote_proposal",
+}
+
+
 def require_action_capability(action_name):
     policy = ACTION_CAPABILITY_POLICY.get(action_name)
     if policy is None:
@@ -1786,7 +1802,7 @@ def create_templates():
             schema_path,
             {
                 "schema_version": "action.v1",
-                "action": "start_session|end_session|check_in|answer_question|ack_nudge|dismiss_question|submit_proof",
+                "action": "start_session|end_session|check_in|answer_question|ack_nudge|snooze_nudge|dismiss_question|start_recovery_target|submit_proof",
                 "source": "obsidian|tasker|desktop-panel|llm-proposal|manual",
                 "device": "desktop|phone",
                 "created_at": "ISO-8601 timestamp",

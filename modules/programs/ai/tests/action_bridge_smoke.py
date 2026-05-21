@@ -677,6 +677,48 @@ def test_dispatched_actions_have_capability_policy() -> None:
     assert policy["promote_proposal"]["capability"] == "disabled.legacy"
 
 
+
+def test_dispatch_aliases_have_capability_policy() -> None:
+    shared_python = str(REPO / "modules/programs/ai/python")
+    if shared_python not in sys.path:
+        sys.path.insert(0, shared_python)
+
+    module_name = f"action_bridge_alias_policy_smoke_{time.time_ns()}"
+    spec = importlib.util.spec_from_file_location(module_name, ACTION_BRIDGE)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+
+    expected_aliases = {
+        "start": "start_session",
+        "end": "end_session",
+        "manual_checkin": "check_in",
+        "question_answered": "answer_question",
+        "nudge_acknowledged": "ack_nudge",
+        "defer_nudge": "snooze_nudge",
+        "nudge_snoozed": "snooze_nudge",
+        "question_dismissed": "dismiss_question",
+        "start_recovery": "start_recovery_target",
+        "recovery_start": "start_recovery_target",
+        "proof_submitted": "submit_proof",
+        "promote_proposal": "promote_proposal",
+    }
+
+    assert module.ACTION_CAPABILITY_ALIASES == expected_aliases
+
+    for alias, canonical in expected_aliases.items():
+        assert canonical in module.ACTION_CAPABILITY_POLICY, alias
+
+    assert (
+        module.ACTION_CAPABILITY_POLICY["promote_task_proposal"]["capability"]
+        == "disabled.legacy"
+    )
+    assert (
+        module.ACTION_CAPABILITY_POLICY["promote_proposal"]["capability"]
+        == "disabled.legacy"
+    )
+
+
 def test_tasknotes_promotion_is_disabled_even_with_legacy_env() -> None:
     with tempfile.TemporaryDirectory(prefix="ai-action-tasknotes-disabled-") as tmp:
         ai_dir = Path(tmp) / "AI"
@@ -1064,6 +1106,7 @@ def main() -> None:
         test_invalid_json_moves_to_failed_once,
         test_duplicate_action_id_is_skipped_without_duplicate_effects,
         test_dispatched_actions_have_capability_policy,
+        test_dispatch_aliases_have_capability_policy,
         test_tasknotes_promotion_is_disabled_even_with_legacy_env,
         test_proof_submit_requires_named_capability,
         test_start_recovery_target_requires_named_capability,
