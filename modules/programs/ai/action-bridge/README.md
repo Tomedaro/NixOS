@@ -165,6 +165,7 @@ snooze_nudge:
   records snoozed_until
 
 start_recovery_target:
+  requires `ALLOW_RECOVERY_TARGET_START=1`; this gate defaults off
   starts recovery state
   clears originating nudge when nudge_id is present
   last_status = recovery_started

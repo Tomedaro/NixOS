@@ -30,7 +30,7 @@ STABILITY_SECONDS = int(os.environ.get("ACTION_STABILITY_SECONDS", "2"))
 AUTHORITY_LEVEL = int(os.environ.get("ACTION_AUTHORITY_LEVEL", "2"))
 ALLOW_PROOF_SUBMIT = os.environ.get("ALLOW_PROOF_SUBMIT", "1") == "1"
 ALLOW_RECOVERY_TARGET_START = (
-    os.environ.get("ALLOW_RECOVERY_TARGET_START", "1") == "1"
+    os.environ.get("ALLOW_RECOVERY_TARGET_START", "0") == "1"
 )
 ALLOW_SESSION_CHECK_IN = os.environ.get("ALLOW_SESSION_CHECK_IN", "1") == "1"
 
@@ -90,7 +90,7 @@ ACTION_CAPABILITY_POLICY = {
         "capability": "recovery.target.start",
         "status": "gated",
         "side_effect": "recovery_state",
-        "default_enabled": True,
+        "default_enabled": False,
         "gate_env": "ALLOW_RECOVERY_TARGET_START",
         "enabled": lambda: ALLOW_RECOVERY_TARGET_START,
         "error": "start_recovery_target requires ALLOW_RECOVERY_TARGET_START=1",

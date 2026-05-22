@@ -46,7 +46,7 @@ in
 
     allowRecoveryTargetStart = lib.mkOption {
       type = lib.types.bool;
-      default = true;
+      default = false;
       description = "Allow action-bridge start_recovery_target to write recovery state/events and start the configured recovery target flow.";
     };
 

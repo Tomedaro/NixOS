@@ -36,38 +36,36 @@ Dangerous capabilities should default off.
 
 `ACTION_AUTHORITY_LEVEL` remains a transitional coarse guard, not the primary future authority model. The emerging policy surface is named capabilities in `ACTION_CAPABILITY_POLICY`.
 
-Current named gates remain default-enabled for compatibility:
+Current named gates default as follows:
 
-- `ALLOW_PROOF_SUBMIT`
-- `ALLOW_RECOVERY_TARGET_START`
-- `ALLOW_SESSION_CHECK_IN`
+- `ALLOW_PROOF_SUBMIT`: enabled;
+- `ALLOW_RECOVERY_TARGET_START`: disabled by default;
+- `ALLOW_SESSION_CHECK_IN`: enabled.
 
-This default-enabled state is transitional, not the long-term safety target. Dangerous capabilities should eventually default off once the user-facing flow, disable behavior, and regression coverage are clear.
+The remaining default-enabled gates are transitional, not the long-term safety target. Dangerous capabilities should eventually default off once the user-facing flow, disable behavior, and regression coverage are clear.
 
 `submit_proof` is still dual-gated: it requires both `ALLOW_PROOF_SUBMIT=1` and `ACTION_AUTHORITY_LEVEL >= 1`. It should not be described as independent of numeric authority.
 
-The first future default-off candidate is likely `recovery.target.start` / `ALLOW_RECOVERY_TARGET_START`, because it starts a recovery target flow and is more action-like than passive interaction-state updates. Do not flip that default until a separate plan verifies user impact, recovery UX, and tests.
+`recovery.target.start` / `ALLOW_RECOVERY_TARGET_START` is now default-off. Explicit `ALLOW_RECOVERY_TARGET_START=1` is required for successful `start_recovery_target` behavior.
 
-### `recovery.target.start` default-off migration requirements
+### `recovery.target.start` default-off regression requirements
 
-`recovery.target.start` / `ALLOW_RECOVERY_TARGET_START` is a future default-off candidate, not a default-off gate today. The current default remains enabled for compatibility.
+The default-off migration is applied. Regression coverage must continue proving all of the following:
 
-Do not flip this default until a separate behavior patch proves all of the following:
-
-- runtime `ALLOW_RECOVERY_TARGET_START` default becomes disabled;
-- Nix `allowRecoveryTargetStart` default becomes `false`;
+- runtime `ALLOW_RECOVERY_TARGET_START` default remains disabled;
+- Nix `allowRecoveryTargetStart` default remains `false`;
 - Nix wiring still exports `ALLOW_RECOVERY_TARGET_START`;
 - default `start_recovery_target` actions are rejected;
 - blocked default behavior does not write recovery state;
 - blocked default behavior does not append recovery events;
 - blocked default behavior does not clear the originating nudge as `recovery_started`;
-- explicit `ALLOW_RECOVERY_TARGET_START=1` preserves current successful `start_recovery_target` behavior;
-- `ACTION_CAPABILITY_POLICY` metadata changes consistently, including `default_enabled`;
+- explicit `ALLOW_RECOVERY_TARGET_START=1` preserves intended successful `start_recovery_target` behavior;
+- `ACTION_CAPABILITY_POLICY` metadata stays consistent, including `default_enabled`;
 - no live `tasknotes.promote` capability appears.
 
-The migration patch must preserve reviewable proposal/draft paths and must not reintroduce direct TaskNotes mutation.
+The default-off behavior must preserve reviewable proposal/draft paths and must not reintroduce direct TaskNotes mutation.
 
-The action bridge still has a broad numeric `ACTION_AUTHORITY_LEVEL` setting. The source now keeps a small `ACTION_CAPABILITY_POLICY` registry for dispatched action capability classes. Each entry declares status, side-effect class, default-enabled state, and gate metadata where applicable so policy drift is visible before adding more gates. This is an inventory and incremental enforcement point, not a full policy engine. Existing named gates remain default-enabled except disabled legacy actions:
+The action bridge still has a broad numeric `ACTION_AUTHORITY_LEVEL` setting. The source now keeps a small `ACTION_CAPABILITY_POLICY` registry for dispatched action capability classes. Each entry declares status, side-effect class, default-enabled state, and gate metadata where applicable so policy drift is visible before adding more gates. This is an inventory and incremental enforcement point, not a full policy engine. `recovery.target.start` is default-off; remaining enabled named gates are transitional, and disabled legacy actions remain disabled:
 
 | Action | Capability | Current behavior | Side-effect class |
 | --- | --- | --- | --- |
@@ -78,7 +76,7 @@ The action bridge still has a broad numeric `ACTION_AUTHORITY_LEVEL` setting. Th
 | `start_session` | `session.lifecycle` | Supported | Writes session state, control files, and action/session events. |
 | `end_session` | `session.lifecycle` | Supported | Writes session completion, archive/control state, and events. |
 | `check_in` | `session.check_in` | Supported when `ALLOW_SESSION_CHECK_IN=1` | Writes check-in state/events and may trigger help-now planning. |
-| `start_recovery_target` | `recovery.target.start` | Supported when `ALLOW_RECOVERY_TARGET_START=1` | Writes recovery state/events and starts the configured recovery target flow. |
+| `start_recovery_target` | `recovery.target.start` | Default-off; supported only when `ALLOW_RECOVERY_TARGET_START=1` | Writes recovery state/events and starts the configured recovery target flow. |
 | `submit_proof` | `proof.submit` | Supported when `ALLOW_PROOF_SUBMIT=1` and `ACTION_AUTHORITY_LEVEL >= 1` | Writes proof artifacts/events. |
 | `promote_task_proposal` / `promote_proposal` | `disabled.legacy` | Disabled | Must fail without writing real TaskNotes. |
 

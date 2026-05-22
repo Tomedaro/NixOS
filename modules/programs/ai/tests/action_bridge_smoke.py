@@ -343,7 +343,11 @@ def test_start_recovery_target_consumes_nudge() -> None:
             },
         )
 
-        proc = run_action_bridge(ai_dir, tasknotes_dir)
+        proc = run_action_bridge(
+            ai_dir,
+            tasknotes_dir,
+            extra_env={"ALLOW_RECOVERY_TARGET_START": "1"},
+        )
         assert_bridge_ok(proc)
 
         recovery = read_json(ai_dir / "state/recovery/current.json")
@@ -714,7 +718,6 @@ def test_action_capability_policy_metadata_invariants() -> None:
             assert "min_authority" not in policy, action_name
 
         if policy["status"] == "gated":
-            assert policy["default_enabled"] is True, action_name
             assert "gate_env" in policy, action_name
             assert policy["gate_env"].startswith("ALLOW_"), action_name
             assert callable(policy["enabled"]), action_name
@@ -785,7 +788,7 @@ def test_action_capability_policy_defaults_match_runtime_and_nix_wiring() -> Non
 
     assert module.AUTHORITY_LEVEL == 2
     assert module.ALLOW_PROOF_SUBMIT is True
-    assert module.ALLOW_RECOVERY_TARGET_START is True
+    assert module.ALLOW_RECOVERY_TARGET_START is False
     assert module.ALLOW_SESSION_CHECK_IN is True
 
     gated = {
@@ -799,10 +802,11 @@ def test_action_capability_policy_defaults_match_runtime_and_nix_wiring() -> Non
 
     for action_name, (env_name, _nix_option) in gated.items():
         policy = module.ACTION_CAPABILITY_POLICY[action_name]
+        expected_default = action_name != "start_recovery_target"
         assert policy["status"] == "gated", action_name
-        assert policy["default_enabled"] is True, action_name
+        assert policy["default_enabled"] is expected_default, action_name
         assert policy["gate_env"] == env_name, action_name
-        assert policy["enabled"]() is True, action_name
+        assert policy["enabled"]() is expected_default, action_name
 
     assert module.ACTION_CAPABILITY_POLICY["submit_proof"]["min_authority"] == 1
 
@@ -817,7 +821,7 @@ def test_action_capability_policy_defaults_match_runtime_and_nix_wiring() -> Non
 
     assert 'ACTION_AUTHORITY_LEVEL", "2"' in action_source
     assert 'ALLOW_PROOF_SUBMIT", "1"' in action_source
-    assert 'ALLOW_RECOVERY_TARGET_START", "1"' in action_source
+    assert 'ALLOW_RECOVERY_TARGET_START", "0"' in action_source
     assert 'ALLOW_SESSION_CHECK_IN", "1"' in action_source
 
     assert "if AUTHORITY_LEVEL < 1:" in action_source
@@ -838,7 +842,12 @@ def test_action_capability_policy_defaults_match_runtime_and_nix_wiring() -> Non
 
     for _action_name, (env_name, nix_option) in gated.items():
         block = nix_option_block(nix_option)
-        assert "default = true;" in block, nix_option
+        expected_default_line = (
+            "default = false;"
+            if nix_option == "allowRecoveryTargetStart"
+            else "default = true;"
+        )
+        assert expected_default_line in block, nix_option
         assert (
             f'{env_name} = if cfg.{nix_option} then "1" else "0";'
             in nix_source
@@ -986,8 +995,9 @@ def test_action_capability_policy_enforcement_classification_is_explicit() -> No
 
     for action_name, gate_env in named_gates.items():
         policy = module.ACTION_CAPABILITY_POLICY[action_name]
+        expected_default = action_name != "start_recovery_target"
         assert policy["status"] == "gated", action_name
-        assert policy["default_enabled"] is True, action_name
+        assert policy["default_enabled"] is expected_default, action_name
         assert policy["gate_env"] == gate_env, action_name
         assert callable(policy["enabled"]), action_name
 
@@ -1176,6 +1186,67 @@ def test_proof_submit_requires_named_capability() -> None:
         )
         assert "ALLOW_PROOF_SUBMIT=1" in error_text
 
+
+
+
+def test_start_recovery_target_default_requires_named_capability() -> None:
+    with tempfile.TemporaryDirectory(prefix="ai-action-recovery-default-capability-") as tmp:
+        ai_dir = Path(tmp) / "AI"
+        tasknotes_dir = Path(tmp) / "TaskNotes"
+        setup_base(ai_dir)
+
+        write_json(
+            ai_dir / "outbox/to-phone/current-nudge.json",
+            {
+                "schema_version": "phone_interaction.v1",
+                "kind": "nudge",
+                "status": "active",
+                "nudge_id": "n-recovery-default-capability-blocked",
+                "intervention_id": "i-recovery-default-capability-blocked",
+                "message": "Recovery default capability blocked nudge",
+                "recommended_next_action": "Start Anki.",
+                "target": {
+                    "target_id": "anki",
+                    "label": "Anki",
+                    "android_package": "com.ichi2.anki",
+                },
+                "actions": [{"action": "start_recovery_target", "label": "Start Anki"}],
+            },
+        )
+
+        action_file(
+            ai_dir,
+            "1000_start_recovery_target.json",
+            {
+                "schema_version": "action.v1",
+                "action": "start_recovery_target",
+                "action_id": "recovery-target-default-capability-blocked",
+                "source": "test",
+                "device": "phone",
+                "target_id": "anki",
+                "recovery_id": "recovery-default-capability-blocked",
+                "timestamp_epoch": int(time.time()),
+            },
+        )
+
+        proc = run_action_bridge(ai_dir, tasknotes_dir)
+        assert_bridge_ok(proc)
+
+        assert not processed_files(ai_dir)
+        assert failed_files(ai_dir)
+        assert not (ai_dir / "state/recovery/current.json").exists()
+        assert not any((ai_dir / "events/recovery").rglob("*.jsonl"))
+        assert not any(tasknotes_dir.rglob("*"))
+
+        current_nudge = read_json(ai_dir / "outbox/to-phone/current-nudge.json")
+        assert current_nudge["status"] == "active"
+        assert current_nudge.get("last_status") != "recovery_started"
+
+        error_text = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in (ai_dir / "inbox/actions-failed").rglob("*.error.txt")
+        )
+        assert "ALLOW_RECOVERY_TARGET_START=1" in error_text
 
 
 def test_start_recovery_target_requires_named_capability() -> None:
@@ -1475,6 +1546,7 @@ def main() -> None:
         test_dispatch_aliases_have_capability_policy,
         test_tasknotes_promotion_is_disabled_even_with_legacy_env,
         test_proof_submit_requires_named_capability,
+        test_start_recovery_target_default_requires_named_capability,
         test_start_recovery_target_requires_named_capability,
         test_check_in_requires_named_capability,
         test_action_journal_records_processed_action,
