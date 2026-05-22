@@ -32,6 +32,22 @@ Dangerous capabilities should default off.
 
 ## Action bridge capability inventory
 
+## Action capability authority defaults
+
+`ACTION_AUTHORITY_LEVEL` remains a transitional coarse guard, not the primary future authority model. The emerging policy surface is named capabilities in `ACTION_CAPABILITY_POLICY`.
+
+Current named gates remain default-enabled for compatibility:
+
+- `ALLOW_PROOF_SUBMIT`
+- `ALLOW_RECOVERY_TARGET_START`
+- `ALLOW_SESSION_CHECK_IN`
+
+This default-enabled state is transitional, not the long-term safety target. Dangerous capabilities should eventually default off once the user-facing flow, disable behavior, and regression coverage are clear.
+
+`submit_proof` is still dual-gated: it requires both `ALLOW_PROOF_SUBMIT=1` and `ACTION_AUTHORITY_LEVEL >= 1`. It should not be described as independent of numeric authority.
+
+The first future default-off candidate is likely `recovery.target.start` / `ALLOW_RECOVERY_TARGET_START`, because it starts a recovery target flow and is more action-like than passive interaction-state updates. Do not flip that default until a separate plan verifies user impact, recovery UX, and tests.
+
 The action bridge still has a broad numeric `ACTION_AUTHORITY_LEVEL` setting. The source now keeps a small `ACTION_CAPABILITY_POLICY` registry for dispatched action capability classes. Each entry declares status, side-effect class, default-enabled state, and gate metadata where applicable so policy drift is visible before adding more gates. This is an inventory and incremental enforcement point, not a full policy engine. Existing named gates remain default-enabled except disabled legacy actions:
 
 | Action | Capability | Current behavior | Side-effect class |
