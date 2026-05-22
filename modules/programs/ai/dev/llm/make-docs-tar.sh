@@ -12,15 +12,28 @@ OUT="$OUT_DIR/ai-chatgpt-bundle-$STAMP.tar.gz"
 mkdir -p "$OUT_DIR"
 
 FILES=()
+declare -A SEEN=()
 
 add_if_exists() {
-  if [ -e "$1" ]; then
-    FILES+=("$1")
+  local path="$1"
+
+  if [ -z "$path" ]; then
+    return
+  fi
+
+  if [ "${SEEN[$path]+seen}" = "seen" ]; then
+    return
+  fi
+
+  if [ -e "$path" ]; then
+    FILES+=("$path")
+    SEEN["$path"]=1
   else
-    echo "[warn] missing: $1" >&2
+    echo "[warn] missing: $path" >&2
   fi
 }
 
+# Curated core docs first. Keep this order stable for ChatGPT handoff context.
 add_if_exists "$AI_DIR/AGENTS.md"
 add_if_exists "$AI_DIR/workflow/LLM_HANDOFF.md"
 add_if_exists "$AI_DIR/workflow/DECISIONS.md"
@@ -41,15 +54,28 @@ add_if_exists "$AI_DIR/ROADMAP.md"
 add_if_exists "$AI_DIR/GLOSSARY.md"
 add_if_exists "$AI_DIR/EXTENSION_MODEL.md"
 
-if [ "${#FILES[@]}" -eq 0 ]; then
-  echo "[error] no files found for bundle" >&2
-  exit 1
-fi
+# Append every active Markdown doc under modules/programs/ai.
+# Exclude generated bundles, archived workflow docs, and cache artifacts.
+while IFS= read -r -d '' path; do
+  add_if_exists "$path"
+done < <(
+  find "$AI_DIR" \
+    -type f \
+    -name '*.md' \
+    ! -path "$AI_DIR/chatgpt-bundles/*" \
+    ! -path "$AI_DIR/workflow/archive/*" \
+    ! -path '*/__pycache__/*' \
+    ! -name '*.pyc' \
+    -print0 \
+    | sort -z
+)
 
 tar -czf "$OUT" "${FILES[@]}"
 
 echo "[ok] wrote bundle:"
 echo "$OUT"
 echo
-echo "[info] included files:"
-printf ' - %s\n' "${FILES[@]}"
+echo "[info] included ${#FILES[@]} files:"
+for file in "${FILES[@]}"; do
+  echo " - $file"
+done
