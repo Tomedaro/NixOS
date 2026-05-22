@@ -164,7 +164,7 @@ Useful future improvements:
 
 ```text
 refactor to read structured JSON instead of old Markdown/pending-question assumptions
-writes answer_question actions instead of mutating question state directly
+add a real dismiss UI signal before emitting dismiss_question actions
 support ack_nudge and snooze_nudge
 respect interaction-state active_nudge/active_question
 avoid repeated prompts after snooze or recovery start
@@ -172,4 +172,4 @@ make desktop prompt style non-intrusive
 ```
 
 
-Current status: `dialog-bridge` writes canonical `answer_question` actions to `AI/inbox/actions`; `action-bridge` owns canonical answer lifecycle side effects. The current desktop notification UI emits answer actions only; `dismiss_question` remains canonical in `action-bridge` for surfaces that emit a real dismiss signal.
+Current status: `dialog-bridge` queues canonical `answer_question` actions to `AI/inbox/actions`; `action-bridge` processes those actions and owns canonical answer lifecycle side effects. The current desktop notification UI emits answer actions only; `dismiss_question` remains canonical in `action-bridge` for surfaces that emit a real dismiss signal.

@@ -111,11 +111,11 @@ This flow is strong because it produces reviewable artifacts and keeps live muta
 current question state
   -> phone/dialog surface
   -> answer or dismiss
-  -> current design: AI/inbox/actions answer_question; dismiss_question is canonical in action-bridge when a UI emits it
-  -> action bridge owns lifecycle and state mutation
+  -> dialog-bridge queues AI/inbox/actions answer_question
+  -> action-bridge processes answer_question/dismiss_question and owns lifecycle/state mutation
 ```
 
-Current caveat: `dialog-bridge` still has some direct answer lifecycle behavior. It should migrate fully to canonical action files.
+Current status: `dialog-bridge` queues canonical `answer_question` action files; `action-bridge` owns answer/dismiss lifecycle and state mutation.
 
 ### Live action flow
 
