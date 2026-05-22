@@ -849,6 +849,92 @@ def test_action_capability_policy_defaults_match_runtime_and_nix_wiring() -> Non
 
 
 
+
+def test_numeric_action_authority_scope_is_explicit() -> None:
+    shared_python = str(REPO / "modules/programs/ai/python")
+    if shared_python not in sys.path:
+        sys.path.insert(0, shared_python)
+
+    env_keys = [
+        "ACTION_AUTHORITY_LEVEL",
+        "ALLOW_PROOF_SUBMIT",
+        "ALLOW_RECOVERY_TARGET_START",
+        "ALLOW_SESSION_CHECK_IN",
+    ]
+    old_env = {key: os.environ.get(key) for key in env_keys}
+
+    try:
+        for key in env_keys:
+            os.environ.pop(key, None)
+
+        module_name = f"action_bridge_numeric_authority_smoke_{time.time_ns()}"
+        spec = importlib.util.spec_from_file_location(module_name, ACTION_BRIDGE)
+        module = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        spec.loader.exec_module(module)
+    finally:
+        for key, value in old_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+    assert module.AUTHORITY_LEVEL == 2
+
+    actions_with_min_authority = {
+        action_name
+        for action_name, policy in module.ACTION_CAPABILITY_POLICY.items()
+        if "min_authority" in policy
+    }
+    assert actions_with_min_authority == {"submit_proof"}
+    assert module.ACTION_CAPABILITY_POLICY["submit_proof"]["min_authority"] == 1
+
+    capabilities = {
+        policy["capability"]
+        for policy in module.ACTION_CAPABILITY_POLICY.values()
+    }
+    assert "tasknotes.promote" not in capabilities
+
+    action_source = ACTION_BRIDGE.read_text(encoding="utf-8")
+    nix_source = ACTION_BRIDGE_DEFAULT_NIX.read_text(encoding="utf-8")
+
+    numeric_enforcement_lines = [
+        line.strip()
+        for line in action_source.splitlines()
+        if line.strip().startswith("if ")
+        and "AUTHORITY_LEVEL" in line
+        and any(operator in line for operator in ["<=", ">=", "<", ">"])
+    ]
+
+    assert numeric_enforcement_lines == ["if AUTHORITY_LEVEL < 1:"]
+    assert "submit_proof requires ACTION_AUTHORITY_LEVEL >= 1" in action_source
+
+    submit_handler_start = action_source.find("def handle_submit_proof")
+    assert submit_handler_start >= 0
+    submit_authority_check = action_source.find(
+        "if AUTHORITY_LEVEL < 1:",
+        submit_handler_start,
+    )
+    assert submit_authority_check >= 0
+
+    assert "allowLegacyTaskNotesPromotion" not in nix_source
+    assert "ALLOW_LEGACY_TASKNOTES_PROMOTION" not in nix_source
+    assert "ALLOW_LEGACY_TASKNOTES_PROMOTION" not in action_source
+
+    def nix_option_block(option_name: str) -> str:
+        marker = f"    {option_name} = lib.mkOption {{"
+        start = nix_source.find(marker)
+        assert start >= 0, option_name
+        end_marker = "\n    };"
+        end = nix_source.find(end_marker, start)
+        assert end >= 0, option_name
+        return nix_source[start : end + len(end_marker)]
+
+    authority_block = nix_option_block("authorityLevel")
+    assert "default = 2;" in authority_block
+    assert "ACTION_AUTHORITY_LEVEL = toString cfg.authorityLevel;" in nix_source
+
+
 def test_action_capability_policy_enforcement_classification_is_explicit() -> None:
     shared_python = str(REPO / "modules/programs/ai/python")
     if shared_python not in sys.path:
@@ -1384,6 +1470,7 @@ def main() -> None:
         test_dispatched_actions_have_capability_policy,
         test_action_capability_policy_metadata_invariants,
         test_action_capability_policy_defaults_match_runtime_and_nix_wiring,
+        test_numeric_action_authority_scope_is_explicit,
         test_action_capability_policy_enforcement_classification_is_explicit,
         test_dispatch_aliases_have_capability_policy,
         test_tasknotes_promotion_is_disabled_even_with_legacy_env,
