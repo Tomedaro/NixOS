@@ -37,3 +37,19 @@ For every meaningful module, the full register should list:
 - docs that mention it;
 - issues;
 - refactor/doc actions.
+
+## Minimum module contract pressure test
+
+Before implementing first-class read-only TaskNotes context, document a Markdown-only module contract for `tasknotes.read_context`. This is a module contract registry pressure test, not a replacement for `ACTION_CAPABILITY_POLICY`.
+
+Minimum contract:
+
+- type: context provider;
+- reads: bounded TaskNotes source paths;
+- writes: bounded AI context output/artifacts only;
+- `may_mutate_tasknotes`: false;
+- `required_action_capabilities`: none;
+- output includes provenance, freshness, and limits;
+- tests prove no TaskNotes writes, bounded/provenanced output, and safe-off/disabled behavior.
+
+A module contract should reference `ACTION_CAPABILITY_POLICY` only when that module dispatches or requires live `action-bridge` actions. Future deterministic TaskNotes apply/promote remains separate planned work.

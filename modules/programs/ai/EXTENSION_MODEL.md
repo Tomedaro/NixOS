@@ -269,9 +269,11 @@ Rules:
 - outputs should be structured when used by downstream code;
 - model-specific prompts should not leak into core protocols.
 
-## Capability registry
+## Module contract registry
 
-The project should eventually have a capability registry.
+The project should eventually have a lightweight module contract registry.
+
+This is separate from `ACTION_CAPABILITY_POLICY`. `ACTION_CAPABILITY_POLICY` is the runtime action capability policy used by `action-bridge` when processing live actions. The module contract registry is a Markdown planning/docs artifact for modules, context providers, instruments, review surfaces, and adapters. It may reference `ACTION_CAPABILITY_POLICY` only when a module dispatches or requires live actions; read-only context providers should normally declare no required action capabilities.
 
 Each module should declare:
 
@@ -288,7 +290,8 @@ Each module should declare:
     "AI/outbox/to-obsidian/proposals/*.json"
   ],
   "authority": "proposal_only",
-  "required_capabilities": [],
+  "required_action_capabilities": [],
+  "may_mutate_tasknotes": false,
   "schemas": [
     "goal_next_action_proposal.v1"
   ],
@@ -303,7 +306,7 @@ Each module should declare:
 }
 ```
 
-This registry does not need to be complex at first. A Markdown table or JSON file is enough. The important thing is that every new instrument is explicit about what it reads, writes, and may influence.
+This module contract registry does not need to be complex at first. A Markdown table is enough for the first pressure test; do not add a JSON/YAML manifest or checker until the contract shape proves useful. The important thing is that every new module is explicit about what it reads, writes, may mutate, may influence, and which live action capabilities it requires, if any.
 
 ## Capability names instead of broad authority
 
@@ -330,6 +333,24 @@ policy.update_user_rule
 This makes it possible to add new instruments without giving them broad power.
 
 A module should get exactly the capabilities it needs and no more.
+
+## First pressure test: TaskNotes read-only context
+
+Before implementing first-class read-only TaskNotes context, add a Markdown-only module contract for `tasknotes.read_context`. This pressure test should prove the registry shape without adding a JSON/YAML manifest, checker, or runtime provider.
+
+Minimum planned contract:
+
+- type: context provider;
+- reads: bounded configured TaskNotes source paths and only the metadata needed for planning context;
+- writes: bounded AI context output/artifacts only;
+- authority: observe/read-only;
+- `may_mutate_tasknotes`: false;
+- `required_action_capabilities`: none;
+- output requirements: provenance, freshness timestamp, source limits, truncation/omission markers, and stale/disabled status;
+- tests: prove no TaskNotes writes, bounded output, provenance/freshness fields, limit handling, and safe-off/disabled behavior;
+- non-goal: deterministic TaskNotes apply/promote remains separate planned work.
+
+Because this provider does not dispatch live actions, its module contract should not reference `ACTION_CAPABILITY_POLICY` beyond stating that no action-bridge runtime action capability is required.
 
 ## Instrument contract
 
@@ -668,7 +689,7 @@ Before adding or enabling a new module/instrument, document:
 - owner surface: bridge, guardrail, instrument, or a clearly bounded combination;
 - input paths and schemas read;
 - output paths and schemas written;
-- authority level and named capability, if any;
+- authority level and named action capability, if any; use `required_action_capabilities: none` for read-only providers that do not dispatch live actions;
 - whether it can mutate local state, live queues, external apps, or durable commitments;
 - reviewable proposal/draft behavior;
 - disable switch or safe-off behavior;

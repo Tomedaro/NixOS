@@ -15,7 +15,7 @@ This file is planned work only. Do not use it as current-state documentation.
 ## Priority 2 - Canonicalize action and TaskNotes flows
 
 1. Keep `dialog-bridge` answer handling canonical through `AI/inbox/actions/*.json`; add dialog dismiss emission only when the desktop UI has a real dismiss signal.
-2. Add first-class read-only TaskNotes context.
+2. Add a Markdown-only module contract for first-class read-only TaskNotes context, then implement the provider in a later task.
 3. Define deterministic TaskNotes apply/promote schema.
 4. Implement apply/promote gate with idempotency, conflict handling, and events.
 
@@ -46,12 +46,14 @@ Desktop popup UI, richer phone controls, and more autonomous behavior should wai
 
 ## Extension-model follow-up
 
-Before adding many new goal-achievement instruments, add a lightweight capability/instrument registry:
+Before adding many new goal-achievement instruments, add a lightweight module contract registry. This is separate from `ACTION_CAPABILITY_POLICY`, which remains the runtime action capability policy for `action-bridge`:
 
-1. define a module manifest shape;
-2. list context providers, planners, review surfaces, action adapters, memory modules, and evaluators;
-3. require each side-effecting instrument to declare reads, writes, authority, schemas, tests, and disable switch;
-4. add a registry consistency check;
-5. use one small new instrument as the reference implementation.
+1. define the minimum Markdown module contract shape;
+2. use `tasknotes.read_context` as the first pressure test before implementing first-class read-only TaskNotes context;
+3. list context providers, planners, review surfaces, action adapters, memory modules, and evaluators;
+4. require each module to declare reads, writes, authority, schemas, tests, disable behavior, TaskNotes mutation status, and required action capabilities;
+5. defer JSON/YAML manifests and registry checkers until the Markdown contract proves useful.
+
+For the read-only TaskNotes context pressure test, required action capabilities should be none, `may_mutate_tasknotes` should be false, and output must include provenance, freshness, limits, and safe-off/disabled behavior. Future deterministic TaskNotes apply/promote remains separate planned work.
 
 This keeps future functionality easy to add without creating a giant unbounded agent.

@@ -111,16 +111,21 @@ This file records the accepted audit draft for `modules/programs/ai/docs/REFACTO
 
 ## Priority 2 - TaskNotes apply/promote gate
 
-### R-0201 Add first-class read-only TaskNotes context
+### R-0201 Define the read-only TaskNotes context module contract
 
 - Severity: medium
-- Depends on: docs current-state clarity
-- Current problem: TaskNotes is central, but read-only context should be explicit before applying writes.
+- Depends on: docs current-state clarity and the Markdown-only module contract pressure test
+- Current problem: TaskNotes is central, but the minimum read-only context contract should be explicit before implementing the provider or applying writes.
 - Proposed change:
-  - Add bounded read-only TaskNotes context provider.
-  - Include active/open commitments, due/scheduled metadata, provenance fields, and limits.
+  - First add a Markdown-only module contract for `tasknotes.read_context`; do not add a JSON/YAML manifest, checker, or runtime provider in this step.
+  - Declare it as a context provider that reads bounded TaskNotes source paths and writes only bounded AI context output/artifacts.
+  - Declare `may_mutate_tasknotes: false` and `required_action_capabilities: none`.
+  - Require provenance, freshness, source limits, truncation/omission markers, and safe-off/disabled behavior.
+  - Preserve future deterministic TaskNotes apply/promote as separate planned work.
 - Acceptance tests:
-  - Context provider cannot write TaskNotes.
+  - Contract states no action-bridge runtime action capability is required.
+  - Future provider tests prove no TaskNotes writes.
+  - Future provider tests prove bounded/provenanced output, freshness fields, limit handling, and safe-off/disabled behavior.
   - Context facts are bounded and safe for LLM consumption.
 
 ### R-0202 Implement deterministic TaskNotes apply/promote gate
