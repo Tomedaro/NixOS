@@ -195,28 +195,23 @@ Authority legend: observe, draft/propose, review, local-state mutate, live-actio
 
 ### `dialog-bridge/dialog_bridge.py`
 
-- Purpose: displays pending planner questions and records answers.
-- Current status: implemented but timer disabled by default.
+- Purpose: displays pending planner questions and queues desktop answers into canonical actions.
+- Current status: implemented but timer disabled by default; dd4450a moved desktop answer responses to the canonical action queue.
 - Inputs: `AI/state/llm/pending-question.json`.
 - Outputs:
-  - `AI/outbox/to-phone/current-question.md`
-  - `AI/archive/questions/YYYY-MM-DD/*.json`
-  - `AI/events/desktop/YYYY-MM-DD.answers.jsonl`
-  - `AI/inbox/from-desktop/events/*_question_answered.json`
-  - `AI/state/llm/last-answer.json`
-  - triggers planner service if configured.
-- Side effects: notification, events, state writes, planner trigger.
-- Authority: local interaction lifecycle mutate.
+  - `AI/inbox/actions/*answer_question*.json`
+  - local desktop notification.
+- Side effects: notification and canonical action enqueue for answer responses; `action-bridge` owns processed lifecycle/state side effects.
+- Authority: observe + local notification + canonical action enqueue.
 - Evidence:
-  - writes answer event directly to `AI/inbox/from-desktop/events` and JSONL at lines 391-418.
-  - triggers planner through `systemctl --user start` at lines 423-433.
-- Tests: `dialog_bridge_smoke.py` only covers no-pending inactive markdown.
+  - Resolved by dd4450a: desktop answers are queued as `action.v1` `answer_question` files under `AI/inbox/actions`.
+  - `action-bridge` handles canonical `answer_question` and `dismiss_question` processing.
+- Tests: `dialog_bridge_smoke.py` covers current dialog mechanics.
 - Issues:
-  - MEDIUM: duplicates question lifecycle ownership with `action-bridge`, which already has canonical `answer_question` and `dismiss_question` actions.
-  - MEDIUM: answer path bypasses action journal/idempotency/manual-review semantics.
+  - LOW: keep desktop UI behavior aligned with the canonical action protocol as more desktop signals are added.
 - Actions:
-  - Migrate answer/dismiss actions to write `AI/inbox/actions/*.json` canonical action files.
-  - Expand tests for answer/dismiss and planner-trigger behavior.
+  - Preserve the action-queue handoff; do not restore dialog-owned lifecycle/state writes.
+  - Add a real dismiss UI signal before emitting `dismiss_question`.
 
 ### `llm-planner`
 

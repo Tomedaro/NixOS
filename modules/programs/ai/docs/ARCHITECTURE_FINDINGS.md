@@ -55,22 +55,23 @@ No critical code failure was found in the read-only audit. The main blockers bef
   - No further Anki direct-mode deprecation work is needed; preserve reviewable proposal/draft paths until deterministic apply/promote exists.
   - Remove after the deterministic apply gate is available.
 
-### MEDIUM-001 - `dialog-bridge` owns answer lifecycle outside canonical action queue
+### MEDIUM-001 - Resolved by dd4450a: `dialog-bridge` answers route through canonical action queue
 
 - Severity: medium
 - Area: protocol consistency / action journal
-- Evidence:
-  - `dialog_bridge.py` writes question answers directly into `AI/inbox/from-desktop/events`, daily answer JSONL, and `AI/state/llm/last-answer.json`.
+- Historical evidence:
+  - Before dd4450a, `dialog_bridge.py` recorded question answers through desktop event/state paths outside the canonical action queue.
   - `action-bridge` already implements `answer_question` and `dismiss_question` through the canonical action queue and action journal.
-- Why it matters:
-  - Two modules own overlapping question lifecycle semantics.
-  - Direct answer events bypass action journal/manual-review/idempotency logic.
-- Current mitigations:
-  - `dialogBridge.enableTimer = false` by default.
-  - `action-bridge` has richer question/nudge lifecycle handling.
+- Why it mattered:
+  - Two modules owned overlapping question lifecycle semantics.
+  - Before dd4450a, answer handling skipped action journal/manual-review/idempotency logic.
+- Current status:
+  - Resolved by dd4450a: `dialog-bridge` queues canonical `answer_question` action files into `AI/inbox/actions`.
+  - `action-bridge` processes queued `answer_question` and `dismiss_question` actions and owns lifecycle/state side effects.
+  - The desktop UI emits `answer_question` only; do not emit `dismiss_question` until there is a real desktop dismiss signal.
 - Recommended treatment:
-  - Migrate `dialog-bridge` answer/dismiss to emit canonical `AI/inbox/actions/*.json` files.
-  - Keep `dialog-bridge` as notification/UI only.
+  - Preserve the thin UI adapter boundary; do not restore dialog-owned lifecycle/state writes.
+  - Keep `dismiss_question` canonical in `action-bridge` for UI surfaces that can emit a real dismiss signal.
 
 ### MEDIUM-002 - Event JSONL logs are evidence, not authoritative audit records yet
 

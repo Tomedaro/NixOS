@@ -6,7 +6,7 @@ This is the high-level module map. Detailed evidence belongs in `docs/MODULE_REV
 | --- | --- | --- | --- |
 | `action-bridge` | Processes live action queue and selected actions. | High | Legacy/direct TaskNotes promotion is disabled; reviewable drafts remain separate. |
 | `phone-bridge` | Phone-facing message/status bridge. | Medium | Writes phone outbox/state. |
-| `dialog-bridge` | Desktop/dialog interaction bridge. | Medium | Currently has direct answer lifecycle behavior; should migrate to canonical actions. |
+| `dialog-bridge` | Desktop/dialog interaction bridge. | Medium | Queues canonical `answer_question` action files into `AI/inbox/actions`; `action-bridge` owns answer/dismiss lifecycle processing. Desktop UI must not emit `dismiss_question` until a real dismiss signal exists. |
 | `session-manager` | Session lifecycle and state. | Medium | Supports recovery/session flows. |
 | `coach-daemon` | Coaching/recovery loop. | Medium | Should stay friendly and bounded. |
 | `recovery-manager` | Recovery proposal/status handling. | Medium | Should propose rather than silently commit. |

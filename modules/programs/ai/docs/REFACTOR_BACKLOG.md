@@ -47,7 +47,7 @@ This file records the accepted audit draft for `modules/programs/ai/docs/REFACTO
   - Direct mode status includes warning.
   - Default mode produces proposal/draft only.
 
-### R-0003 Make `dialog-bridge` emit canonical action files for answers/dismissals
+### R-0003 Resolved by dd4450a: make `dialog-bridge` emit canonical action files for answers
 
 - Severity: medium
 - Depends on: R-0001 not strictly, but should follow authority split design
@@ -56,10 +56,12 @@ This file records the accepted audit draft for `modules/programs/ai/docs/REFACTO
   - `dialog-bridge/default.nix`
   - `tests/dialog_bridge_smoke.py`
   - `tests/action_bridge_smoke.py`
-- Current problem: direct answer events bypass action journal/idempotency.
-- Proposed change:
-  - `dialog-bridge` writes `AI/inbox/actions/<timestamp>_answer-question.json` and `dismiss-question.json`.
-  - `action-bridge` remains lifecycle owner.
+- Historical problem: before dd4450a, dialog answer handling skipped action journal/idempotency.
+- Current status:
+  - Resolved by dd4450a: desktop answers queue `answer_question` action files under `AI/inbox/actions`.
+  - `action-bridge` remains lifecycle owner and processes queued `answer_question` and `dismiss_question` actions.
+- Remaining follow-up:
+  - Add a real dismiss UI signal before emitting `dismiss_question`.
 - Acceptance tests:
   - Dialog answer creates action file only.
   - Action bridge processes answer and updates `last-answer`, current question, interaction state, and event logs.

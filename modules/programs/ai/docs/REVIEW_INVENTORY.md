@@ -101,7 +101,7 @@ Optional/stub modules reviewed at Nix level:
 | anki-bridge | current | Status/proposal writer; direct TaskNotes mode is removed/hard-disabled. |
 | coach-daemon | current | ActivityWatch-based desktop coach and telemetry writer. |
 | llm-planner | current but timer off | Local Ollama planner; writes reports, current question/nudge, proposed tasks. |
-| dialog-bridge | current but timer off | Notification/answer loop; should hand answers to action queue. |
+| dialog-bridge | current but timer off | Notification/answer loop; queues `answer_question` actions to `AI/inbox/actions`. |
 | recovery-trigger | implemented but disabled | Deterministic recovery nudge generator through proposal gate. |
 | recovery-manager | current | Recovery lifecycle classifier. |
 | intervention-outcomes | current | Outcome stats reporter; timer enabled by default. |
@@ -159,13 +159,13 @@ High-risk side-effect surfaces:
 - `action-bridge promote_task_proposal` is disabled by ac274a9 and no longer writes real TaskNotes.
 - `anki-bridge` direct TaskNotes mode is removed/hard-disabled by 36f5813; raw `TASKNOTE_MODE=direct` falls back to `propose`.
 - `session-manager` rewrites human-facing control files under `AI/control` as part of session start/end.
-- `dialog-bridge` currently writes answer lifecycle events directly instead of delegating to canonical action files.
+- Resolved by dd4450a: `dialog-bridge` answer handling now queues `answer_question` action files in `AI/inbox/actions`; `action-bridge` owns answer/dismiss lifecycle state side effects.
 - JSONL event append is not crash-consistent/audit-grade in the same way as `atomic_write_text/json`.
 
 ## Unsafe or legacy paths found
 
 - `action-bridge promote_task_proposal`: disabled legacy/direct mutation surface.
 - `anki-bridge taskNoteMode = "direct"`: removed/hard-disabled legacy/direct mutation surface.
-- `dialog-bridge` answer handling: duplicated lifecycle ownership; should emit canonical action files.
+- `dialog-bridge` answer handling: resolved by dd4450a; keep the action-queue handoff and add no `dismiss_question` emission until a real desktop dismiss signal exists.
 - `AI/inbox/from-obsidian/...`: not active in Python code; appears only as legacy/diagnostic references.
 - `TaskNotes/Tasks` appears in older TODO documentation and should be corrected against actual TaskNotes path/config before implementation.

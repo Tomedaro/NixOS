@@ -45,7 +45,7 @@ read current-question/current-nudge JSON
 → action-bridge handles lifecycle
 ```
 
-It should write actions such as:
+UI adapters should write canonical actions such as:
 
 ```text
 answer_question
@@ -53,6 +53,8 @@ dismiss_question
 ack_nudge
 snooze_nudge
 ```
+
+Current `dialog-bridge` desktop answer UI queues `answer_question` only into `AI/inbox/actions`. It must not emit `dismiss_question` until there is a real desktop dismiss signal.
 
 It should not directly mutate:
 
@@ -87,7 +89,7 @@ Then `action-bridge`:
 
 ```text
 logs the answer/dismissal
-queues AI/inbox/actions/*answer_question*.json when answered
+processes queued answer_question/dismiss_question action files
 clears pending-question
 sets current-question inactive
 updates interaction-state
@@ -172,4 +174,4 @@ make desktop prompt style non-intrusive
 ```
 
 
-Current status: `dialog-bridge` queues canonical `answer_question` actions to `AI/inbox/actions`; `action-bridge` processes those actions and owns canonical answer lifecycle side effects. The current desktop notification UI emits answer actions only; `dismiss_question` remains canonical in `action-bridge` for surfaces that emit a real dismiss signal.
+Current status: `dialog-bridge` queues canonical `answer_question` action files into `AI/inbox/actions`; `action-bridge` processes queued `answer_question` and `dismiss_question` actions and owns lifecycle/state side effects. The current desktop notification UI emits answer actions only; `dismiss_question` remains canonical in `action-bridge` for surfaces that emit a real dismiss signal.
