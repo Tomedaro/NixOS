@@ -848,6 +848,112 @@ def test_action_capability_policy_defaults_match_runtime_and_nix_wiring() -> Non
     assert "default = 2;" in authority_block
 
 
+
+def test_action_capability_policy_enforcement_classification_is_explicit() -> None:
+    shared_python = str(REPO / "modules/programs/ai/python")
+    if shared_python not in sys.path:
+        sys.path.insert(0, shared_python)
+
+    module_name = f"action_bridge_policy_enforcement_smoke_{time.time_ns()}"
+    spec = importlib.util.spec_from_file_location(module_name, ACTION_BRIDGE)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+
+    enforced_actions = {
+        "check_in",
+        "start_recovery_target",
+        "submit_proof",
+        "promote_task_proposal",
+        "promote_proposal",
+    }
+    supported_default_actions = {
+        "start_session",
+        "end_session",
+        "answer_question",
+        "dismiss_question",
+        "ack_nudge",
+        "snooze_nudge",
+    }
+    disabled_actions = {
+        "promote_task_proposal",
+        "promote_proposal",
+    }
+    named_gates = {
+        "check_in": "ALLOW_SESSION_CHECK_IN",
+        "start_recovery_target": "ALLOW_RECOVERY_TARGET_START",
+        "submit_proof": "ALLOW_PROOF_SUBMIT",
+    }
+
+    policy_actions = set(module.ACTION_CAPABILITY_POLICY)
+    assert enforced_actions | supported_default_actions == policy_actions
+    assert enforced_actions & supported_default_actions == set()
+    assert disabled_actions <= enforced_actions
+
+    for action_name in supported_default_actions:
+        policy = module.ACTION_CAPABILITY_POLICY[action_name]
+        assert policy["status"] == "supported", action_name
+        assert policy["default_enabled"] is True, action_name
+        assert policy["enabled"] is True, action_name
+        assert "gate_env" not in policy, action_name
+        assert "min_authority" not in policy, action_name
+
+    for action_name, gate_env in named_gates.items():
+        policy = module.ACTION_CAPABILITY_POLICY[action_name]
+        assert policy["status"] == "gated", action_name
+        assert policy["default_enabled"] is True, action_name
+        assert policy["gate_env"] == gate_env, action_name
+        assert callable(policy["enabled"]), action_name
+
+    actions_with_min_authority = {
+        action_name
+        for action_name, policy in module.ACTION_CAPABILITY_POLICY.items()
+        if "min_authority" in policy
+    }
+    assert actions_with_min_authority == {"submit_proof"}
+    assert module.ACTION_CAPABILITY_POLICY["submit_proof"]["min_authority"] == 1
+
+    for action_name in disabled_actions:
+        policy = module.ACTION_CAPABILITY_POLICY[action_name]
+        assert policy["status"] == "disabled", action_name
+        assert policy["capability"] == "disabled.legacy", action_name
+        assert policy["default_enabled"] is False, action_name
+        assert policy["enabled"] is False, action_name
+        assert policy["side_effect"] == "none_disabled_tasknotes", action_name
+
+    capabilities = {
+        policy["capability"]
+        for policy in module.ACTION_CAPABILITY_POLICY.values()
+    }
+    assert "tasknotes.promote" not in capabilities
+
+    action_source = ACTION_BRIDGE.read_text(encoding="utf-8")
+
+    def has_literal_require_call(action_name: str) -> bool:
+        return (
+            f'require_action_capability("{action_name}")' in action_source
+            or f"require_action_capability('{action_name}')" in action_source
+        )
+
+    for action_name in named_gates:
+        assert has_literal_require_call(action_name), action_name
+
+    # Disabled legacy actions are covered by policy classification here and by
+    # test_tasknotes_promotion_is_disabled_even_with_legacy_env for behavior.
+    # Do not require a literal source call shape for the shared legacy handler.
+    assert (
+        module.ACTION_CAPABILITY_POLICY["promote_task_proposal"]["status"]
+        == "disabled"
+    )
+    assert (
+        module.ACTION_CAPABILITY_POLICY["promote_proposal"]["status"]
+        == "disabled"
+    )
+
+    for action_name in supported_default_actions:
+        assert not has_literal_require_call(action_name), action_name
+
+
 def test_dispatch_aliases_have_capability_policy() -> None:
     shared_python = str(REPO / "modules/programs/ai/python")
     if shared_python not in sys.path:
@@ -1278,6 +1384,7 @@ def main() -> None:
         test_dispatched_actions_have_capability_policy,
         test_action_capability_policy_metadata_invariants,
         test_action_capability_policy_defaults_match_runtime_and_nix_wiring,
+        test_action_capability_policy_enforcement_classification_is_explicit,
         test_dispatch_aliases_have_capability_policy,
         test_tasknotes_promotion_is_disabled_even_with_legacy_env,
         test_proof_submit_requires_named_capability,
