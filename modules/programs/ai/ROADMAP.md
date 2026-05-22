@@ -6,10 +6,11 @@ This file is planned work only. Do not use it as current-state documentation.
 
 1. Preserve regression coverage for `recovery.target.start` default-off behavior and explicit opt-in success.
 2. Clarify and test `action-bridge` authority defaults before lowering broad numeric authority.
-3. Evaluate remaining named gates for default-off behavior as independent safety patches.
-4. Keep direct TaskNotes mutation disabled until deterministic apply/promote exists.
-5. Keep Anki task output proposal/off only until deterministic TaskNotes apply/promote exists.
-6. Preserve regression coverage proving default/reviewable paths cannot mutate real TaskNotes.
+3. Follow the `SAFETY_MODEL.md` named capability default-off migration checklist before flipping any additional named capability default.
+4. Treat `recovery.target.start` as the first completed default-off example; do not select or start another default-off candidate without a separate Research and Design plan.
+5. Keep direct TaskNotes mutation disabled until deterministic apply/promote exists.
+6. Keep Anki task output proposal/off only until deterministic TaskNotes apply/promote exists.
+7. Preserve regression coverage proving default/reviewable paths cannot mutate real TaskNotes.
 
 ## Priority 2 - Canonicalize action and TaskNotes flows
 

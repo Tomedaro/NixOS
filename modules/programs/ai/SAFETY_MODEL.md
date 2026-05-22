@@ -65,6 +65,31 @@ The default-off migration is applied. Regression coverage must continue proving 
 
 The default-off behavior must preserve reviewable proposal/draft paths and must not reintroduce direct TaskNotes mutation.
 
+### Named capability default-off migration checklist
+
+Before flipping any named capability default from enabled to disabled, document and prove all of the following:
+
+- identify the named capability, canonical action, accepted aliases, gate environment variable, and Nix option;
+- confirm `ACTION_CAPABILITY_POLICY` covers the canonical action;
+- confirm policy metadata declares the expected capability, `gate_env`, and `default_enabled`;
+- preserve explicit opt-in success behavior for the intended action path;
+- flip runtime fallback and Nix option defaults together;
+- preserve Nix environment wiring from the Nix option to the gate environment variable;
+- update `ACTION_CAPABILITY_POLICY` metadata in the same patch as the default flip;
+- prove default/no-env action requests are rejected;
+- prove blocked default behavior writes no state;
+- prove blocked default behavior appends no events;
+- prove blocked default behavior performs no lifecycle side effects, such as clearing or completing an originating interaction;
+- prove no unrelated capability defaults changed;
+- prove no live `tasknotes.promote` capability appears;
+- update current-state, safety, roadmap, and local bridge docs where behavior is user-visible;
+- run full smoke for behavior patches.
+
+Completed example:
+
+- `recovery.target.start` / `start_recovery_target` / `ALLOW_RECOVERY_TARGET_START` / `allowRecoveryTargetStart` is the first completed default-off migration.
+- The migration proves default/no-env `start_recovery_target` is rejected, blocked default behavior writes no recovery state/events, blocked default behavior does not clear the originating nudge as `recovery_started`, explicit `ALLOW_RECOVERY_TARGET_START=1` preserves intended successful behavior, policy metadata has `default_enabled = false`, and no live `tasknotes.promote` capability appears.
+
 The action bridge still has a broad numeric `ACTION_AUTHORITY_LEVEL` setting. The source now keeps a small `ACTION_CAPABILITY_POLICY` registry for dispatched action capability classes. Each entry declares status, side-effect class, default-enabled state, and gate metadata where applicable so policy drift is visible before adding more gates. This is an inventory and incremental enforcement point, not a full policy engine. `recovery.target.start` is default-off; remaining enabled named gates are transitional, and disabled legacy actions remain disabled:
 
 | Action | Capability | Current behavior | Side-effect class |
