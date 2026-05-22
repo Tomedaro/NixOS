@@ -5,10 +5,11 @@ This file is planned work only. Do not use it as current-state documentation.
 ## Priority 1 - Stabilize authority and direct mutation boundaries
 
 1. Clarify and test `action-bridge` authority defaults before lowering broad numeric authority.
-2. Keep named capability gates default-enabled until a separate migration plan chooses a safe default-off candidate, likely `recovery.target.start`.
-3. Keep direct TaskNotes mutation disabled until deterministic apply/promote exists.
-4. Keep Anki task output proposal/off only until deterministic TaskNotes apply/promote exists.
-5. Preserve regression coverage proving default/reviewable paths cannot mutate real TaskNotes.
+2. Prepare a default-off migration plan for `recovery.target.start` / `ALLOW_RECOVERY_TARGET_START` before flipping any named gate default.
+3. Keep named capability gates default-enabled until a migration patch proves user impact, recovery UX, default rejection, explicit opt-in success, and policy metadata consistency.
+4. Keep direct TaskNotes mutation disabled until deterministic apply/promote exists.
+5. Keep Anki task output proposal/off only until deterministic TaskNotes apply/promote exists.
+6. Preserve regression coverage proving default/reviewable paths cannot mutate real TaskNotes.
 
 ## Priority 2 - Canonicalize action and TaskNotes flows
 

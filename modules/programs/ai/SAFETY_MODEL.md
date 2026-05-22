@@ -48,6 +48,25 @@ This default-enabled state is transitional, not the long-term safety target. Dan
 
 The first future default-off candidate is likely `recovery.target.start` / `ALLOW_RECOVERY_TARGET_START`, because it starts a recovery target flow and is more action-like than passive interaction-state updates. Do not flip that default until a separate plan verifies user impact, recovery UX, and tests.
 
+### `recovery.target.start` default-off migration requirements
+
+`recovery.target.start` / `ALLOW_RECOVERY_TARGET_START` is a future default-off candidate, not a default-off gate today. The current default remains enabled for compatibility.
+
+Do not flip this default until a separate behavior patch proves all of the following:
+
+- runtime `ALLOW_RECOVERY_TARGET_START` default becomes disabled;
+- Nix `allowRecoveryTargetStart` default becomes `false`;
+- Nix wiring still exports `ALLOW_RECOVERY_TARGET_START`;
+- default `start_recovery_target` actions are rejected;
+- blocked default behavior does not write recovery state;
+- blocked default behavior does not append recovery events;
+- blocked default behavior does not clear the originating nudge as `recovery_started`;
+- explicit `ALLOW_RECOVERY_TARGET_START=1` preserves current successful `start_recovery_target` behavior;
+- `ACTION_CAPABILITY_POLICY` metadata changes consistently, including `default_enabled`;
+- no live `tasknotes.promote` capability appears.
+
+The migration patch must preserve reviewable proposal/draft paths and must not reintroduce direct TaskNotes mutation.
+
 The action bridge still has a broad numeric `ACTION_AUTHORITY_LEVEL` setting. The source now keeps a small `ACTION_CAPABILITY_POLICY` registry for dispatched action capability classes. Each entry declares status, side-effect class, default-enabled state, and gate metadata where applicable so policy drift is visible before adding more gates. This is an inventory and incremental enforcement point, not a full policy engine. Existing named gates remain default-enabled except disabled legacy actions:
 
 | Action | Capability | Current behavior | Side-effect class |
