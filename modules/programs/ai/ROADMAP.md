@@ -14,7 +14,7 @@ This file is planned work only. Do not use it as current-state documentation.
 
 ## Priority 2 - Canonicalize action and TaskNotes flows
 
-1. Migrate `dialog-bridge` answer/dismiss handling to canonical `AI/inbox/actions/*.json`.
+1. Keep `dialog-bridge` answer handling canonical through `AI/inbox/actions/*.json`; add dialog dismiss emission only when the desktop UI has a real dismiss signal.
 2. Add first-class read-only TaskNotes context.
 3. Define deterministic TaskNotes apply/promote schema.
 4. Implement apply/promote gate with idempotency, conflict handling, and events.

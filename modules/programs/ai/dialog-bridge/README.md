@@ -87,7 +87,7 @@ Then `action-bridge`:
 
 ```text
 logs the answer/dismissal
-updates AI/state/llm/last-answer.json when answered
+queues AI/inbox/actions/*answer_question*.json when answered
 clears pending-question
 sets current-question inactive
 updates interaction-state
@@ -164,9 +164,12 @@ Useful future improvements:
 
 ```text
 refactor to read structured JSON instead of old Markdown/pending-question assumptions
-write answer_question actions instead of mutating question state directly
+writes answer_question actions instead of mutating question state directly
 support ack_nudge and snooze_nudge
 respect interaction-state active_nudge/active_question
 avoid repeated prompts after snooze or recovery start
 make desktop prompt style non-intrusive
 ```
+
+
+Current status: `dialog-bridge` writes canonical `answer_question` actions to `AI/inbox/actions`; `action-bridge` owns canonical answer lifecycle side effects. The current desktop notification UI emits answer actions only; `dismiss_question` remains canonical in `action-bridge` for surfaces that emit a real dismiss signal.

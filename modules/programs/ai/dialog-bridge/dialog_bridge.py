@@ -9,25 +9,18 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from ai_system.io_utils import append_jsonl, atomic_write_json, atomic_write_text
+from ai_system.io_utils import atomic_write_json, atomic_write_text
 
 
 AI_DIR = Path(os.environ.get("AI_DIR", "~/Sync/Perseverance.Gu/AI")).expanduser()
 
 NOTIFY_SEND = os.environ.get("NOTIFY_SEND", "notify-send")
 TIMEOUT_BIN = os.environ.get("TIMEOUT_BIN", "timeout")
-SYSTEMCTL = os.environ.get("SYSTEMCTL", "systemctl")
-
 NOTIFICATION_TIMEOUT_SECONDS = int(os.environ.get("NOTIFICATION_TIMEOUT_SECONDS", "60"))
 NOTIFICATION_COOLDOWN_SECONDS = int(
     os.environ.get("NOTIFICATION_COOLDOWN_SECONDS", "600")
 )
 MAX_QUESTION_AGE_SECONDS = int(os.environ.get("MAX_QUESTION_AGE_SECONDS", "14400"))
-TRIGGER_PLANNER_ON_ANSWER = os.environ.get("TRIGGER_PLANNER_ON_ANSWER", "1") == "1"
-TRIGGER_PLANNER_SERVICE = os.environ.get(
-    "TRIGGER_PLANNER_SERVICE", "llm-planner-help-now.service"
-)
-
 TIMEZONE = ZoneInfo(os.environ.get("DIALOG_BRIDGE_TIMEZONE") or os.environ.get("AI_TIMEZONE", "Europe/Paris"))
 
 STATE_LLM_DIR = AI_DIR / "state" / "llm"
@@ -36,13 +29,11 @@ OUTBOX_TO_PHONE_DIR = AI_DIR / "outbox" / "to-phone"
 
 PENDING_QUESTION_JSON = STATE_LLM_DIR / "pending-question.json"
 CURRENT_QUESTION_MD = OUTBOX_TO_PHONE_DIR / "current-question.md"
-LAST_ANSWER_JSON = STATE_LLM_DIR / "last-answer.json"
 DIALOG_STATE_JSON = STATE_DESKTOP_DIR / "dialog-bridge-state.json"
 
 QUESTION_ARCHIVE_DIR = STATE_LLM_DIR / "questions" / "archive"
 
-INBOX_FROM_DESKTOP_EVENTS = AI_DIR / "inbox" / "from-desktop" / "events"
-EVENTS_DESKTOP_DIR = AI_DIR / "events" / "desktop"
+INBOX_ACTIONS_DIR = AI_DIR / "inbox" / "actions"
 
 
 def now():
@@ -63,8 +54,7 @@ def ensure_dirs():
         STATE_DESKTOP_DIR,
         OUTBOX_TO_PHONE_DIR,
         QUESTION_ARCHIVE_DIR,
-        INBOX_FROM_DESKTOP_EVENTS,
-        EVENTS_DESKTOP_DIR,
+        INBOX_ACTIONS_DIR,
     ]:
         path.mkdir(parents=True, exist_ok=True)
 
@@ -282,27 +272,12 @@ def mark_question_shown(state, question):
     save_state(state)
 
 
-def mark_question_answered(state, question, event):
-    question_id = question["question_id"]
-    qstate = state["questions"].setdefault(question_id, {})
-
-    qstate["answered_at"] = event.get("timestamp")
-    qstate["answer"] = event.get("answer")
-    qstate["answer_label"] = event.get("answer_label")
-    qstate["status"] = "answered"
-
-    state["last_answer"] = event
-    state["last_answered_question_id"] = question_id
-
-    save_state(state)
-
-
 def should_show_question(state, question):
     question_id = question.get("question_id")
     qstate = state.get("questions", {}).get(question_id, {})
 
-    if qstate.get("status") == "answered":
-        return False, "already answered"
+    if qstate.get("status") in {"answered", "answer_queued"}:
+        return False, f"already {qstate.get('status')}"
 
     if question_is_expired(question):
         return False, "expired"
@@ -388,55 +363,50 @@ def answer_label(question, answer_id):
     return answer_id
 
 
-def write_answer_event(question, answer_id):
+
+def unique_action_path(path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    if not path.exists():
+        return path
+
+    stem = path.stem
+    suffix = path.suffix
+    parent = path.parent
+
+    for index in range(2, 100):
+        candidate = parent / f"{stem}-{index}{suffix}"
+        if not candidate.exists():
+            return candidate
+
+    raise RuntimeError(f"could not allocate unique action path for {path}")
+
+
+def write_answer_action(question, answer_id):
     answer_id = sanitize_action_id(answer_id)
     label = answer_label(question, answer_id)
+    question_id = sanitize_action_id(question.get("question_id"))
     epoch = int(time.time())
 
-    event = {
+    action = {
+        "schema_version": "action.v1",
+        "action": "answer_question",
+        "action_id": f"dialog-answer-{question_id}-{answer_id}",
         "source": "dialog-bridge",
         "device": "desktop",
-        "event": "question_answered",
         "question_id": question.get("question_id"),
-        "question": question.get("question"),
-        "reason": question.get("reason", ""),
         "answer": answer_id,
         "answer_label": label,
         "free_text": "",
         "timestamp_epoch": epoch,
-        "timestamp": now_iso(),
-        "date": today(),
-        "time": now().strftime("%H:%M:%S"),
+        "created_at": now_iso(),
     }
 
-    raw_path = INBOX_FROM_DESKTOP_EVENTS / f"{epoch}_question_answered.json"
-    atomic_write_json(raw_path, event)
+    filename = f"{epoch}_dialog_answer_question_{question_id}_{answer_id}.json"
+    path = unique_action_path(INBOX_ACTIONS_DIR / filename)
+    atomic_write_json(path, action)
 
-    jsonl_path = EVENTS_DESKTOP_DIR / f"{today()}.jsonl"
-    append_jsonl(jsonl_path, event)
-
-    atomic_write_json(LAST_ANSWER_JSON, event)
-
-    return event
-
-
-def trigger_planner():
-    if not TRIGGER_PLANNER_ON_ANSWER:
-        return
-
-    try:
-        subprocess.run(
-            [
-                SYSTEMCTL,
-                "--user",
-                "start",
-                "--no-block",
-                TRIGGER_PLANNER_SERVICE,
-            ],
-            check=False,
-        )
-    except Exception as error:
-        print(f"failed to trigger planner: {error}", file=sys.stderr, flush=True)
+    return path, action
 
 
 def handle_no_pending():
@@ -481,20 +451,21 @@ def run_once():
         print("no answer selected", flush=True)
         return
 
-    event = write_answer_event(question, answer_id)
-    mark_question_answered(state, question, event)
+    action_path, action = write_answer_action(question, answer_id)
 
-    archive_path = archive_question(question, "answered", state=state, event=event)
-    write_current_question_inactive(
-        f"answered: {event.get('answer_label', event.get('answer'))}"
-    )
+    question_id = question["question_id"]
+    qstate = state["questions"].setdefault(question_id, {})
+    qstate["last_answer_action_id"] = action["action_id"]
+    qstate["last_answer_action_path"] = str(action_path)
+    qstate["last_answer_queued_at"] = now_iso()
+    qstate["status"] = "answer_queued"
+    state["last_answer_action"] = action
+    save_state(state)
 
     print(
-        f"answered question {question.get('question_id')} with {event.get('answer')}; archived={archive_path}",
+        f"queued answer_question action for {question.get('question_id')} with {action.get('answer')}; action={action_path}",
         flush=True,
     )
-
-    trigger_planner()
 
 
 def main():

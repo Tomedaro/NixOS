@@ -111,7 +111,7 @@ This flow is strong because it produces reviewable artifacts and keeps live muta
 current question state
   -> phone/dialog surface
   -> answer or dismiss
-  -> target design: AI/inbox/actions answer_question/dismiss_question
+  -> current design: AI/inbox/actions answer_question; dismiss_question is canonical in action-bridge when a UI emits it
   -> action bridge owns lifecycle and state mutation
 ```
 

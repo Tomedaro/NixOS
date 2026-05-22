@@ -28,7 +28,7 @@ These former direct TaskNotes mutation paths are removed or disabled and should 
 
 ## Partial or transitional behavior
 
-- `dialog-bridge` can own answer event/state writing directly even though `action-bridge` also supports canonical `answer_question` / `dismiss_question` actions.
+- `dialog-bridge` queues canonical `answer_question` actions into `AI/inbox/actions`; `action-bridge` owns canonical answer/dismiss side effects.
 - JSONL event files are useful evidence logs, but they should not yet be documented as authoritative crash-safe/tamper-evident audit records.
 - Planner outputs and context providers contain useful signals, but the end-to-end personal learning loop is not yet canonical.
 - Goal IDs and intervention outcomes exist, but goal hierarchy and commitment semantics are not first-class yet.
