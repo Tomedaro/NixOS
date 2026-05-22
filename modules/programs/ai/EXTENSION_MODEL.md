@@ -10,6 +10,17 @@ The core idea is:
 
 The project should become more powerful by becoming more modular, not by letting every module reach into every file.
 
+## Bridge, guardrail, and instrument vocabulary
+
+
+The extension model uses three practical roles:
+
+- **Bridge**: an adapter between an external/user-facing surface or subsystem and AI vault protocols. A bridge translates inputs and outputs, validates protocol shape, and records inspectable evidence. A bridge should not silently create durable commitments or invent broad authority.
+- **Guardrail**: a deterministic safety boundary owned by the small safety kernel. A guardrail rejects unsafe, malformed, stale, over-broad, or authority-breaking inputs before they become durable actions.
+- **Instrument**: a goal-achievement module. An instrument may observe, summarize, propose, classify, or act within declared limits. It must declare reads, writes, authority, schemas, tests, and disable behavior before being treated as active.
+
+These roles can overlap in one directory during early development, but they should not be confused. Bridges adapt protocols. Guardrails enforce deterministic safety boundaries. Instruments pursue user goals within declared authority.
+
 ## Why modularity is seminal
 
 The user's goals will change.
@@ -647,3 +658,39 @@ The instrument is useful, bounded, and inspectable.
 The system should become a modular goal-achievement platform:
 
 > A local-first system where new instruments can be added as explicit, typed, testable capability modules that help the user reach goals while preserving inspectability, review, and human-owned commitments.
+
+## Minimum module / instrument manifest
+
+
+Before adding or enabling a new module/instrument, document:
+
+- purpose and non-goals;
+- owner surface: bridge, guardrail, instrument, or a clearly bounded combination;
+- input paths and schemas read;
+- output paths and schemas written;
+- authority level and named capability, if any;
+- whether it can mutate local state, live queues, external apps, or durable commitments;
+- reviewable proposal/draft behavior;
+- disable switch or safe-off behavior;
+- failure behavior and where errors are written;
+- smoke/regression tests;
+- observability: status files, events, or logs;
+- current limitations and known unsafe paths.
+
+A module that touches TaskNotes must remain reviewable-only unless a deterministic reviewed apply/promote gate exists.
+
+## Removal and deprecation checklist
+
+
+Before removing, disabling, or deprecating a module/instrument:
+
+- identify all input and output paths it owns;
+- identify services, timers, path units, templates, and generated files;
+- preserve or migrate reviewable artifacts that humans may still need;
+- update docs that describe current behavior;
+- mark historical audit findings as resolved or superseded instead of deleting useful context;
+- add or update regression coverage proving unsafe behavior stays disabled;
+- remove or hard-disable authority wiring before removing explanatory docs;
+- confirm generated bundles and handoff docs no longer advertise stale behavior.
+
+Historical direct mutation paths should remain removed or disabled; new durable writes should use deterministic reviewed apply/promote.

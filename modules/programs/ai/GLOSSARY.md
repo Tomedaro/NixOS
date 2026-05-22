@@ -27,3 +27,27 @@
 **Intervention**: A bounded attempt to help, such as a recovery nudge or planning prompt.
 
 **Outcome**: Record of whether an intervention helped, was ignored, felt wrong, or should update future behavior.
+
+## Bridge
+
+An adapter between an external/user-facing surface or subsystem and AI vault protocols. Bridges translate, validate, and record evidence; they should not silently grant new authority.
+
+## Capability
+
+A named permission or authority class for a bounded action or side effect, such as `proof.submit` or `recovery.target.start`.
+
+## Guardrail
+
+A deterministic safety boundary owned by the safety kernel. Guardrails reject unsafe, malformed, stale, or over-authorized inputs before durable side effects occur.
+
+## Instrument
+
+A goal-achievement module with declared reads, writes, authority, schemas, tests, and disable behavior.
+
+## Module manifest
+
+The minimum documented contract for a module or instrument: purpose, inputs, outputs, authority, schemas, tests, observability, and safe-off behavior.
+
+## Safety kernel
+
+The small deterministic core that owns safety boundaries, authority checks, proposal-only constraints, and rejection of unsafe direct execution.
