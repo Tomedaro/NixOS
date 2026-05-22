@@ -88,7 +88,7 @@
     in
     {
       templates  = import ./dev-shells;
-      overlays   = import ./overlays { inherit inputs; };
+      overlays   = import ./overlays { inherit inputs; host = "Default"; };
       formatter  = forAllSystems (system: nixpkgs.legacyPackages.${system}.alejandra);
 
       nixosConfigurations = {
