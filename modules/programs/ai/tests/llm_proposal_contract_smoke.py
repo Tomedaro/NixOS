@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import sys
 from pathlib import Path
 
@@ -139,11 +141,169 @@ def test_json_parser_accepts_wrapped_json() -> None:
     assert parsed["summary"] == "x"
 
 
+
+def tasknotes_context_hub_fixture() -> dict:
+    return {
+        "schema_version": "context_hub.v1",
+        "available": True,
+        "provider_count": 1,
+        "providers": [
+            {
+                "name": "tasknotes.read_context",
+                "available": True,
+                "freshness": "1780000000",
+                "source_paths": [
+                    "/tmp/example/TaskNotes/Tasks",
+                ],
+                "warnings": [
+                    "tasknotes.read_context is bounded/truncated",
+                ],
+                "facts": {
+                    "module": "tasknotes.read_context",
+                    "status": "ok",
+                    "available": True,
+                    "generated_at_epoch": 1780000000,
+                    "limits": {
+                        "file_limit": 12,
+                        "bytes_per_file": 4096,
+                        "total_bytes": 32768,
+                    },
+                    "item_count": 12,
+                    "truncated": True,
+                    "omitted": {
+                        "over_limit": 2,
+                        "unreadable": 0,
+                        "bytes": 2048,
+                    },
+                    "source": {
+                        "kind": "TaskNotes/Tasks",
+                        "tasks_root": "/tmp/example/TaskNotes/Tasks",
+                    },
+                    "provenance": {
+                        "item_paths": [
+                            "Tasks/00.md",
+                            "Tasks/01.md",
+                        ],
+                    },
+                    "may_mutate_tasknotes": False,
+                    "required_action_capabilities": [],
+                },
+            },
+        ],
+        "facts": {
+            "tasknotes.read_context": {
+                "module": "tasknotes.read_context",
+                "status": "ok",
+                "available": True,
+                "generated_at_epoch": 1780000000,
+                "limits": {
+                    "file_limit": 12,
+                    "bytes_per_file": 4096,
+                    "total_bytes": 32768,
+                },
+                "item_count": 12,
+                "truncated": True,
+                "omitted": {
+                    "over_limit": 2,
+                    "unreadable": 0,
+                    "bytes": 2048,
+                },
+                "source": {
+                    "kind": "TaskNotes/Tasks",
+                    "tasks_root": "/tmp/example/TaskNotes/Tasks",
+                },
+                "provenance": {
+                    "item_paths": [
+                        "Tasks/00.md",
+                        "Tasks/01.md",
+                    ],
+                },
+                "may_mutate_tasknotes": False,
+                "required_action_capabilities": [],
+            },
+        },
+    }
+
+
+def test_prompt_package_includes_tasknotes_read_context_metadata() -> None:
+    package = build_llm_prompt_package(
+        {"kind": "review_tasknotes_context"},
+        {"context_hub": tasknotes_context_hub_fixture()},
+    )
+
+    tasknotes = package["context"]["tasknotes_read_context"]
+
+    assert tasknotes["module"] == "tasknotes.read_context"
+    assert tasknotes["status"] == "ok"
+    assert tasknotes["available"] is True
+    assert tasknotes["freshness"] == "1780000000"
+    assert tasknotes["generated_at_epoch"] == 1780000000
+    assert tasknotes["limits"]["file_limit"] == 12
+    assert tasknotes["limits"]["bytes_per_file"] == 4096
+    assert tasknotes["limits"]["total_bytes"] == 32768
+    assert tasknotes["item_count"] == 12
+    assert tasknotes["truncated"] is True
+    assert tasknotes["omitted"]["over_limit"] == 2
+    assert tasknotes["warnings"] == ["tasknotes.read_context is bounded/truncated"]
+    assert tasknotes["source"]["kind"] == "TaskNotes/Tasks"
+    assert tasknotes["source"]["tasks_root"] == "/tmp/example/TaskNotes/Tasks"
+    assert tasknotes["source_paths"] == ["/tmp/example/TaskNotes/Tasks"]
+    assert tasknotes["provenance"]["item_paths"] == ["Tasks/00.md", "Tasks/01.md"]
+    assert tasknotes["may_mutate_tasknotes"] is False
+    assert tasknotes["required_action_capabilities"] == []
+
+    serialized_tasknotes = json.dumps(tasknotes, sort_keys=True)
+    forbidden = [
+        "content",
+        "action_payload",
+        "AI/inbox/actions",
+        "tasknotes.promote",
+        "promote_task_proposal",
+        "apply_tasknotes",
+        "execute",
+        "run_command",
+    ]
+    assert all(value not in serialized_tasknotes for value in forbidden)
+
+
+def test_direct_execution_fields_rejected_with_tasknotes_context() -> None:
+    package = build_llm_prompt_package(
+        {"kind": "review_tasknotes_context"},
+        {"context_hub": tasknotes_context_hub_fixture()},
+    )
+
+    assert "tasknotes_read_context" in package["context"]
+
+    candidate = {
+        "proposal_kind": "next_goal_step",
+        "summary": "Run command",
+        "message_markdown": "I will run this now.",
+        "shell_command": "rm -rf /",
+        "suggested_actions": [],
+        "action_payload": {
+            "execute": True,
+        },
+        "tasknotes": {
+            "apply_tasknotes": True,
+        },
+    }
+
+    result = validate_llm_obsidian_proposal(
+        candidate,
+        sample_intent(),
+        sample_context(),
+    )
+
+    assert result["valid"] is False
+    assert "direct execution fields" in result["error"]
+
 def run_all() -> None:
     tests = [
         test_prompt_package_is_bounded_and_llm_specific,
         test_valid_llm_proposal_is_sanitized_to_obsidian_contract,
         test_direct_execution_fields_are_rejected,
+        test_prompt_package_includes_tasknotes_read_context_metadata,
+        test_direct_execution_fields_rejected_with_tasknotes_context,
         test_fallback_proposal_is_safe_and_task_draftable,
         test_json_parser_accepts_wrapped_json,
     ]

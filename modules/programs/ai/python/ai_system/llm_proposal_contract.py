@@ -208,7 +208,7 @@ def build_llm_prompt_package(
 ) -> dict[str, Any]:
     now = now or utc_now()
 
-    return {
+    package = {
         "schema_version": "llm_prompt_package.v1",
         "created_at": now.isoformat(),
         "timestamp_epoch": int(now.timestamp()),
@@ -232,6 +232,8 @@ def build_llm_prompt_package(
         "expected_output": expected_output_contract(),
         "max_output_chars": 6000,
     }
+    package = _attach_tasknotes_read_context_to_prompt_package(package, context)
+    return package
 
 
 def infer_kind(candidate: dict[str, Any], intent: dict[str, Any]) -> str:
@@ -555,6 +557,123 @@ def main() -> int:
 
     print(json.dumps(result, indent=2, ensure_ascii=False, sort_keys=True))
     return 0
+
+
+
+def _prompt_tasknotes_as_dict(value):
+    return value if isinstance(value, dict) else {}
+
+
+def _prompt_tasknotes_as_list(value):
+    return value if isinstance(value, list) else []
+
+
+def _prompt_tasknotes_find_provider(context_hub):
+    hub = _prompt_tasknotes_as_dict(context_hub)
+
+    facts = _prompt_tasknotes_as_dict(hub.get("facts"))
+    fact_entry = _prompt_tasknotes_as_dict(facts.get("tasknotes.read_context"))
+
+    provider_entry = {}
+    for provider in _prompt_tasknotes_as_list(hub.get("providers")):
+        provider = _prompt_tasknotes_as_dict(provider)
+        if provider.get("name") == "tasknotes.read_context":
+            provider_entry = provider
+            break
+
+    if not fact_entry and provider_entry:
+        fact_entry = _prompt_tasknotes_as_dict(provider_entry.get("facts"))
+
+    if not fact_entry:
+        return {}
+
+    return {
+        "provider": provider_entry,
+        "facts": fact_entry,
+    }
+
+
+def _compact_tasknotes_read_context_for_prompt(context):
+    provider_bundle = _prompt_tasknotes_find_provider(
+        _prompt_tasknotes_as_dict(context).get("context_hub")
+    )
+    if not provider_bundle:
+        return {}
+
+    provider = _prompt_tasknotes_as_dict(provider_bundle.get("provider"))
+    facts = _prompt_tasknotes_as_dict(provider_bundle.get("facts"))
+
+    source = _prompt_tasknotes_as_dict(facts.get("source"))
+    provenance = _prompt_tasknotes_as_dict(facts.get("provenance"))
+    omitted = _prompt_tasknotes_as_dict(facts.get("omitted"))
+    limits = _prompt_tasknotes_as_dict(facts.get("limits"))
+
+    required_action_capabilities = facts.get("required_action_capabilities")
+    if not isinstance(required_action_capabilities, list):
+        required_action_capabilities = []
+
+    warnings = provider.get("warnings")
+    if not isinstance(warnings, list):
+        warnings = facts.get("warnings")
+    if not isinstance(warnings, list):
+        warnings = []
+
+    source_paths = provider.get("source_paths")
+    if not isinstance(source_paths, list):
+        source_paths = []
+
+    item_paths = provenance.get("item_paths")
+    if not isinstance(item_paths, list):
+        item_paths = []
+
+    compact = {
+        "module": "tasknotes.read_context",
+        "status": str(facts.get("status") or ""),
+        "available": bool(facts.get("available", provider.get("available", False))),
+        "freshness": str(provider.get("freshness") or ""),
+        "generated_at_epoch": facts.get("generated_at_epoch"),
+        "limits": {
+            key: limits[key]
+            for key in ("file_limit", "bytes_per_file", "total_bytes")
+            if key in limits
+        },
+        "item_count": facts.get("item_count"),
+        "truncated": bool(facts.get("truncated", False)),
+        "omitted": {
+            key: omitted[key]
+            for key in ("over_limit", "unreadable", "bytes")
+            if key in omitted
+        },
+        "warnings": [str(value) for value in warnings[:8]],
+        "source": {
+            key: source[key]
+            for key in ("kind", "root", "tasks_root")
+            if key in source
+        },
+        "source_paths": [str(value) for value in source_paths[:4]],
+        "provenance": {
+            "item_paths": [str(value) for value in item_paths[:12]],
+        },
+        "may_mutate_tasknotes": bool(facts.get("may_mutate_tasknotes", False)),
+        "required_action_capabilities": [
+            str(value) for value in required_action_capabilities
+        ],
+    }
+
+    return compact
+
+
+def _attach_tasknotes_read_context_to_prompt_package(package, context):
+    tasknotes = _compact_tasknotes_read_context_for_prompt(context)
+    if not tasknotes or not isinstance(package, dict):
+        return package
+
+    updated = dict(package)
+    prompt_context = updated.get("context")
+    prompt_context = dict(prompt_context) if isinstance(prompt_context, dict) else {}
+    prompt_context["tasknotes_read_context"] = tasknotes
+    updated["context"] = prompt_context
+    return updated
 
 
 if __name__ == "__main__":
