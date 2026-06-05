@@ -618,10 +618,6 @@ def _compact_tasknotes_read_context_for_prompt(context):
     if not isinstance(warnings, list):
         warnings = []
 
-    source_paths = provider.get("source_paths")
-    if not isinstance(source_paths, list):
-        source_paths = []
-
     item_paths = provenance.get("item_paths")
     if not isinstance(item_paths, list):
         item_paths = []
@@ -647,10 +643,9 @@ def _compact_tasknotes_read_context_for_prompt(context):
         "warnings": [str(value) for value in warnings[:8]],
         "source": {
             key: source[key]
-            for key in ("kind", "root", "tasks_root")
+            for key in ("kind",)
             if key in source
         },
-        "source_paths": [str(value) for value in source_paths[:4]],
         "provenance": {
             "item_paths": [str(value) for value in item_paths[:12]],
         },

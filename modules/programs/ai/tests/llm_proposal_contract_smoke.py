@@ -246,8 +246,9 @@ def test_prompt_package_includes_tasknotes_read_context_metadata() -> None:
     assert tasknotes["omitted"]["over_limit"] == 2
     assert tasknotes["warnings"] == ["tasknotes.read_context is bounded/truncated"]
     assert tasknotes["source"]["kind"] == "TaskNotes/Tasks"
-    assert tasknotes["source"]["tasks_root"] == "/tmp/example/TaskNotes/Tasks"
-    assert tasknotes["source_paths"] == ["/tmp/example/TaskNotes/Tasks"]
+    assert "root" not in tasknotes["source"]
+    assert "tasks_root" not in tasknotes["source"]
+    assert "source_paths" not in tasknotes
     assert tasknotes["provenance"]["item_paths"] == ["Tasks/00.md", "Tasks/01.md"]
     assert tasknotes["may_mutate_tasknotes"] is False
     assert tasknotes["required_action_capabilities"] == []
@@ -262,6 +263,10 @@ def test_prompt_package_includes_tasknotes_read_context_metadata() -> None:
         "apply_tasknotes",
         "execute",
         "run_command",
+        "/tmp/example/TaskNotes",
+        "source_paths",
+        "tasks_root",
+        "\"root\"",
     ]
     assert all(value not in serialized_tasknotes for value in forbidden)
 
