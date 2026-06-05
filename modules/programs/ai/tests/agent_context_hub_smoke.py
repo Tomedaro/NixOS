@@ -166,12 +166,97 @@ def test_recovery_provider_uses_compact_facts_without_raw() -> None:
         assert "large_raw_payload_that_should_not_leak" not in recovery
 
 
+
+def test_context_hub_includes_tasknotes_read_context_metadata() -> None:
+    with tempfile.TemporaryDirectory(prefix="ai-context-hub-tasknotes-") as tmp:
+        root = Path(tmp)
+        ai_dir = root / "AI"
+        tasks_root = root / "TaskNotes" / "Tasks"
+        ai_dir.mkdir()
+        tasks_root.mkdir(parents=True)
+
+        for index in range(14):
+            body = f"Task {index}\n" + ("x" * (5000 if index == 0 else 100))
+            (tasks_root / f"{index:02d}.md").write_text(body, encoding="utf-8")
+
+        before = {
+            path.relative_to(tasks_root).as_posix(): path.read_text(encoding="utf-8")
+            for path in sorted(tasks_root.rglob("*"))
+            if path.is_file()
+        }
+
+        context = build_agent_context(ai_dir, now_epoch=1778072400)
+
+        after = {
+            path.relative_to(tasks_root).as_posix(): path.read_text(encoding="utf-8")
+            for path in sorted(tasks_root.rglob("*"))
+            if path.is_file()
+        }
+
+        assert before == after
+
+        hub = context["context_hub"]
+        providers = {provider["name"]: provider for provider in hub["providers"]}
+        assert "tasknotes.read_context" in providers
+
+        provider = providers["tasknotes.read_context"]
+        facts = provider["facts"]
+
+        assert provider["available"] is True
+        assert facts["module"] == "tasknotes.read_context"
+        assert facts["status"] == "ok"
+        assert facts["available"] is True
+        assert facts["generated_at_epoch"] == 1778072400
+        assert facts["limits"]["file_limit"] == 12
+        assert facts["limits"]["bytes_per_file"] == 4096
+        assert facts["item_count"] == 12
+        assert facts["omitted"]["over_limit"] == 2
+        assert facts["truncated"] is True
+        assert facts["source"]["kind"] == "TaskNotes/Tasks"
+        assert facts["source"]["tasks_root"] == str(tasks_root)
+        assert all(path.startswith("Tasks/") for path in facts["provenance"]["item_paths"])
+        assert facts["may_mutate_tasknotes"] is False
+        assert facts["required_action_capabilities"] == []
+
+        serialized_provider = json.dumps(provider, sort_keys=True)
+        forbidden = [
+            "content",
+            "action_payload",
+            "promote_task_proposal",
+            "tasknotes.promote",
+            "apply_tasknotes",
+            "AI/inbox/actions",
+        ]
+        assert all(value not in serialized_provider for value in forbidden)
+
+
+def test_context_hub_tasknotes_missing_is_nonfatal() -> None:
+    with tempfile.TemporaryDirectory(prefix="ai-context-hub-tasknotes-missing-") as tmp:
+        ai_dir = Path(tmp) / "AI"
+
+        context = build_agent_context(ai_dir, now_epoch=1778072400)
+        hub = context["context_hub"]
+
+        providers = {provider["name"]: provider for provider in hub["providers"]}
+        provider = providers["tasknotes.read_context"]
+        facts = provider["facts"]
+
+        assert provider["available"] is False
+        assert facts["status"] == "missing"
+        assert facts["available"] is False
+        assert facts["item_count"] == 0
+        assert facts["may_mutate_tasknotes"] is False
+        assert facts["required_action_capabilities"] == []
+        assert hub["schema_version"] == "context_hub.v1"
+
 def run_all() -> None:
     tests = [
         test_context_hub_attaches_provider_snapshot,
         test_obsidian_provider_accepts_future_context_file,
         test_context_hub_is_nonfatal_without_provider_files,
         test_recovery_provider_uses_compact_facts_without_raw,
+        test_context_hub_includes_tasknotes_read_context_metadata,
+        test_context_hub_tasknotes_missing_is_nonfatal,
     ]
 
     for test in tests:

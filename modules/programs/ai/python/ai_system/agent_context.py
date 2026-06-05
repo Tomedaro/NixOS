@@ -12,7 +12,10 @@ This module must remain non-executing:
 
 from __future__ import annotations
 
-from ai_system.context_providers import build_context_provider_snapshot
+from ai_system.context_providers import (
+    attach_tasknotes_provider_snapshot,
+    build_context_provider_snapshot,
+)
 import argparse
 import json
 import os
@@ -740,6 +743,11 @@ def build_agent_context(
             "facts": {},
             "warnings": [{"provider": "context_hub", "warning": str(exc)}],
         }
+
+    context["context_hub"] = attach_tasknotes_provider_snapshot(
+        context["context_hub"],
+        context["tasknotes_read_context"],
+    )
 
     return context
 

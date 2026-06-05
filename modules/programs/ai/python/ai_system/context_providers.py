@@ -151,6 +151,121 @@ def compact_anki_facts(data: dict[str, Any]) -> dict[str, Any]:
     return facts
 
 
+
+def compact_tasknotes_read_context_facts(data: dict[str, Any]) -> dict[str, Any]:
+    items = data.get("items") if isinstance(data.get("items"), list) else []
+    omitted = as_dict(data.get("omitted"))
+    source = as_dict(data.get("source"))
+    limits = as_dict(data.get("limits"))
+    required_action_capabilities = data.get("required_action_capabilities")
+    if not isinstance(required_action_capabilities, list):
+        required_action_capabilities = []
+
+    enabled = bool(data.get("enabled", False))
+    status = str(data.get("reason") or ("ok" if enabled else "unknown"))
+
+    return {
+        "module": "tasknotes.read_context",
+        "status": status,
+        "available": enabled and status == "ok",
+        "generated_at_epoch": as_int(data.get("generated_at_epoch")),
+        "limits": {
+            key: limits[key]
+            for key in ("file_limit", "bytes_per_file", "total_bytes")
+            if key in limits
+        },
+        "item_count": len(items),
+        "omitted": {
+            key: omitted[key]
+            for key in ("over_limit", "unreadable", "bytes")
+            if key in omitted
+        },
+        "truncated": bool(
+            omitted.get("over_limit")
+            or omitted.get("bytes")
+            or any(bool(as_dict(item).get("truncated")) for item in items)
+        ),
+        "source": {
+            key: source[key]
+            for key in ("kind", "root", "tasks_root")
+            if key in source
+        },
+        "provenance": {
+            "item_paths": [
+                str(as_dict(item).get("path") or "")
+                for item in items
+                if as_dict(item).get("path")
+            ],
+        },
+        "may_mutate_tasknotes": bool(data.get("may_mutate_tasknotes", False)),
+        "required_action_capabilities": [
+            str(value) for value in required_action_capabilities
+        ],
+    }
+
+
+def tasknotes_read_context_provider(data: dict[str, Any]) -> dict[str, Any]:
+    facts = compact_tasknotes_read_context_facts(data)
+    warnings: list[str] = []
+
+    if facts["may_mutate_tasknotes"]:
+        warnings.append("tasknotes.read_context unexpectedly allows TaskNotes mutation")
+
+    if facts["required_action_capabilities"]:
+        warnings.append("tasknotes.read_context unexpectedly requires action capabilities")
+
+    if facts["status"] in {"missing", "disabled", "not_directory", "error"}:
+        warnings.append(f"tasknotes.read_context is {facts['status']}")
+
+    if facts["truncated"]:
+        warnings.append("tasknotes.read_context is bounded/truncated")
+
+    source_paths = []
+    source = facts.get("source") if isinstance(facts.get("source"), dict) else {}
+    for key in ("tasks_root", "root"):
+        value = source.get(key)
+        if value:
+            source_paths.append(str(value))
+
+    return provider_result(
+        "tasknotes.read_context",
+        available=bool(facts["available"]),
+        facts=facts,
+        warnings=warnings,
+        freshness=str(facts.get("generated_at_epoch") or "unknown"),
+        source_paths=source_paths,
+    )
+
+
+def attach_tasknotes_provider_snapshot(
+    snapshot: dict[str, Any],
+    tasknotes_read_context: dict[str, Any],
+) -> dict[str, Any]:
+    if not isinstance(snapshot, dict) or not isinstance(tasknotes_read_context, dict):
+        return snapshot
+
+    provider = tasknotes_read_context_provider(tasknotes_read_context)
+    providers = snapshot.get("providers")
+    providers = list(providers) if isinstance(providers, list) else []
+    providers = [
+        item
+        for item in providers
+        if as_dict(item).get("name") != "tasknotes.read_context"
+    ]
+    providers.append(provider)
+
+    updated = dict(snapshot)
+    updated["providers"] = providers
+    updated["provider_count"] = len(providers)
+
+    facts = updated.get("facts")
+    facts = dict(facts) if isinstance(facts, dict) else {}
+    facts["tasknotes.read_context"] = provider.get("facts", {})
+    updated["facts"] = facts
+
+    return updated
+
+
 def interaction_provider(ai_dir: Path) -> dict[str, Any]:
     outbox = ai_dir / "outbox" / "to-phone"
     state_path = outbox / "interaction-state.json"
