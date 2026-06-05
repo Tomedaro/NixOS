@@ -8,6 +8,8 @@ This file records what is true in the current implementation. It intentionally s
 - AI vault protocol paths for inbox/outbox/state/event style coordination.
 - Obsidian-facing protocol modules for messages, context, ingress, intent planning, approved proposal actions, approval bridging, and task draft creation.
 - LLM proposal contracts that reject direct execution-style fields.
+- First-class read-only `tasknotes.read_context` is implemented as bounded context, exposed through `context_hub`, and available to LLM prompt packages as compact metadata.
+- Prompt-facing TaskNotes metadata omits raw TaskNotes content, absolute source roots, and provider `source_paths`.
 - Action bridge for live action processing, action journaling/idempotency, question answer/dismiss handling, session actions, and selected mutation paths.
 - Phone bridge, dialog bridge, session manager, coach daemon, recovery manager/trigger, intervention outcomes, Anki bridge, and planner modules.
 - Smoke tests covering major protocol and bridge behavior.
@@ -39,7 +41,6 @@ These former direct TaskNotes mutation paths are removed or disabled and should 
 - Split or lower broad action authority.
 - Keep direct TaskNotes mutation disabled until deterministic apply/promote exists.
 - Build deterministic TaskNotes apply/promote gate.
-- Add first-class read-only TaskNotes context.
 - Add richer goal/preference/policy contracts.
 - Add inspectable personal model and learning loop.
 - Add product eval scenarios for usefulness, burden, correction, and recovery.

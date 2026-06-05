@@ -15,7 +15,7 @@ This file is planned work only. Do not use it as current-state documentation.
 ## Priority 2 - Canonicalize action and TaskNotes flows
 
 1. Keep `dialog-bridge` answer handling canonical through `AI/inbox/actions/*.json`; add dialog dismiss emission only when the desktop UI has a real dismiss signal.
-2. Add a Markdown-only module contract for first-class read-only TaskNotes context, then implement the provider in a later task.
+2. Completed: first-class read-only `tasknotes.read_context` is implemented, exposed through `context_hub`, and available to LLM prompt packages as compact metadata.
 3. Define deterministic TaskNotes apply/promote schema.
 4. Implement apply/promote gate with idempotency, conflict handling, and events.
 
@@ -49,11 +49,11 @@ Desktop popup UI, richer phone controls, and more autonomous behavior should wai
 Before adding many new goal-achievement instruments, add a lightweight module contract registry. This is separate from `ACTION_CAPABILITY_POLICY`, which remains the runtime action capability policy for `action-bridge`:
 
 1. define the minimum Markdown module contract shape;
-2. use `tasknotes.read_context` as the first pressure test before implementing first-class read-only TaskNotes context;
+2. treat `tasknotes.read_context` as the completed pressure test for the module contract shape;
 3. list context providers, planners, review surfaces, action adapters, memory modules, and evaluators;
 4. require each module to declare reads, writes, authority, schemas, tests, disable behavior, TaskNotes mutation status, and required action capabilities;
 5. defer JSON/YAML manifests and registry checkers until the Markdown contract proves useful.
 
-For the read-only TaskNotes context pressure test, required action capabilities should be none, `may_mutate_tasknotes` should be false, and output must include provenance, freshness, limits, and safe-off/disabled behavior. Future deterministic TaskNotes apply/promote remains separate planned work.
+Completed pressure-test invariant: `tasknotes.read_context` has no required action capabilities, `may_mutate_tasknotes` is false, output includes provenance, freshness, limits, and safe-off/disabled behavior, context-hub exposure is compact, and prompt-facing metadata omits raw TaskNotes content plus absolute source roots/source paths. Future deterministic TaskNotes apply/promote remains separate planned work.
 
 This keeps future functionality easy to add without creating a giant unbounded agent.

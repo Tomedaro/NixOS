@@ -336,9 +336,9 @@ A module should get exactly the capabilities it needs and no more.
 
 ## First pressure test: TaskNotes read-only context
 
-Before implementing first-class read-only TaskNotes context, add a Markdown-only module contract for `tasknotes.read_context`. This pressure test should prove the registry shape without adding a JSON/YAML manifest, checker, or runtime provider.
+The first completed pressure test for the module contract registry is `tasknotes.read_context`. It proves the registry shape without adding a JSON/YAML manifest or checker.
 
-Minimum planned contract:
+Implemented contract:
 
 - type: context provider;
 - reads: bounded configured TaskNotes source paths and only the metadata needed for planning context;
@@ -347,7 +347,8 @@ Minimum planned contract:
 - `may_mutate_tasknotes`: false;
 - `required_action_capabilities`: none;
 - output requirements: provenance, freshness timestamp, source limits, truncation/omission markers, and stale/disabled status;
-- tests: prove no TaskNotes writes, bounded output, provenance/freshness fields, limit handling, and safe-off/disabled behavior;
+- tests: prove no TaskNotes writes, bounded output, provenance/freshness fields, limit handling, safe-off/disabled behavior, context-hub exposure, and prompt-facing omission of raw content and absolute source paths;
+- prompt boundary: LLM prompt metadata preserves compact status/limit/provenance signals but omits raw TaskNotes content, absolute source roots, and provider `source_paths`;
 - non-goal: deterministic TaskNotes apply/promote remains separate planned work.
 
 Because this provider does not dispatch live actions, its module contract should not reference `ACTION_CAPABILITY_POLICY` beyond stating that no action-bridge runtime action capability is required.

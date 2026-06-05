@@ -111,22 +111,24 @@ This file records the accepted audit draft for `modules/programs/ai/docs/REFACTO
 
 ## Priority 2 - TaskNotes apply/promote gate
 
-### R-0201 Define the read-only TaskNotes context module contract
+### R-0201 Completed - read-only TaskNotes context contract and provider
 
 - Severity: medium
 - Depends on: docs current-state clarity and the Markdown-only module contract pressure test
-- Current problem: TaskNotes is central, but the minimum read-only context contract should be explicit before implementing the provider or applying writes.
-- Proposed change:
-  - First add a Markdown-only module contract for `tasknotes.read_context`; do not add a JSON/YAML manifest, checker, or runtime provider in this step.
-  - Declare it as a context provider that reads bounded TaskNotes source paths and writes only bounded AI context output/artifacts.
-  - Declare `may_mutate_tasknotes: false` and `required_action_capabilities: none`.
-  - Require provenance, freshness, source limits, truncation/omission markers, and safe-off/disabled behavior.
-  - Preserve future deterministic TaskNotes apply/promote as separate planned work.
+- Completed status:
+  - `tasknotes.read_context` is documented and implemented as a read-only context provider.
+  - It reads bounded TaskNotes source paths and writes only bounded AI context output/artifacts.
+  - It declares `may_mutate_tasknotes: false` and `required_action_capabilities: none`.
+  - It emits provenance, freshness, source limits, truncation/omission markers, and safe-off/disabled behavior.
+  - `context_hub` exposes compact provider metadata for downstream consumers.
+  - `llm_prompt_package.v1` may include compact `context.tasknotes_read_context` metadata derived from `context_hub`.
+  - Prompt-facing metadata omits raw TaskNotes content, absolute TaskNotes source roots, and provider `source_paths`.
+  - Future deterministic TaskNotes apply/promote remains separate planned work.
 - Acceptance tests:
   - Contract states no action-bridge runtime action capability is required.
-  - Future provider tests prove no TaskNotes writes.
-  - Future provider tests prove bounded/provenanced output, freshness fields, limit handling, and safe-off/disabled behavior.
-  - Context facts are bounded and safe for LLM consumption.
+  - Provider tests prove no TaskNotes writes.
+  - Provider tests prove bounded/provenanced output, freshness fields, limit handling, and safe-off/disabled behavior.
+  - Context-hub and LLM prompt tests prove bounded metadata consumption without TaskNotes writes or live action capability requirements.
 
 ### R-0202 Implement deterministic TaskNotes apply/promote gate
 
