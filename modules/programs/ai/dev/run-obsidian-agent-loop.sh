@@ -9,6 +9,7 @@ WRITE_CONTEXT=0
 WRITE_PROPOSAL=0
 BRIDGE_APPROVED_PROPOSAL=0
 WRITE_TASK_DRAFT=0
+VALIDATE_TASK_DRAFT=0
 VERBOSE=0
 
 export PYTHONPATH="$PYTHON_LIB${PYTHONPATH:+:$PYTHONPATH}"
@@ -32,6 +33,8 @@ Options:
   --bridge-approved-proposal
                        Consume explicit approval and write reviewed Obsidian artifact.
   --write-task-draft   From explicit approval, write reviewable TaskNotes draft.
+  --validate-task-draft
+                       Dry-run validate current task draft for future TaskNotes apply.
   --verbose, -v        Print fuller JSON output.
   --help, -h           Show help.
 USAGE
@@ -43,6 +46,7 @@ for arg in "$@"; do
     --write-proposal) WRITE_PROPOSAL=1 ;;
     --bridge-approved-proposal) BRIDGE_APPROVED_PROPOSAL=1 ;;
     --write-task-draft) WRITE_TASK_DRAFT=1; BRIDGE_APPROVED_PROPOSAL=1 ;;
+    --validate-task-draft) VALIDATE_TASK_DRAFT=1 ;;
     --verbose|-v) VERBOSE=1 ;;
     --help|-h) usage; exit 0 ;;
     *) echo "unknown argument: $arg" >&2; usage >&2; exit 2 ;;
@@ -105,6 +109,7 @@ echo "write_context=$WRITE_CONTEXT"
 echo "write_proposal=$WRITE_PROPOSAL"
 echo "bridge_approved_proposal=$BRIDGE_APPROVED_PROPOSAL"
 echo "write_task_draft=$WRITE_TASK_DRAFT"
+echo "validate_task_draft=$VALIDATE_TASK_DRAFT"
 echo "writes_live_action_queue=false"
 echo "edits_obsidian_now=false"
 echo "auto_approval=false"
@@ -220,6 +225,58 @@ else
   echo "skipped; pass --write-task-draft after explicit approval"
 fi
 
+
+section "task draft validation"
+if [ "$VALIDATE_TASK_DRAFT" -eq 1 ]; then
+  run_python - "$AI_DIR" <<'PYVALIDATE'
+import json
+import sys
+from pathlib import Path
+
+from ai_system.tasknotes_apply_validator import validate_tasknotes_apply_candidate
+
+root = Path(sys.argv[1]).expanduser()
+draft_path = root / "outbox/to-obsidian/current-task-draft.json"
+approval_path = root / "outbox/to-obsidian/current-approved-proposal.json"
+tasknotes_dir = root.parent / "TaskNotes"
+
+if draft_path.exists():
+    draft = json.loads(draft_path.read_text(encoding="utf-8"))
+else:
+    draft = {}
+
+result = validate_tasknotes_apply_candidate(
+    draft,
+    ai_dir=root,
+    approval_path=approval_path if approval_path.exists() else None,
+    tasknotes_dir=tasknotes_dir,
+    input_draft_path=draft_path,
+)
+
+def format_value(value):
+    if isinstance(value, bool):
+        return str(value).lower()
+    if isinstance(value, (list, dict)):
+        return json.dumps(value, ensure_ascii=False, sort_keys=True)
+    if value is None:
+        return ""
+    return str(value)
+
+for key in [
+    "schema_version",
+    "status",
+    "writes_tasknotes",
+    "idempotency_key",
+    "collision_checked",
+    "reasons",
+    "warnings",
+]:
+    print(f"{key}={format_value(result.get(key))}")
+PYVALIDATE
+else
+  echo "skipped; pass --validate-task-draft after reviewable task draft exists"
+fi
+
 section "next explicit stages"
 cat <<EOF
 1. Review proposal:
@@ -234,7 +291,10 @@ cat <<EOF
 4. Create reviewable TaskNotes draft:
    ai_system.obsidian_task_draft
 
-5. Obsidian/Templater applies the draft explicitly.
+5. Dry-run validate the reviewed draft:
+   modules/programs/ai/dev/run-obsidian-agent-loop.sh --validate-task-draft
+
+6. Future deterministic TaskNotes apply/promote remains separate and explicit.
 EOF
 
 section "done"
