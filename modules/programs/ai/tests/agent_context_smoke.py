@@ -233,6 +233,95 @@ def test_stale_active_nudge_is_not_blocking() -> None:
        assert facts.get("active_nudge_clear_reason") == "expired_help-now_nudge"
 
 
+
+def test_tasknotes_read_context_safe_off() -> None:
+    import tempfile
+    from pathlib import Path
+
+    from ai_system.agent_context import build_tasknotes_read_context
+
+    with tempfile.TemporaryDirectory() as tmp:
+        ai_dir = Path(tmp) / "AI"
+        ai_dir.mkdir()
+
+        missing = build_tasknotes_read_context(
+            ai_dir,
+            generated_at_epoch=1780000000,
+        )
+        assert missing["module"] == "tasknotes.read_context"
+        assert missing["enabled"] is False
+        assert missing["reason"] == "missing"
+        assert missing["generated_at_epoch"] == 1780000000
+        assert missing["may_mutate_tasknotes"] is False
+        assert missing["required_action_capabilities"] == []
+        assert missing["items"] == []
+
+        disabled = build_tasknotes_read_context(
+            ai_dir,
+            enabled=False,
+            generated_at_epoch=1780000000,
+        )
+        assert disabled["enabled"] is False
+        assert disabled["reason"] == "disabled"
+        assert disabled["items"] == []
+
+
+def test_tasknotes_read_context_is_bounded_and_read_only() -> None:
+    import tempfile
+    from pathlib import Path
+
+    from ai_system.agent_context import build_tasknotes_read_context
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        ai_dir = root / "AI"
+        tasks_root = root / "TaskNotes" / "Tasks"
+        ai_dir.mkdir()
+        tasks_root.mkdir(parents=True)
+
+        for index in range(14):
+            body = f"Task {index}\n" + ("x" * 5000)
+            (tasks_root / f"{index:02d}.md").write_text(body, encoding="utf-8")
+
+        before = {
+            path.relative_to(tasks_root).as_posix(): path.read_text(encoding="utf-8")
+            for path in sorted(tasks_root.rglob("*"))
+            if path.is_file()
+        }
+
+        tasknotes = build_tasknotes_read_context(
+            ai_dir,
+            generated_at_epoch=1780000000,
+            limits={
+                "file_limit": 12,
+                "bytes_per_file": 4096,
+                "total_bytes": 49152,
+            },
+        )
+
+        after = {
+            path.relative_to(tasks_root).as_posix(): path.read_text(encoding="utf-8")
+            for path in sorted(tasks_root.rglob("*"))
+            if path.is_file()
+        }
+
+        assert before == after
+        assert sorted(path.relative_to(tasks_root).as_posix() for path in tasks_root.rglob("*")) == sorted(before)
+        assert tasknotes["module"] == "tasknotes.read_context"
+        assert tasknotes["enabled"] is True
+        assert tasknotes["reason"] == "ok"
+        assert tasknotes["may_mutate_tasknotes"] is False
+        assert tasknotes["required_action_capabilities"] == []
+        assert tasknotes["limits"]["file_limit"] == 12
+        assert tasknotes["limits"]["bytes_per_file"] == 4096
+        assert len(tasknotes["items"]) == 12
+        assert tasknotes["omitted"]["over_limit"] == 2
+        assert all(item["path"].startswith("Tasks/") for item in tasknotes["items"])
+        assert all("source_path" in item for item in tasknotes["items"])
+        assert all("provenance" in item for item in tasknotes["items"])
+        assert any(item["truncated"] is True for item in tasknotes["items"])
+
+
 def main() -> None:
     tests = [
         test_empty_context,
@@ -242,6 +331,8 @@ def main() -> None:
         test_event_tails_are_bounded_and_sorted,
         test_legacy_anki_status_fallback,
         test_stale_active_nudge_is_not_blocking,
+        test_tasknotes_read_context_safe_off,
+        test_tasknotes_read_context_is_bounded_and_read_only,
         test_write_agent_context,
     ]
 

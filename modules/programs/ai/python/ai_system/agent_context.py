@@ -462,6 +462,158 @@ def build_derived_facts(
     }
 
 
+
+def _tasknotes_read_context_enabled():
+    import os
+
+    value = os.environ.get("AI_TASKNOTES_READ_CONTEXT", "1").strip().lower()
+    return value not in {"0", "false", "no", "off"}
+
+
+def _tasknotes_read_context_limit(limits, key, default):
+    value = int((limits or {}).get(key, default))
+    if value < 0:
+        raise ValueError(f"{key} must be non-negative")
+    return value
+
+
+def _tasknotes_read_context_roots(ai_dir, tasknotes_dir=None):
+    import os
+    from pathlib import Path
+
+    configured = tasknotes_dir
+    if configured is None:
+        configured = os.environ.get("TASKNOTES_DIR")
+
+    if configured:
+        root = Path(configured)
+    else:
+        root = Path(ai_dir).parent / "TaskNotes"
+
+    tasks_root = root if root.name == "Tasks" else root / "Tasks"
+    source_root = tasks_root.parent if tasks_root.name == "Tasks" else root
+    return source_root, tasks_root
+
+
+def build_tasknotes_read_context(
+    ai_dir,
+    *,
+    tasknotes_dir=None,
+    enabled=None,
+    limits=None,
+    generated_at_epoch=None,
+):
+    """Return bounded read-only TaskNotes context for agent_context output."""
+
+    source_root, tasks_root = _tasknotes_read_context_roots(
+        ai_dir,
+        tasknotes_dir=tasknotes_dir,
+    )
+    resolved_limits = {
+        "file_limit": _tasknotes_read_context_limit(limits, "file_limit", 12),
+        "bytes_per_file": _tasknotes_read_context_limit(limits, "bytes_per_file", 4096),
+        "total_bytes": _tasknotes_read_context_limit(limits, "total_bytes", 32768),
+    }
+
+    if enabled is None:
+        enabled = _tasknotes_read_context_enabled()
+
+    context = {
+        "module": "tasknotes.read_context",
+        "enabled": bool(enabled),
+        "reason": "ok",
+        "generated_at_epoch": generated_at_epoch,
+        "may_mutate_tasknotes": False,
+        "required_action_capabilities": [],
+        "source": {
+            "kind": "TaskNotes/Tasks",
+            "root": str(source_root),
+            "tasks_root": str(tasks_root),
+        },
+        "limits": resolved_limits,
+        "items": [],
+        "omitted": {
+            "over_limit": 0,
+            "unreadable": 0,
+            "bytes": 0,
+        },
+    }
+
+    if not enabled:
+        context["enabled"] = False
+        context["reason"] = "disabled"
+        return context
+
+    try:
+        if not tasks_root.exists():
+            context["enabled"] = False
+            context["reason"] = "missing"
+            return context
+
+        if not tasks_root.is_dir():
+            context["enabled"] = False
+            context["reason"] = "not_directory"
+            return context
+
+        paths = sorted(path for path in tasks_root.rglob("*.md") if path.is_file())
+        file_limit = resolved_limits["file_limit"]
+        bytes_per_file = resolved_limits["bytes_per_file"]
+        total_bytes = resolved_limits["total_bytes"]
+
+        included_bytes = 0
+        context["omitted"]["over_limit"] = max(0, len(paths) - file_limit)
+
+        for task_path in paths[:file_limit]:
+            if included_bytes >= total_bytes:
+                context["omitted"]["over_limit"] += 1
+                continue
+
+            try:
+                raw = task_path.read_bytes()
+            except OSError:
+                context["omitted"]["unreadable"] += 1
+                continue
+
+            remaining = total_bytes - included_bytes
+            byte_limit = min(bytes_per_file, remaining)
+            chunk = raw[:byte_limit]
+            truncated = len(raw) > len(chunk)
+
+            if truncated:
+                context["omitted"]["bytes"] += len(raw) - len(chunk)
+
+            included_bytes += len(chunk)
+            relative = task_path.relative_to(tasks_root).as_posix()
+            stat = task_path.stat()
+
+            context["items"].append(
+                {
+                    "path": f"Tasks/{relative}",
+                    "source_path": str(task_path),
+                    "mtime_epoch": int(stat.st_mtime),
+                    "size_bytes": stat.st_size,
+                    "truncated": truncated,
+                    "content": chunk.decode("utf-8", errors="replace"),
+                    "provenance": {
+                        "module": "tasknotes.read_context",
+                        "source_root": str(source_root),
+                        "tasks_root": str(tasks_root),
+                        "relative_path": f"Tasks/{relative}",
+                    },
+                }
+            )
+
+        return context
+
+    except OSError as exc:
+        context["enabled"] = False
+        context["reason"] = "error"
+        context["error"] = type(exc).__name__
+        context["message"] = str(exc)
+        context["items"] = []
+        return context
+
+
 def build_agent_context(
     ai_dir: str | Path | None = None,
     *,
@@ -570,6 +722,11 @@ def build_agent_context(
             "execution_rule": "LLM/agent may propose only; deterministic gate validates; action-bridge executes after user action.",
         },
     }
+
+    context["tasknotes_read_context"] = build_tasknotes_read_context(
+        ai_dir,
+        generated_at_epoch=now_epoch,
+    )
 
     try:
         context["context_hub"] = build_context_provider_snapshot(
