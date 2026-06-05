@@ -382,3 +382,30 @@ Targeted local diagnostic, when narrowing intervention outcome reporter failures
 PYTHONPATH=modules/programs/ai/python nix run nixpkgs#python3 -- modules/programs/ai/tests/intervention_outcomes_reporter_smoke.py
 ```
 
+## TaskNotes prompt context metadata
+
+`llm_prompt_package.v1` may include `context.tasknotes_read_context`.
+
+This block is compact prompt-facing metadata derived from `context_hub`
+provider facts. LLM prompt construction must not re-read TaskNotes files and
+must not include raw TaskNotes content.
+
+The prompt-facing block preserves:
+
+- status and availability;
+- freshness or `generated_at_epoch`;
+- limits;
+- item count;
+- truncated, omitted, and warning metadata;
+- `may_mutate_tasknotes=false`;
+- `required_action_capabilities=[]`.
+
+The block may include `source.kind` and bounded relative
+`provenance.item_paths`.
+
+The block must omit absolute TaskNotes source roots and provider source paths,
+including `source.root`, `source.tasks_root`, and top-level `source_paths`.
+
+The block must not include TaskNotes write/apply/promote fields, action
+payloads, live queue paths, or action-bridge capability requirements.
+
