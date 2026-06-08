@@ -283,6 +283,7 @@ Usage:
   pi-admin drift
   pi-admin compat
   pi-admin mode
+  pi-admin source-check
   pi-admin security
   pi-admin help
 
@@ -428,6 +429,9 @@ EOF
         ;;
       doctor)
         exec ${scripts.piDoctor}/bin/pi-doctor "$@"
+        ;;
+      source-check)
+        exec ${scripts.piSourceCheck}/bin/pi-source-check "$@"
         ;;
       drift)
         exec ${scripts.piDriftCheck}/bin/pi-drift-check "$@"

@@ -133,20 +133,5 @@
   "small_global_behavior_change": [
     "resources/global/AGENTS.md",
     "docs/CHANGE_ROUTING.md"
-  ],
-  "conversation_memory": [
-    "docs/CONVERSATION_AND_MEMORY.md",
-    "resources/global/AGENTS.md",
-    "resources/global/MEMORY.md",
-    "settings/global.json"
-  ],
-  "hermes_memory": [
-    "docs/CONVERSATION_AND_MEMORY.md",
-    "settings/global.json"
-  ],
-  "chat_mode": [
-    "docs/SMART_LAUNCHER.md",
-    "docs/CONVERSATION_AND_MEMORY.md",
-    "wrappers.nix"
   ]
 }

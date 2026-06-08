@@ -45,13 +45,3 @@ Study memory is Markdown-first:
 - `vault/30-summaries/` — reviewed summaries.
 
 The default `pi-study` profile does not require `qmd`, Bun, `pi-memory`, or Obsidian extensions.
-
-## Conversation memory
-
-Global conversation and personal interaction memory lives in three places:
-
-- `resources/global/AGENTS.md` — always-active behavior and interaction rules.
-- `resources/global/MEMORY.md` — reviewed, human-approved personal memory.
-- `pi-hermes-memory` — automatic soft recall, pinned in `settings/global.json` when enabled.
-
-See `docs/CONVERSATION_AND_MEMORY.md`.

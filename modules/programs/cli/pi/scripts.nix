@@ -23,62 +23,65 @@ let
   tr = "${pkgs.coreutils}/bin/tr";
 
   jsoncStrip = pkgs.writeText "jsonc-strip.py" ''
-import json, sys
+import json
+import sys
 
 text = sys.stdin.read()
 out = []
-in_string = False
-escaped = False
-in_block = False
 i = 0
-while i < len(text):
+n = len(text)
+in_string = False
+escape = False
+
+while i < n:
     ch = text[i]
 
-    if in_block:
-        if ch == chr(42) and i + 1 < len(text) and text[i+1] == chr(47):
-            in_block = False
-            i += 2
-        else:
+    if in_string:
+        out.append(ch)
+        if escape:
+            escape = False
+        elif ch == chr(92):
+            escape = True
+        elif ch == chr(34):
+            in_string = False
+        i += 1
+        continue
+
+    if ch == chr(34):
+        in_string = True
+        out.append(ch)
+        i += 1
+        continue
+
+    if ch == chr(47) and i + 1 < n and text[i + 1] == chr(47):
+        i += 2
+        while i < n and text[i] not in (chr(10), chr(13)):
             i += 1
         continue
 
-    if ch == chr(92) and not escaped:
-        out.append(ch)
-        escaped = True
-        i += 1
-        continue
-
-    if ch == chr(34) and not escaped:
-        in_string = not in_string
-        out.append(ch)
-        i += 1
-        continue
-
-    escaped = False
-
-    if not in_string:
-        if ch == chr(47) and i + 1 < len(text):
-            nxt = text[i+1]
-            if nxt == chr(47):
-                while i < len(text) and text[i] != chr(10):
-                    i += 1
-                continue
-            elif nxt == chr(42):
-                in_block = True
+    if ch == chr(47) and i + 1 < n and text[i + 1] == chr(42):
+        i += 2
+        closed = False
+        while i + 1 < n:
+            if text[i] == chr(42) and text[i + 1] == chr(47):
                 i += 2
-                continue
+                closed = True
+                break
+            i += 1
+        if not closed:
+            sys.exit(1)
+        continue
 
     out.append(ch)
     i += 1
 
 stripped = "".join(out).strip()
-if stripped:
-    try:
-        json.loads(stripped)
-        sys.exit(0)
-    except json.JSONDecodeError:
-        sys.exit(1)
-else:
+if not stripped:
+    sys.exit(1)
+
+try:
+    json.loads(stripped)
+except json.JSONDecodeError:
     sys.exit(1)
 '';
 
@@ -89,7 +92,6 @@ else:
   srcWorkOverlay = ./settings/work.overlay.json;
   srcMcp = ./mcp/global.json;
   srcGlobalAgents = ./resources/global/AGENTS.md;
-  srcGlobalMemory = ./resources/global/MEMORY.md;
   srcPolicies = ./policies;
   srcStudyManaged = ./resources/study/managed;
   srcStudySeed = ./resources/study/seed;
@@ -223,7 +225,6 @@ else:
     install_managed_file "${srcGlobalSettings}" "$agent_dir/settings.json" 0600
     install_managed_file "${srcMcp}" "$agent_dir/mcp.json" 0644
     install_managed_file "${srcGlobalAgents}" "$agent_dir/AGENTS.md" 0644
-    install_managed_file "${srcGlobalMemory}" "$agent_dir/MEMORY.md" 0644
 
     for profile in safe nixos study work research trusted; do
       install_managed_file "${srcPolicies}/$profile.jsonc" "$agent_dir/policies/$profile/pi-permissions.jsonc" 0644
@@ -244,7 +245,7 @@ else:
     ${chmod} 600 "$models"
 
     echo "Pi bootstrap complete."
-    echo "Synced global settings, policies, MCP, global AGENTS, global MEMORY, and DeepSeek provider."
+    echo "Synced global settings, policies, MCP, global AGENTS, and DeepSeek provider."
   '';
 
   piStudyInit = pkgs.writeShellScriptBin "pi-study-init" ''
@@ -581,7 +582,7 @@ else:
     compare_settings_managed_keys "global settings" "${srcGlobalSettings}" "${paths.piAgentDir}/settings.json"
     compare_file "global MCP" "${srcMcp}" "${paths.piAgentDir}/mcp.json"
     compare_file "global AGENTS" "${srcGlobalAgents}" "${paths.piAgentDir}/AGENTS.md"
-    compare_file "global MEMORY" "${srcGlobalMemory}" "${paths.piAgentDir}/MEMORY.md"
+
     for profile in safe nixos study work research trusted; do
       compare_file "policy $profile" "${srcPolicies}/$profile.jsonc" "${paths.piPoliciesDir}/$profile/pi-permissions.jsonc"
     done
@@ -628,6 +629,8 @@ else:
     src="''${PI_SOURCE_ROOT:-${paths.piSourceDir}}"
     checks=0
     failures=0
+    wrapper_profiles=""
+    bootstrap_profiles=""
 
     ok() { echo "OK: $1"; checks=$((checks + 1)); }
     fail() { echo "FAIL: $1"; checks=$((checks + 1)); failures=$((failures + 1)); }
@@ -645,7 +648,7 @@ else:
     json_files=("$settings_dir"/*.json)
     shopt -u nullglob
     if [ ''${#json_files[@]} -eq 0 ]; then
-      fail "no settings/*.json files found under \$settings_dir"
+      fail "no settings/*.json files found under $settings_dir"
     else
       for f in "$settings_dir"/*.json; do
         if ${jq} -e . "$f" >/dev/null 2>&1; then
@@ -704,7 +707,7 @@ else:
       policy_files=("$policies_dir"/*.jsonc)
       shopt -u nullglob
       if [ ''${#policy_files[@]} -eq 0 ]; then
-        fail "no policies/*.jsonc files found under \$policies_dir"
+        fail "no policies/*.jsonc files found under $policies_dir"
       else
         for pf in "$policies_dir"/*.jsonc; do
           if ${python3} ${jsoncStrip} < "$pf" 2>/dev/null; then
@@ -739,7 +742,9 @@ else:
     fi
 
     # ── 6. Check every wrapper profile is synced by pi-bootstrap ──
-    if [ -f "$scripts_file" ]; then
+    if [ -z "$wrapper_profiles" ]; then
+      : # skip bootstrap comparison when no wrapper profiles detected
+    elif [ -f "$scripts_file" ]; then
       bootstrap_block="$(
         ${sed} -n '/piBootstrap = pkgs.writeShellScriptBin "pi-bootstrap"/,/piStudyInit = pkgs.writeShellScriptBin "pi-study-init"/p' "$scripts_file" 2>/dev/null || true
       )"
@@ -769,7 +774,6 @@ else:
     # ── 7. Check required resources exist ─────────────────────
     required_files="
 resources/global/AGENTS.md
-resources/global/MEMORY.md
 resources/nixos/AGENTS.md
 resources/nixos/prompts/pi-change.md
 resources/nixos/prompts/security.md
@@ -815,10 +819,10 @@ resources/work/seed
     # ── 8. Validate package specs in settings/global.json ─────
     gs="$src/settings/global.json"
     if [ -f "$gs" ]; then
-      pkg_count="$(${jq} '.packages | length' "$gs" 2>/dev/null || echo 0)"
-      if [ "$pkg_count" -eq 0 ] 2>/dev/null; then
+      if ! ${jq} -e '.packages and (.packages | type == "array")' "$gs" >/dev/null 2>&1; then
         fail "settings/global.json must contain packages array"
       else
+        pkg_count="$(${jq} '.packages | length' "$gs")"
         i=0
         while [ "$i" -lt "$pkg_count" ]; do
           ptype="$(${jq} -r --argjson i "$i" '.packages[$i] | type' "$gs" 2>/dev/null || echo null)"
@@ -836,25 +840,37 @@ resources/work/seed
             i=$((i + 1))
             continue
           fi
+          case "$spec" in
+            npm:*) ;;
+            *)
+              fail "unsupported package spec in settings/global.json packages[$i]: $spec"
+              i=$((i + 1))
+              continue
+              ;;
+          esac
           rest="''${spec#npm:}"
           case "$rest" in
             @*/*@*)
-              ok "package spec $spec"
+              name="''${rest%@*}"
+              version="''${rest##*@}"
               ;;
             *@*)
-              case "$rest" in
-                @*)
-                  fail "package spec is not parseable as npm:name@version or npm:@scope/name@version: $spec"
-                  ;;
-                *)
-                  ok "package spec $spec"
-                  ;;
+              name="''${rest%@*}"
+              version="''${rest##*@}"
+              case "$name" in
+                @*) name="";;
               esac
               ;;
             *)
-              fail "package spec is not parseable as npm:name@version or npm:@scope/name@version: $spec"
+              name=""
+              version=""
               ;;
           esac
+          if [ -n "$name" ] && [ -n "$version" ]; then
+            ok "package spec parseable: $spec"
+          else
+            fail "package spec is not parseable as npm:name@version or npm:@scope/name@version: $spec"
+          fi
           i=$((i + 1))
         done
       fi
