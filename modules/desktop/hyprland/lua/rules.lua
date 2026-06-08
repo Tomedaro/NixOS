@@ -32,9 +32,14 @@ hl.window_rule({
 	match = { class = "^([Ff]irefox)$" },
 	opacity = "0.80 0.80",
 })
+
+hl.window_rule({
+	match = { class = "^(anki(-bin)?)$" },
+	opacity = "0.80 0.80",
+})
 hl.window_rule({
 	match = { class = "^([Zz]en(-beta|-browser)?)$" },
-	opacity = "0.80 0.80",
+	opacity = "0.95 0.95",
 })
 hl.window_rule({
 	match = { class = "^([Ff]loorp)$" },
@@ -83,7 +88,7 @@ hl.window_rule({
 })
 hl.window_rule({
 	match = { class = "^(kitty|[Aa]lacritty|org.wezfurlong.wezterm)$" },
-	opacity = "0.80 0.70",
+	opacity = "0.90 0.90",
 })
 hl.window_rule({
 	match = { class = "^(nvim-wrapper)$" },
