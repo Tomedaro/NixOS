@@ -636,6 +636,63 @@ except json.JSONDecodeError:
     fail() { echo "FAIL: $1"; checks=$((checks + 1)); failures=$((failures + 1)); }
     warn() { echo "WARN: $1"; }
 
+    parse_npm_spec() {
+      local spec="$1"
+      local rest name version
+
+      case "$spec" in
+        npm:*) ;;
+        *) return 1 ;;
+      esac
+
+      rest="''${spec#npm:}"
+
+      case "$rest" in
+        @*/*@*)
+          name="''${rest%@*}"
+          version="''${rest##*@}"
+          ;;
+        *@*)
+          name="''${rest%@*}"
+          version="''${rest##*@}"
+          case "$name" in
+            @*) return 1 ;;
+          esac
+          ;;
+        *)
+          return 1
+          ;;
+      esac
+
+      [ -n "$name" ] || return 1
+      [ -n "$version" ] || return 1
+
+      case "$name" in
+        @*/*)
+          case "$name" in
+            *@*@*) return 1 ;;
+          esac
+          ;;
+        @*) return 1 ;;
+        *)
+          case "$name" in
+            */*) return 1 ;;
+          esac
+          ;;
+      esac
+
+      case "$name" in
+        *[[:space:]]*) return 1 ;;
+      esac
+
+      case "$version" in
+        *[[:space:]]*) return 1 ;;
+        *@*) return 1 ;;
+      esac
+
+      return 0
+    }
+
     if [ ! -d "$src" ]; then
       echo "FAIL: source root not found: $src"
       echo "Source check failed: 1 check, 1 failure."
@@ -840,36 +897,17 @@ resources/work/seed
             i=$((i + 1))
             continue
           fi
-          case "$spec" in
-            npm:*) ;;
-            *)
-              fail "unsupported package spec in settings/global.json packages[$i]: $spec"
-              i=$((i + 1))
-              continue
-              ;;
-          esac
-          rest="''${spec#npm:}"
-          case "$rest" in
-            @*/*@*)
-              name="''${rest%@*}"
-              version="''${rest##*@}"
-              ;;
-            *@*)
-              name="''${rest%@*}"
-              version="''${rest##*@}"
-              case "$name" in
-                @*) name="";;
-              esac
-              ;;
-            *)
-              name=""
-              version=""
-              ;;
-          esac
-          if [ -n "$name" ] && [ -n "$version" ]; then
+          if parse_npm_spec "$spec"; then
             ok "package spec parseable: $spec"
           else
-            fail "package spec is not parseable as npm:name@version or npm:@scope/name@version: $spec"
+            case "$spec" in
+              npm:*)
+                fail "package spec is not parseable as npm:name@version or npm:@scope/name@version: $spec"
+                ;;
+              *)
+                fail "unsupported package spec in settings/global.json packages[$i]: $spec"
+                ;;
+            esac
           fi
           i=$((i + 1))
         done
