@@ -23,24 +23,58 @@ let
   tr = "${pkgs.coreutils}/bin/tr";
 
   jsoncStrip = pkgs.writeText "jsonc-strip.py" ''
-import json, re, sys
+import json, sys
+
 text = sys.stdin.read()
-lines = text.split(chr(10))
 out = []
-for line in lines:
-    in_string = False
-    for i, ch in enumerate(line):
-        if ch == chr(34) and (i == 0 or line[i-1] != chr(92)):
-            in_string = not in_string
-        if not in_string and line[i:i+2] == chr(47) + chr(47):
-            line = line[:i]
-            break
-    out.append(line)
-text = chr(10).join(out)
-text = re.sub(chr(47) + chr(92) + chr(42) + chr(46) + chr(42) + chr(63) + chr(92) + chr(42) + chr(47), "", text, flags=re.DOTALL)
-if text.strip():
+in_string = False
+escaped = False
+in_block = False
+i = 0
+while i < len(text):
+    ch = text[i]
+
+    if in_block:
+        if ch == chr(42) and i + 1 < len(text) and text[i+1] == chr(47):
+            in_block = False
+            i += 2
+        else:
+            i += 1
+        continue
+
+    if ch == chr(92) and not escaped:
+        out.append(ch)
+        escaped = True
+        i += 1
+        continue
+
+    if ch == chr(34) and not escaped:
+        in_string = not in_string
+        out.append(ch)
+        i += 1
+        continue
+
+    escaped = False
+
+    if not in_string:
+        if ch == chr(47) and i + 1 < len(text):
+            nxt = text[i+1]
+            if nxt == chr(47):
+                while i < len(text) and text[i] != chr(10):
+                    i += 1
+                continue
+            elif nxt == chr(42):
+                in_block = True
+                i += 2
+                continue
+
+    out.append(ch)
+    i += 1
+
+stripped = "".join(out).strip()
+if stripped:
     try:
-        json.loads(text)
+        json.loads(stripped)
         sys.exit(0)
     except json.JSONDecodeError:
         sys.exit(1)
@@ -654,7 +688,7 @@ else:
             ;;
         esac
         if [ -e "$src/$rel" ] || [ -d "$src/$rel" ]; then
-          :
+          ok "LOOKUP path exists: $rel"
         else
           fail "LOOKUP path missing: $rel"
         fi
@@ -690,7 +724,7 @@ else:
     if [ -f "$wrappers_file" ]; then
       wrapper_profiles="$(${grep} -Eo 'wrapperPrelude "[^"]+"' "$wrappers_file" | ${sed} -E 's/.*"([^"]+)".*/\1/' | ${sort} -u)"
       if [ -z "$wrapper_profiles" ]; then
-        warn "could not detect any wrapperPrelude policy profiles in wrappers.nix"
+        fail "could not detect any wrapperPrelude policy profiles in wrappers.nix"
       else
         while IFS= read -r profile; do
           if [ -f "$policies_dir/$profile.jsonc" ]; then
@@ -717,7 +751,7 @@ else:
             | ${sort} -u
         )"
         if [ -z "$bootstrap_profiles" ]; then
-          warn "could not detect pi-bootstrap policy sync loop in scripts.nix"
+          fail "could not detect pi-bootstrap policy sync loop in scripts.nix"
         else
           while IFS= read -r profile; do
             if printf '%s\n' "$bootstrap_profiles" | ${grep} -Fxq "$profile"; then
@@ -728,7 +762,7 @@ else:
           done <<< "$wrapper_profiles"
         fi
       else
-        warn "could not detect pi-bootstrap block in scripts.nix"
+        fail "could not detect pi-bootstrap block in scripts.nix"
       fi
     fi
 
@@ -802,18 +836,23 @@ resources/work/seed
             i=$((i + 1))
             continue
           fi
-          case "$spec" in
-            npm:@*@*)
+          rest="''${spec#npm:}"
+          case "$rest" in
+            @*/*@*)
               ok "package spec $spec"
               ;;
-            npm:*@*)
-              ok "package spec $spec"
-              ;;
-            npm:*)
-              fail "package spec is not parseable as npm:name@version or npm:@scope/name@version: $spec"
+            *@*)
+              case "$rest" in
+                @*)
+                  fail "package spec is not parseable as npm:name@version or npm:@scope/name@version: $spec"
+                  ;;
+                *)
+                  ok "package spec $spec"
+                  ;;
+              esac
               ;;
             *)
-              fail "unsupported package spec in settings/global.json packages[$i]: $spec"
+              fail "package spec is not parseable as npm:name@version or npm:@scope/name@version: $spec"
               ;;
           esac
           i=$((i + 1))
