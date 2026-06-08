@@ -461,9 +461,17 @@ except json.JSONDecodeError:
     ${piWrapped}/bin/pi --version 2>/dev/null || true
     echo
     echo "Commands:"
+    doctor_status=0
+    missing_commands=0
     for cmd in pi pi-raw pi-admin pi-readonly pi-safe pi-nixos pi-study pi-study-tutor pi-work pi-research pi-trusted pi-bootstrap pi-study-init pi-study-tutor-init pi-work-init pi-doctor pi-drift-check pi-compat-check pi-source-check pi-npm; do
       printf '%-24s ' "$cmd"
-      command -v "$cmd" || true
+      if command_path="$(command -v "$cmd" 2>/dev/null)"; then
+        echo "$command_path"
+      else
+        echo "MISSING"
+        doctor_status=1
+        missing_commands=$((missing_commands + 1))
+      fi
     done
     echo
     echo "Policy files:"
@@ -495,6 +503,11 @@ except json.JSONDecodeError:
     echo "Cautious note: pi-readonly/pi-safe are deprecated compatibility aliases for policy-backed cautious mode. Cautious mode launches in an empty workspace and is still not an OS/network sandbox."
     echo "Source-management note: use plain pi for daily work and pi-admin for maintenance. Do not use pi install/remove/config for durable setup changes. Edit modules/programs/cli/pi source and resync with pi-admin sync. Run pi-admin compat after package/version changes."
     echo
+    if [ "$missing_commands" -gt 0 ]; then
+      echo "Doctor failed: $missing_commands expected command(s) missing."
+      exit "$doctor_status"
+    fi
+
     echo "Doctor complete."
   '';
 
