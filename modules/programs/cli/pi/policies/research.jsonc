@@ -1,0 +1,53 @@
+{
+  "defaultPolicy": {
+    "tools": "ask",
+    "bash": "ask",
+    "mcp": "ask",
+    "skills": "ask",
+    "special": "ask"
+  },
+  "tools": {
+    "*": "ask",
+    "read": "allow",
+    "grep": "allow",
+    "find": "allow",
+    "ls": "allow",
+    "write": "ask",
+    "edit": "ask",
+    "bash": "ask",
+    "mcp": "ask"
+  },
+  "bash": {
+    "*": "ask",
+    "pwd": "allow",
+    "git status --short": "allow",
+    "git diff --stat": "allow",
+    "cat ~/.ssh*": "deny",
+    "cat ~/.gnupg*": "deny",
+    "cat ~/.pi/agent/auth.json*": "deny",
+    "grep -R . ~/.ssh*": "deny",
+    "grep -R . ~/.gnupg*": "deny",
+    "rm -rf *": "deny",
+    "sudo *": "deny",
+    "pi install*": "deny",
+    "pi remove*": "deny",
+    "pi uninstall*": "deny",
+    "pi config*": "ask",
+    "pi update*": "ask",
+    "pi update --extensions*": "ask"
+  },
+  "mcp": {
+    "*": "ask",
+    "mcp_status": "allow",
+    "mcp_list": "allow",
+    "mcp_search": "allow",
+    "mcp_describe": "allow"
+  },
+  "skills": {
+    "*": "ask"
+  },
+  "special": {
+    "external_directory": "ask",
+    "doom_loop": "deny"
+  }
+}

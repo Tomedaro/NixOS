@@ -1,0 +1,137 @@
+{
+  "start_here": [
+    "docs/INDEX.md",
+    "docs/USER_GUIDE.md"
+  ],
+  "user_guide": [
+    "docs/USER_GUIDE.md"
+  ],
+  "smart_launcher": [
+    "docs/SMART_LAUNCHER.md",
+    "wrappers.nix"
+  ],
+  "admin": [
+    "docs/USER_GUIDE.md",
+    "docs/SYNC_AND_DRIFT.md",
+    "wrappers.nix"
+  ],
+  "architecture": [
+    "docs/PI_SETUP.md",
+    "default.nix",
+    "home-module.nix",
+    "package.nix",
+    "scripts.nix",
+    "wrappers.nix"
+  ],
+  "settings": [
+    "docs/CHANGE_ROUTING.md",
+    "docs/RESOURCES.md",
+    "settings/global.json",
+    "settings/deepseek-provider.json",
+    "settings/study.overlay.json",
+    "settings/study-tutor.overlay.json",
+    "settings/work.overlay.json"
+  ],
+  "policies": [
+    "docs/POLICIES.md",
+    "policies/safe.jsonc",
+    "policies/nixos.jsonc",
+    "policies/study.jsonc",
+    "policies/work.jsonc",
+    "policies/research.jsonc",
+    "policies/trusted.jsonc"
+  ],
+  "wrappers": [
+    "docs/PROFILES.md",
+    "docs/SMART_LAUNCHER.md",
+    "wrappers.nix"
+  ],
+  "runtime_state": [
+    "docs/RUNTIME_STATE.md",
+    "docs/SYNC_AND_DRIFT.md",
+    "scripts.nix",
+    "wrappers.nix"
+  ],
+  "study_memory": [
+    "docs/RESOURCES.md",
+    "resources/study/managed",
+    "resources/study/seed"
+  ],
+  "work_profile": [
+    "docs/PROFILES.md",
+    "resources/work/managed",
+    "resources/work/seed",
+    "settings/work.overlay.json"
+  ],
+  "mcp": [
+    "mcp/global.json",
+    "docs/SECURITY.md"
+  ],
+  "secrets": [
+    "docs/SECURITY.md",
+    "docs/SECURITY_LIMITATIONS.md"
+  ],
+  "security": [
+    "docs/SECURITY.md",
+    "docs/SECURITY_LIMITATIONS.md",
+    "docs/PROFILES.md",
+    "policies/safe.jsonc"
+  ],
+  "cautious": [
+    "docs/SECURITY_LIMITATIONS.md",
+    "docs/PROFILES.md",
+    "wrappers.nix",
+    "policies/safe.jsonc"
+  ],
+  "drift": [
+    "docs/SYNC_AND_DRIFT.md",
+    "scripts.nix",
+    "wrappers.nix"
+  ],
+  "decisions": [
+    "docs/DECISIONS.md"
+  ],
+  "nixos_self_maintenance": [
+    "resources/nixos/AGENTS.md",
+    "resources/nixos/prompts/pi-change.md",
+    "resources/nixos/prompts/setup.md",
+    "resources/nixos/prompts/status.md",
+    "resources/nixos/prompts/security.md",
+    "resources/nixos/skills/pi-nix-self-maintenance/SKILL.md",
+    "docs/CHANGE_ROUTING.md",
+    "wrappers.nix"
+  ],
+  "package_updates": [
+    "docs/PACKAGE_UPDATES.md",
+    "docs/COMPATIBILITY.md",
+    "settings/global.json",
+    "docs/RESOURCES.md",
+    "docs/SYNC_AND_DRIFT.md"
+  ],
+  "compatibility": [
+    "docs/COMPATIBILITY.md",
+    "scripts.nix",
+    "settings/global.json",
+    "package.nix"
+  ],
+  "readonly": [
+    "docs/SECURITY_LIMITATIONS.md",
+    "docs/PROFILES.md",
+    "wrappers.nix",
+    "policies/safe.jsonc"
+  ],
+  "global_instructions": [
+    "resources/global/AGENTS.md",
+    "docs/CHANGE_ROUTING.md"
+  ],
+  "english_learning": [
+    "resources/global/AGENTS.md"
+  ],
+  "response_style": [
+    "resources/global/AGENTS.md"
+  ],
+  "small_global_behavior_change": [
+    "resources/global/AGENTS.md",
+    "docs/CHANGE_ROUTING.md"
+  ]
+}

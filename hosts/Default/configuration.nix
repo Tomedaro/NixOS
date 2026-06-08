@@ -41,6 +41,7 @@ in
     ../../modules/programs/editor/${vars.editor}
     ../../modules/programs/cli/${vars.fileManager}
     ../../modules/programs/cli/tmux
+    ../../modules/programs/cli/pi
     ../../modules/programs/cli/direnv
     ../../modules/programs/cli/lazygit
     ../../modules/programs/cli/cava

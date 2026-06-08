@@ -1,0 +1,39 @@
+{
+  "defaultPolicy": {
+    "tools": "ask",
+    "bash": "deny",
+    "mcp": "deny",
+    "skills": "ask",
+    "special": "ask"
+  },
+  "tools": {
+    "*": "ask",
+    "read": "allow",
+    "grep": "allow",
+    "find": "allow",
+    "ls": "allow",
+    "write": "deny",
+    "edit": "deny",
+    "bash": "deny",
+    "mcp": "deny"
+  },
+  "bash": {
+    "*": "deny",
+    "pi install*": "deny",
+    "pi remove*": "deny",
+    "pi uninstall*": "deny",
+    "pi config*": "ask",
+    "pi update*": "ask",
+    "pi update --extensions*": "ask"
+  },
+  "mcp": {
+    "*": "deny"
+  },
+  "skills": {
+    "*": "ask"
+  },
+  "special": {
+    "external_directory": "deny",
+    "doom_loop": "deny"
+  }
+}

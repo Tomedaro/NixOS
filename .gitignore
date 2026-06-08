@@ -14,3 +14,11 @@ dev-shells/*/flake.lock
 __pycache__/
 *.py[cod]
 *.pyc
+
+# Pi agent local state
+.pi/checkpoints/
+.pi/sessions/
+
+# Local Pi module backup artifacts
+modules/programs/cli/pi.before-*/
+modules/programs/cli/pi/*.before-*

@@ -1,0 +1,17 @@
+{
+  "profileName": "study-tutor",
+  "quietStartup": true,
+  "treeFilterMode": "no-tools",
+  "prompts": [
+    "prompts"
+  ],
+  "skills": [
+    "skills"
+  ],
+  "enableSkillCommands": true,
+  "extraPackages": [
+    "npm:@majorgilles/pi-learning-tutor",
+    "npm:keating",
+    "npm:teach-me"
+  ]
+}
