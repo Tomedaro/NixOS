@@ -47,3 +47,13 @@ If a previously managed file disappears from source, sync moves the runtime copy
 ```
 
 Review and delete or archive those stale files manually.
+
+## Global reviewed memory
+
+`pi-admin sync global` syncs:
+
+- `resources/global/AGENTS.md` to `~/.pi/agent/AGENTS.md`.
+- `resources/global/MEMORY.md` to `~/.pi/agent/MEMORY.md`.
+
+`~/.pi/agent/MEMORY.md` is source-managed as a baseline.
+Promote valuable durable memories back into `resources/global/MEMORY.md` before syncing.

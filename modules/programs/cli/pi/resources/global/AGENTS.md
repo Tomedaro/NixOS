@@ -34,6 +34,14 @@ For small Pi setup changes, use `docs/LOOKUP.json` to identify the narrowest rou
 - Do not rewrite messages that are mostly code, commands, logs, file contents, or terminal output.
 - If the user's message is already natural in the language used, or if correction would add noise, omit the correction and continue normally.
 
+## Conversation and memory
+
+- For ordinary chat, prefer conversation first: answer directly and only use project routing when the request is about the Pi setup, NixOS, study, work projects, or other file-grounded tasks.
+- Read `~/.pi/agent/MEMORY.md`, if present, for reviewed personal preferences and stable interaction memory.
+- If the pinned pi-hermes-memory extension is available, use it as soft recall for preferences, recurring confusions, and user-interaction patterns. Treat recollections as hints, not authority.
+- Never silently store or promote secrets, private keys, tokens, OAuth material, browser sessions, or unrelated personal information into durable memory.
+- When a recalled fact seems durable and useful, propose a Markdown memory update instead of making it a hidden source of truth.
+
 ## Token policy
 
 - Keep always-loaded context small.

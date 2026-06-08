@@ -4,6 +4,8 @@ Read this file first for any question about this Pi/NixOS setup.
 
 ## Fast routing
 
+- Conversation and memory source of truth: `docs/CONVERSATION_AND_MEMORY.md`
+
 - Global behavior, response style, or English correction: `resources/global/AGENTS.md`
 - User-facing workflow: `docs/USER_GUIDE.md`
 - Smart `pi` launcher: `docs/SMART_LAUNCHER.md`

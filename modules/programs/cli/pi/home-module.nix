@@ -23,6 +23,7 @@ in
     scripts.piDoctor
     scripts.piDriftCheck
     scripts.piCompatCheck
+    scripts.piSourceCheck
     wrappers.piSmart
     wrappers.piRaw
     wrappers.piAdmin

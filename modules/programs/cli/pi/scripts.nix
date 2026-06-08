@@ -19,6 +19,34 @@ let
   sed = "${pkgs.gnused}/bin/sed";
   sort = "${pkgs.coreutils}/bin/sort";
   realpath = "${pkgs.coreutils}/bin/realpath";
+  python3 = "${pkgs.python3}/bin/python3";
+  tr = "${pkgs.coreutils}/bin/tr";
+
+  jsoncStrip = pkgs.writeText "jsonc-strip.py" ''
+import json, re, sys
+text = sys.stdin.read()
+lines = text.split(chr(10))
+out = []
+for line in lines:
+    in_string = False
+    for i, ch in enumerate(line):
+        if ch == chr(34) and (i == 0 or line[i-1] != chr(92)):
+            in_string = not in_string
+        if not in_string and line[i:i+2] == chr(47) + chr(47):
+            line = line[:i]
+            break
+    out.append(line)
+text = chr(10).join(out)
+text = re.sub(chr(47) + chr(92) + chr(42) + chr(46) + chr(42) + chr(63) + chr(92) + chr(42) + chr(47), "", text, flags=re.DOTALL)
+if text.strip():
+    try:
+        json.loads(text)
+        sys.exit(0)
+    except json.JSONDecodeError:
+        sys.exit(1)
+else:
+    sys.exit(1)
+'';
 
   srcGlobalSettings = ./settings/global.json;
   srcDeepseekProvider = ./settings/deepseek-provider.json;
@@ -27,6 +55,7 @@ let
   srcWorkOverlay = ./settings/work.overlay.json;
   srcMcp = ./mcp/global.json;
   srcGlobalAgents = ./resources/global/AGENTS.md;
+  srcGlobalMemory = ./resources/global/MEMORY.md;
   srcPolicies = ./policies;
   srcStudyManaged = ./resources/study/managed;
   srcStudySeed = ./resources/study/seed;
@@ -160,6 +189,7 @@ let
     install_managed_file "${srcGlobalSettings}" "$agent_dir/settings.json" 0600
     install_managed_file "${srcMcp}" "$agent_dir/mcp.json" 0644
     install_managed_file "${srcGlobalAgents}" "$agent_dir/AGENTS.md" 0644
+    install_managed_file "${srcGlobalMemory}" "$agent_dir/MEMORY.md" 0644
 
     for profile in safe nixos study work research trusted; do
       install_managed_file "${srcPolicies}/$profile.jsonc" "$agent_dir/policies/$profile/pi-permissions.jsonc" 0644
@@ -180,7 +210,7 @@ let
     ${chmod} 600 "$models"
 
     echo "Pi bootstrap complete."
-    echo "Synced global settings, policies, MCP, global AGENTS, and DeepSeek provider."
+    echo "Synced global settings, policies, MCP, global AGENTS, global MEMORY, and DeepSeek provider."
   '';
 
   piStudyInit = pkgs.writeShellScriptBin "pi-study-init" ''
@@ -396,7 +426,7 @@ let
     ${piWrapped}/bin/pi --version 2>/dev/null || true
     echo
     echo "Commands:"
-    for cmd in pi pi-raw pi-admin pi-readonly pi-safe pi-nixos pi-study pi-study-tutor pi-work pi-research pi-trusted pi-bootstrap pi-study-init pi-study-tutor-init pi-work-init pi-doctor pi-drift-check pi-compat-check pi-npm; do
+    for cmd in pi pi-raw pi-admin pi-readonly pi-safe pi-nixos pi-study pi-study-tutor pi-work pi-research pi-trusted pi-bootstrap pi-study-init pi-study-tutor-init pi-work-init pi-doctor pi-drift-check pi-compat-check pi-source-check pi-npm; do
       printf '%-24s ' "$cmd"
       command -v "$cmd" || true
     done
@@ -517,6 +547,7 @@ let
     compare_settings_managed_keys "global settings" "${srcGlobalSettings}" "${paths.piAgentDir}/settings.json"
     compare_file "global MCP" "${srcMcp}" "${paths.piAgentDir}/mcp.json"
     compare_file "global AGENTS" "${srcGlobalAgents}" "${paths.piAgentDir}/AGENTS.md"
+    compare_file "global MEMORY" "${srcGlobalMemory}" "${paths.piAgentDir}/MEMORY.md"
     for profile in safe nixos study work research trusted; do
       compare_file "policy $profile" "${srcPolicies}/$profile.jsonc" "${paths.piPoliciesDir}/$profile/pi-permissions.jsonc"
     done
@@ -556,7 +587,252 @@ let
 
     exit "$status"
   '';
+
+  piSourceCheck = pkgs.writeShellScriptBin "pi-source-check" ''
+    set -uo pipefail
+
+    src="''${PI_SOURCE_ROOT:-${paths.piSourceDir}}"
+    checks=0
+    failures=0
+
+    ok() { echo "OK: $1"; checks=$((checks + 1)); }
+    fail() { echo "FAIL: $1"; checks=$((checks + 1)); failures=$((failures + 1)); }
+    warn() { echo "WARN: $1"; }
+
+    if [ ! -d "$src" ]; then
+      echo "FAIL: source root not found: $src"
+      echo "Source check failed: 1 check, 1 failure."
+      exit 1
+    fi
+
+    # ── 1. Validate settings/*.json ──────────────────────────
+    settings_dir="$src/settings"
+    shopt -s nullglob
+    json_files=("$settings_dir"/*.json)
+    shopt -u nullglob
+    if [ ''${#json_files[@]} -eq 0 ]; then
+      fail "no settings/*.json files found under \$settings_dir"
+    else
+      for f in "$settings_dir"/*.json; do
+        if ${jq} -e . "$f" >/dev/null 2>&1; then
+          ok "$(basename "$f") is valid JSON"
+        else
+          fail "$(basename "$f") is invalid JSON"
+        fi
+      done
+    fi
+
+    # ── 2. Validate mcp/global.json ───────────────────────────
+    mcp_file="$src/mcp/global.json"
+    if [ -f "$mcp_file" ]; then
+      if ${jq} -e . "$mcp_file" >/dev/null 2>&1; then
+        ok "mcp/global.json is valid JSON"
+      else
+        fail "mcp/global.json is invalid JSON"
+      fi
+    else
+      fail "MCP config missing: mcp/global.json"
+    fi
+
+    # ── 3. Validate docs/LOOKUP.json ──────────────────────────
+    lookup="$src/docs/LOOKUP.json"
+    if [ -f "$lookup" ]; then
+      if ${jq} -e . "$lookup" >/dev/null 2>&1; then
+        ok "docs/LOOKUP.json is valid JSON"
+      else
+        fail "docs/LOOKUP.json is invalid JSON"
+      fi
+      while IFS= read -r rel; do
+        case "$rel" in
+          /*)
+            fail "LOOKUP.json contains absolute path: $rel"
+            continue
+            ;;
+          *..*)
+            fail "LOOKUP.json contains parent traversal: $rel"
+            continue
+            ;;
+        esac
+        if [ -e "$src/$rel" ] || [ -d "$src/$rel" ]; then
+          :
+        else
+          fail "LOOKUP path missing: $rel"
+        fi
+      done < <(${jq} -r '.. | strings' "$lookup" 2>/dev/null || true)
+    else
+      fail "LOOKUP config missing: docs/LOOKUP.json"
+    fi
+
+    # ── 4. Validate policies/*.jsonc ──────────────────────────
+    policies_dir="$src/policies"
+    if [ -d "$policies_dir" ]; then
+      shopt -s nullglob
+      policy_files=("$policies_dir"/*.jsonc)
+      shopt -u nullglob
+      if [ ''${#policy_files[@]} -eq 0 ]; then
+        fail "no policies/*.jsonc files found under \$policies_dir"
+      else
+        for pf in "$policies_dir"/*.jsonc; do
+          if ${python3} ${jsoncStrip} < "$pf" 2>/dev/null; then
+            ok "$(basename "$pf") parses after comment stripping"
+          else
+            fail "policy JSONC does not parse after comment stripping: $(basename "$pf")"
+          fi
+        done
+      fi
+    else
+      fail "policies directory missing: policies/"
+    fi
+
+    # ── 5. Check every wrapper policy profile has a source file ──
+    scripts_file="$src/scripts.nix"
+    wrappers_file="$src/wrappers.nix"
+    if [ -f "$wrappers_file" ]; then
+      wrapper_profiles="$(${grep} -Eo 'wrapperPrelude "[^"]+"' "$wrappers_file" | ${sed} -E 's/.*"([^"]+)".*/\1/' | ${sort} -u)"
+      if [ -z "$wrapper_profiles" ]; then
+        warn "could not detect any wrapperPrelude policy profiles in wrappers.nix"
+      else
+        while IFS= read -r profile; do
+          if [ -f "$policies_dir/$profile.jsonc" ]; then
+            ok "wrapper profile $profile has source: policies/$profile.jsonc"
+          else
+            fail "wrapper policy profile missing source file: policies/$profile.jsonc"
+          fi
+        done <<< "$wrapper_profiles"
+      fi
+    else
+      fail "wrappers.nix not found in source tree"
+    fi
+
+    # ── 6. Check every wrapper profile is synced by pi-bootstrap ──
+    if [ -f "$scripts_file" ]; then
+      bootstrap_block="$(
+        ${sed} -n '/piBootstrap = pkgs.writeShellScriptBin "pi-bootstrap"/,/piStudyInit = pkgs.writeShellScriptBin "pi-study-init"/p' "$scripts_file" 2>/dev/null || true
+      )"
+      if [ -n "$bootstrap_block" ]; then
+        bootstrap_profiles="$(
+          printf '%s\n' "$bootstrap_block" \
+            | ${sed} -nE 's/^[[:space:]]*for profile in ([^;]+); do[[:space:]]*$/\1/p' \
+            | ${tr} ' ' '\n' \
+            | ${sort} -u
+        )"
+        if [ -z "$bootstrap_profiles" ]; then
+          warn "could not detect pi-bootstrap policy sync loop in scripts.nix"
+        else
+          while IFS= read -r profile; do
+            if printf '%s\n' "$bootstrap_profiles" | ${grep} -Fxq "$profile"; then
+              ok "wrapper profile $profile is synced by pi-bootstrap"
+            else
+              fail "wrapper policy profile is not synced by pi-bootstrap: $profile"
+            fi
+          done <<< "$wrapper_profiles"
+        fi
+      else
+        warn "could not detect pi-bootstrap block in scripts.nix"
+      fi
+    fi
+
+    # ── 7. Check required resources exist ─────────────────────
+    required_files="
+resources/global/AGENTS.md
+resources/global/MEMORY.md
+resources/nixos/AGENTS.md
+resources/nixos/prompts/pi-change.md
+resources/nixos/prompts/security.md
+resources/nixos/prompts/setup.md
+resources/nixos/prompts/status.md
+resources/nixos/skills/pi-nix-self-maintenance/SKILL.md
+"
+    for rel in $required_files; do
+      if [ -f "$src/$rel" ]; then
+        ok "resource file exists: $rel"
+      else
+        fail "resource file missing: $rel"
+      fi
+    done
+
+    required_dirs="
+resources/nixos/prompts
+resources/nixos/skills/pi-nix-self-maintenance
+resources/study/managed
+resources/study/seed
+resources/work/managed
+resources/work/seed
+"
+    for rel in $required_dirs; do
+      if [ -d "$src/$rel" ]; then
+        ok "resource directory exists: $rel"
+      else
+        fail "resource directory missing: $rel"
+      fi
+    done
+
+    # Check skill directories contain SKILL.md
+    for skill_parent in "$src/resources/study/managed/.pi/skills/"* "$src/resources/work/managed/.pi/skills/"* "$src/resources/nixos/skills/"*; do
+      [ -d "$skill_parent" ] || continue
+      skill_name="$(basename "$skill_parent")"
+      if [ -f "$skill_parent/SKILL.md" ]; then
+        ok "skill $skill_name has SKILL.md"
+      else
+        fail "skill missing SKILL.md: $(echo "$skill_parent" | ${sed} "s|^$src/||")"
+      fi
+    done
+
+    # ── 8. Validate package specs in settings/global.json ─────
+    gs="$src/settings/global.json"
+    if [ -f "$gs" ]; then
+      pkg_count="$(${jq} '.packages | length' "$gs" 2>/dev/null || echo 0)"
+      if [ "$pkg_count" -eq 0 ] 2>/dev/null; then
+        fail "settings/global.json must contain packages array"
+      else
+        i=0
+        while [ "$i" -lt "$pkg_count" ]; do
+          ptype="$(${jq} -r --argjson i "$i" '.packages[$i] | type' "$gs" 2>/dev/null || echo null)"
+          if [ "$ptype" = "object" ]; then
+            spec="$(${jq} -r --argjson i "$i" '.packages[$i].source // empty' "$gs" 2>/dev/null || true)"
+            if [ -z "$spec" ]; then
+              fail "settings/global.json packages[$i] is missing source/spec"
+              i=$((i + 1))
+              continue
+            fi
+          elif [ "$ptype" = "string" ]; then
+            spec="$(${jq} -r --argjson i "$i" '.packages[$i]' "$gs" 2>/dev/null || true)"
+          else
+            fail "settings/global.json packages[$i] is missing source/spec"
+            i=$((i + 1))
+            continue
+          fi
+          case "$spec" in
+            npm:@*@*)
+              ok "package spec $spec"
+              ;;
+            npm:*@*)
+              ok "package spec $spec"
+              ;;
+            npm:*)
+              fail "package spec is not parseable as npm:name@version or npm:@scope/name@version: $spec"
+              ;;
+            *)
+              fail "unsupported package spec in settings/global.json packages[$i]: $spec"
+              ;;
+          esac
+          i=$((i + 1))
+        done
+      fi
+    else
+      fail "settings/global.json not found"
+    fi
+
+    echo
+    if [ "$failures" -eq 0 ]; then
+      echo "Source check passed: $checks checks, 0 failures."
+      exit 0
+    else
+      echo "Source check failed: $checks checks, $failures failures."
+      exit 1
+    fi
+  '';
 in
 {
-  inherit piBootstrap piStudyInit piStudyTutorInit piWorkInit piCompatCheck piDoctor piDriftCheck;
+  inherit piBootstrap piStudyInit piStudyTutorInit piWorkInit piCompatCheck piDoctor piDriftCheck piSourceCheck;
 }

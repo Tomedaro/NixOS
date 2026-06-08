@@ -37,6 +37,26 @@ pi-admin sync global
 pi-admin drift
 ```
 
+## I want to change conversation memory or chat behavior
+
+Edit:
+
+- `resources/global/AGENTS.md` for always-active behavior.
+- `resources/global/MEMORY.md` for reviewed personal memory.
+- `docs/CONVERSATION_AND_MEMORY.md` for the memory model.
+
+Automatic memory from pi-hermes-memory should remain soft recall.
+For durable facts, propose an explicit Markdown update.
+
+Then run:
+
+```bash
+sudo nixos-rebuild test --flake /home/daniil/NixOS#Default
+pi-admin sync global
+pi-admin compat
+pi-admin drift
+```
+
 ## I want to change global model/provider/thinking/theme/packages
 
 For pinned package versions, read `docs/PACKAGE_UPDATES.md` first.
