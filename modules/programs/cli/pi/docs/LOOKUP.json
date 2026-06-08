@@ -133,5 +133,13 @@
   "small_global_behavior_change": [
     "resources/global/AGENTS.md",
     "docs/CHANGE_ROUTING.md"
+  ],
+  "improvement_plan": [
+    "resources/analysis/TRACKING.md",
+    "resources/analysis/improvement-plan.md"
+  ],
+  "patch_journey": [
+    "resources/analysis/TRACKING.md",
+    "resources/analysis/improvement-plan.md"
   ]
 }

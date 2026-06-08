@@ -20,6 +20,7 @@ Read this file first for any question about this Pi/NixOS setup.
 - Why decisions were made: `docs/DECISIONS.md`
 - Terms: `docs/GLOSSARY.md`
 - Package updates: `docs/PACKAGE_UPDATES.md`
+- Patch plan and progress tracking: `resources/analysis/TRACKING.md` and `resources/analysis/improvement-plan.md`
 
 Machine-readable route map: `docs/LOOKUP.json`.
 
