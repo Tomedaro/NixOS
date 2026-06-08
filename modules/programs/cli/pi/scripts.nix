@@ -463,7 +463,7 @@ except json.JSONDecodeError:
     echo "Commands:"
     doctor_status=0
     missing_commands=0
-    for cmd in pi pi-raw pi-admin pi-readonly pi-safe pi-nixos pi-study pi-study-tutor pi-work pi-research pi-trusted pi-bootstrap pi-study-init pi-study-tutor-init pi-work-init pi-doctor pi-drift-check pi-compat-check pi-source-check pi-npm; do
+    for cmd in pi pi-raw pi-admin pi-readonly pi-cautious pi-safe pi-nixos pi-study pi-study-tutor pi-work pi-research pi-trusted pi-bootstrap pi-study-init pi-study-tutor-init pi-work-init pi-doctor pi-drift-check pi-compat-check pi-source-check pi-npm; do
       printf '%-24s ' "$cmd"
       if command_path="$(command -v "$cmd" 2>/dev/null)"; then
         echo "$command_path"
@@ -500,7 +500,7 @@ except json.JSONDecodeError:
     ${jq} '{prompts,skills,packages}' "${paths.learningDir}/.pi/settings.json" 2>/dev/null || true
     echo
     echo "Trust note: first run of pi-study/pi-work should be interactive. If Pi asks, use /trust and restart the wrapper before relying on -p/non-interactive mode."
-    echo "Cautious note: pi-readonly/pi-safe are deprecated compatibility aliases for policy-backed cautious mode. Cautious mode launches in an empty workspace and is still not an OS/network sandbox."
+    echo "Cautious note: pi-cautious is the preferred command for policy-backed cautious mode. pi-readonly/pi-safe remain compatibility aliases. Cautious mode launches in an empty workspace and is still not an OS/network sandbox."
     echo "Source-management note: use plain pi for daily work and pi-admin for maintenance. Do not use pi install/remove/config for durable setup changes. Edit modules/programs/cli/pi source and resync with pi-admin sync. Run pi-admin compat after package/version changes."
     echo
     if [ "$missing_commands" -gt 0 ]; then

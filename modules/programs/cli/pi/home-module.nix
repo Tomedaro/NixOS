@@ -28,6 +28,7 @@ in
     wrappers.piRaw
     wrappers.piAdmin
     wrappers.piReadonly
+    wrappers.piCautious
     wrappers.piSafe
     wrappers.piNixos
     wrappers.piStudy

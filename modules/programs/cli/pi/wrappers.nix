@@ -166,6 +166,10 @@ let
       "$@"
   '';
 
+  piCautious = pkgs.writeShellScriptBin "pi-cautious" ''
+    exec ${piReadonly}/bin/pi-readonly "$@"
+  '';
+
   piSafe = pkgs.writeShellScriptBin "pi-safe" ''
     echo "pi-safe is deprecated terminology." >&2
     echo "It now launches policy-backed cautious mode, which is not an OS/network sandbox." >&2
@@ -521,7 +525,7 @@ EOF
 Pi security summary
 
 - Plain `pi` is the daily smart launcher, not a sandbox.
-- `PI_PROFILE=cautious pi` / `pi-readonly` is policy-backed convenience only.
+- `pi-cautious` / `PI_PROFILE=cautious pi` is policy-backed convenience only; `pi-readonly` and `pi-safe` are compatibility aliases.
 - Historical symlink tests showed policy-only external-directory checks can be bypassed if paths are checked textually instead of canonically.
 - Do not use cautious mode as a security boundary for untrusted repositories.
 - Real isolation requires canonical path checks and/or OS-level sandboxing such as bubblewrap/pi-sandbox after audit.
@@ -537,5 +541,5 @@ EOF
   '';
 in
 {
-  inherit piSmart piRaw piAdmin piReadonly piSafe piNixos piStudy piStudyTutor piWork piResearch piTrusted;
+  inherit piSmart piRaw piAdmin piReadonly piCautious piSafe piNixos piStudy piStudyTutor piWork piResearch piTrusted;
 }
