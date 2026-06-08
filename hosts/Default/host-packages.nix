@@ -16,6 +16,7 @@ in
 {
   environment.systemPackages = with pkgs; [
     # Personal tools
+    easyeffects
     anki-wayland-fixed
     captive-browser
     bleachbit
