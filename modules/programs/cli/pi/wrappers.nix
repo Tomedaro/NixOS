@@ -17,6 +17,7 @@ let
   mv = "${pkgs.coreutils}/bin/mv";
   chmod = "${pkgs.coreutils}/bin/chmod";
 
+  srcGlobalSettings = ./settings/global.json;
   srcNixosAgents = ./resources/nixos/AGENTS.md;
   srcNixosPrompts = ./resources/nixos/prompts;
   srcNixosSkill = ./resources/nixos/skills/pi-nix-self-maintenance;
@@ -29,11 +30,87 @@ let
     export PI_SKIP_VERSION_CHECK=1
     export PI_TELEMETRY=0
     export PI_CACHE_RETENTION=long
+    ${rejectManagedPolicyBypassOverrides}
     if [ ! -f "$PI_PERMISSION_SYSTEM_POLICY_AGENT_DIR/pi-permissions.jsonc" ]; then
       echo "Pi policy missing for profile '${profile}'. Run: pi-admin sync global" >&2
       exit 1
     fi
+
+    expected_permission_version="$(${jq} -er '
+      [
+        .packages[]
+        | if type == "object" then (.source // empty) else . end
+        | select(type == "string" and startswith("npm:pi-permission-system@"))
+        | sub("^npm:pi-permission-system@"; "")
+      ][0] // empty
+    ' "${srcGlobalSettings}" 2>/dev/null || true)"
+
+    if [ -z "$expected_permission_version" ]; then
+      echo "Pi permission preflight failed for profile '${profile}': could not find pinned pi-permission-system package in source settings." >&2
+      echo "Source settings: ${srcGlobalSettings}" >&2
+      echo "Refusing to start without a verifiable permission-system pin." >&2
+      echo "Escape hatch: pi-raw" >&2
+      exit 2
+    fi
+
+    permission_pkg_dir="${paths.piNpmDir}/node_modules/pi-permission-system"
+    permission_ext="$permission_pkg_dir/index.ts"
+    permission_pkg_json="$permission_pkg_dir/package.json"
+
+    if [ ! -f "$permission_ext" ]; then
+      echo "Pi permission preflight failed for profile '${profile}': pi-permission-system extension entrypoint is missing." >&2
+      echo "Expected: $permission_ext" >&2
+      echo "Run: pi-admin sync global && pi-raw update --extensions && pi-admin compat" >&2
+      echo "Refusing to start without policy enforcement." >&2
+      echo "Escape hatch: pi-raw" >&2
+      exit 2
+    fi
+
+    if [ ! -f "$permission_pkg_json" ]; then
+      echo "Pi permission preflight failed for profile '${profile}': pi-permission-system package.json is missing." >&2
+      echo "Expected: $permission_pkg_json" >&2
+      echo "Run: pi-admin sync global && pi-raw update --extensions && pi-admin compat" >&2
+      echo "Refusing to start without a verifiable permission-system version." >&2
+      echo "Escape hatch: pi-raw" >&2
+      exit 2
+    fi
+
+    actual_permission_version="$(${jq} -r '.version // empty' "$permission_pkg_json" 2>/dev/null || true)"
+
+    if [ -z "$actual_permission_version" ]; then
+      echo "Pi permission preflight failed for profile '${profile}': could not read pi-permission-system installed version." >&2
+      echo "Package JSON: $permission_pkg_json" >&2
+      echo "Run: pi-admin sync global && pi-raw update --extensions && pi-admin compat" >&2
+      echo "Refusing to start without a verifiable permission-system version." >&2
+      echo "Escape hatch: pi-raw" >&2
+      exit 2
+    fi
+
+    if [ "$actual_permission_version" != "$expected_permission_version" ]; then
+      echo "Pi permission preflight failed for profile '${profile}': pi-permission-system version mismatch." >&2
+      echo "Expected from source: $expected_permission_version" >&2
+      echo "Installed: $actual_permission_version" >&2
+      echo "Package JSON: $permission_pkg_json" >&2
+      echo "Run: pi-admin sync global && pi-raw update --extensions && pi-admin compat" >&2
+      echo "Refusing to start with mismatched policy enforcement package." >&2
+      echo "Escape hatch: pi-raw" >&2
+      exit 2
+    fi
+
     ${mkdir} -p "$PI_CODING_AGENT_SESSION_DIR"
+  '';
+
+  rejectManagedPolicyBypassOverrides = ''
+    for arg in "$@"; do
+      case "$arg" in
+        --no-extensions|--no-extensions=*|-ne)
+          echo "Pi managed profile rejects extension-disable flag: $arg" >&2
+          echo "This profile depends on pi-permission-system for policy enforcement." >&2
+          echo "Use pi-raw only if you intentionally want to bypass managed profile policy." >&2
+          exit 2
+          ;;
+      esac
+    done
   '';
 
   rejectCautiousOverrides = ''
