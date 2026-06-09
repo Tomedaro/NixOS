@@ -59,6 +59,10 @@
     {
       "source": "npm:pi-simplify@0.2.2",
       "extensions": []
+    },
+    {
+      "source": "npm:@juicesharp/rpiv-advisor@1.18.2",
+      "extensions": []
     }
   ]
 }
