@@ -2,18 +2,40 @@
   "$schema": "https://raw.githubusercontent.com/gotgenes/pi-permission-system/main/schemas/permissions.schema.json",
   "permission": {
     "*": "ask",
-    "read": "allow",
-    "write": "allow",
-    "edit": "allow",
+
+    "read": {
+      "*": "allow",
+      "/tmp": "ask",
+      "/tmp/*": "ask"
+    },
+    "write": {
+      "*": "allow",
+      "/tmp": "ask",
+      "/tmp/*": "ask"
+    },
+    "edit": {
+      "*": "allow",
+      "/tmp": "ask",
+      "/tmp/*": "ask"
+    },
+
     "grep": "allow",
     "find": "allow",
     "ls": "allow",
+
     "path": {
       "*": "allow"
     },
+
+    "external_directory": {
+      "*": "ask",
+      "/tmp": "allow",
+      "/tmp/*": "allow"
+    },
+
     "bash": {
       "*": "ask",
-      "cd": "allow",
+      "cd *": "allow",
       "pwd": "allow",
       "ls *": "allow",
       "find . *": "allow",
@@ -50,6 +72,7 @@
       "pi config*": "ask",
       "pi update*": "ask"
     },
+
     "mcp": {
       "*": "ask",
       "mcp_status": "allow",
@@ -59,12 +82,9 @@
       "nixos*": "allow",
       "nixos:*": "allow"
     },
-    "skills": {
+
+    "skill": {
       "*": "ask"
-    },
-    "special": {
-      "external_directory": "ask",
-      "doom_loop": "deny"
     }
   }
 }
