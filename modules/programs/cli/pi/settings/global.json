@@ -43,7 +43,7 @@
   "powerline": "nerd",
   "theme": "amber-cathode",
   "packages": [
-    "npm:pi-permission-system@0.7.0",
+    "npm:@gotgenes/pi-permission-system@10.7.1",
     "npm:pi-hermes-memory@0.7.15",
     "npm:pi-mcp-adapter@2.9.0",
     "npm:pi-powerline-footer@0.6.1",
@@ -51,6 +51,6 @@
     "npm:pi-ask-user@0.11.2",
     "npm:pi-subagents@0.28.0",
     "npm:pi-simplify@0.2.2",
-    "npm:@juicesharp/rpiv-advisor@1.18.2",
+    "npm:@juicesharp/rpiv-advisor@1.18.2"
   ]
 }
