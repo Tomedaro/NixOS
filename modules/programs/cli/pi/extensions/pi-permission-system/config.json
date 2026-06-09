@@ -13,10 +13,9 @@
     },
     "bash": {
       "*": "ask",
+      "cd": "allow",
       "pwd": "allow",
-      "ls": "allow",
       "ls *": "allow",
-      "find .": "allow",
       "find . *": "allow",
       "grep *": "allow",
       "rg *": "allow",
