@@ -48,17 +48,10 @@
     "npm:pi-mcp-adapter@2.9.0",
     "npm:pi-powerline-footer@0.6.1",
     "npm:pi-themes@1.0.1",
-    {
-      "source": "npm:pi-ask-user@0.11.2"
-    },
-    {
-      "source": "npm:pi-subagents@0.28.0"
-    },
-    {
-      "source": "npm:pi-simplify@0.2.2"
-    },
-    {
-      "source": "npm:@juicesharp/rpiv-advisor@1.18.2"
-    }
+    "npm:pi-ask-user@0.11.2",
+    "npm:pi-subagents@0.28.0",
+    "npm:pi-simplify@0.2.2",
+    "npm:@juicesharp/rpiv-advisor@1.18.2",
+    "npm:@a5c-ai/babysitter-pi@0.1.3"
   ]
 }
