@@ -31,6 +31,16 @@ let
     export PI_TELEMETRY=0
     export PI_CACHE_RETENTION=long
     ${rejectManagedPolicyBypassOverrides}
+
+    preflight_fail() {
+      local msg="$1"
+      echo "Pi permission preflight failed for profile '${profile}': $msg" >&2
+      shift
+      for line in "$@"; do echo "$line" >&2; done
+      echo "Escape hatch: pi-raw" >&2
+      exit 2
+    }
+
     if [ ! -f "$PI_PERMISSION_SYSTEM_POLICY_AGENT_DIR/pi-permissions.jsonc" ]; then
       echo "Pi policy missing for profile '${profile}'. Run: pi-admin sync global" >&2
       exit 1
@@ -46,11 +56,9 @@ let
     ' "${srcGlobalSettings}" 2>/dev/null || true)"
 
     if [ -z "$expected_permission_version" ]; then
-      echo "Pi permission preflight failed for profile '${profile}': could not find pinned @gotgenes/pi-permission-system package in source settings." >&2
-      echo "Source settings: ${srcGlobalSettings}" >&2
-      echo "Refusing to start without a verifiable permission-system pin." >&2
-      echo "Escape hatch: pi-raw" >&2
-      exit 2
+      preflight_fail "could not find pinned @gotgenes/pi-permission-system package in source settings." \
+        "Source settings: ${srcGlobalSettings}" \
+        "Refusing to start without a verifiable permission-system pin."
     fi
 
     permission_pkg_dir="${paths.piNpmDir}/node_modules/@gotgenes/pi-permission-system"
@@ -58,43 +66,35 @@ let
     permission_pkg_json="$permission_pkg_dir/package.json"
 
     if [ ! -f "$permission_ext" ]; then
-      echo "Pi permission preflight failed for profile '${profile}': @gotgenes/pi-permission-system extension entrypoint is missing." >&2
-      echo "Expected: $permission_ext" >&2
-      echo "Run: pi-admin sync global && pi-raw update --extensions && pi-admin compat" >&2
-      echo "Refusing to start without policy enforcement." >&2
-      echo "Escape hatch: pi-raw" >&2
-      exit 2
+      preflight_fail "@gotgenes/pi-permission-system extension entrypoint is missing." \
+        "Expected: $permission_ext" \
+        "Run: pi-admin sync global && pi-raw update --extensions && pi-admin compat" \
+        "Refusing to start without policy enforcement."
     fi
 
     if [ ! -f "$permission_pkg_json" ]; then
-      echo "Pi permission preflight failed for profile '${profile}': @gotgenes/pi-permission-system package.json is missing." >&2
-      echo "Expected: $permission_pkg_json" >&2
-      echo "Run: pi-admin sync global && pi-raw update --extensions && pi-admin compat" >&2
-      echo "Refusing to start without a verifiable permission-system version." >&2
-      echo "Escape hatch: pi-raw" >&2
-      exit 2
+      preflight_fail "@gotgenes/pi-permission-system package.json is missing." \
+        "Expected: $permission_pkg_json" \
+        "Run: pi-admin sync global && pi-raw update --extensions && pi-admin compat" \
+        "Refusing to start without a verifiable permission-system version."
     fi
 
     actual_permission_version="$(${jq} -r '.version // empty' "$permission_pkg_json" 2>/dev/null || true)"
 
     if [ -z "$actual_permission_version" ]; then
-      echo "Pi permission preflight failed for profile '${profile}': could not read @gotgenes/pi-permission-system installed version." >&2
-      echo "Package JSON: $permission_pkg_json" >&2
-      echo "Run: pi-admin sync global && pi-raw update --extensions && pi-admin compat" >&2
-      echo "Refusing to start without a verifiable permission-system version." >&2
-      echo "Escape hatch: pi-raw" >&2
-      exit 2
+      preflight_fail "could not read @gotgenes/pi-permission-system installed version." \
+        "Package JSON: $permission_pkg_json" \
+        "Run: pi-admin sync global && pi-raw update --extensions && pi-admin compat" \
+        "Refusing to start without a verifiable permission-system version."
     fi
 
     if [ "$actual_permission_version" != "$expected_permission_version" ]; then
-      echo "Pi permission preflight failed for profile '${profile}': @gotgenes/pi-permission-system version mismatch." >&2
-      echo "Expected from source: $expected_permission_version" >&2
-      echo "Installed: $actual_permission_version" >&2
-      echo "Package JSON: $permission_pkg_json" >&2
-      echo "Run: pi-admin sync global && pi-raw update --extensions && pi-admin compat" >&2
-      echo "Refusing to start with mismatched policy enforcement package." >&2
-      echo "Escape hatch: pi-raw" >&2
-      exit 2
+      preflight_fail "@gotgenes/pi-permission-system version mismatch." \
+        "Expected from source: $expected_permission_version" \
+        "Installed: $actual_permission_version" \
+        "Package JSON: $permission_pkg_json" \
+        "Run: pi-admin sync global && pi-raw update --extensions && pi-admin compat" \
+        "Refusing to start with mismatched policy enforcement package."
     fi
 
     ${mkdir} -p "$PI_CODING_AGENT_SESSION_DIR"
@@ -139,14 +139,6 @@ let
     ${wrapperPrelude "safe"}
     ${rejectCautiousOverrides}
     export PI_OFFLINE=1
-
-    permission_ext="${paths.piNpmDir}/node_modules/@gotgenes/pi-permission-system/src/index.ts"
-    if [ ! -f "$permission_ext" ]; then
-      echo "pi-readonly requires the pinned @gotgenes/pi-permission-system package to be installed." >&2
-      echo "Run: pi-admin sync global && pi update --extensions" >&2
-      echo "Refusing to start without policy enforcement." >&2
-      exit 2
-    fi
 
     launch_dir="${paths.piAgentDir}/readonly-workspace"
     ${mkdir} -p "$launch_dir"

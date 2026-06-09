@@ -1,0 +1,75 @@
+{
+  "$schema": "https://raw.githubusercontent.com/gotgenes/pi-permission-system/main/schemas/permissions.schema.json",
+  "permission": {
+    "*": "ask",
+    "path": {
+      "*": "allow"
+    },
+    "tools": {
+      "*": "ask",
+      "read": "allow",
+      "grep": "allow",
+      "find": "allow",
+      "ls": "allow",
+      "write": "allow",
+      "edit": "allow",
+      "bash": "ask",
+      "mcp": "allow"
+    },
+    "bash": {
+      "*": "ask",
+      "pwd": "allow",
+      "ls": "allow",
+      "ls *": "allow",
+      "find .": "allow",
+      "find . *": "allow",
+      "grep *": "allow",
+      "rg *": "allow",
+      "cat *": "allow",
+      "sed -n *": "allow",
+      "head *": "allow",
+      "tail *": "allow",
+      "wc *": "allow",
+      "git status --short": "allow",
+      "git diff --stat": "allow",
+      "git diff --check": "allow",
+      "git branch --show-current": "allow",
+
+      "nix eval --raw .#nixosConfigurations.Default.config.system.name": "allow",
+
+      "cat ~/.ssh*": "deny",
+      "cat ~/.gnupg*": "deny",
+      "cat ~/.pi/agent/auth.json*": "deny",
+      "grep -R . ~/.ssh*": "deny",
+      "grep -R . ~/.gnupg*": "deny",
+      "rg * ~/.ssh*": "deny",
+      "rg * ~/.gnupg*": "deny",
+      "rm -rf *": "deny",
+      "git reset --hard*": "deny",
+      "git clean -fd*": "deny",
+      "curl *|*": "deny",
+      "wget *|*": "deny",
+      "pi install*": "deny",
+      "pi remove*": "deny",
+      "pi uninstall*": "deny",
+      "pi config*": "ask",
+      "pi update*": "ask"
+    },
+    "mcp": {
+      "*": "ask",
+      "mcp_status": "allow",
+      "mcp_list": "allow",
+      "mcp_search": "allow",
+      "mcp_describe": "allow",
+      "nixos*": "allow",
+      "nixos:*": "allow"
+    },
+    "skills": {
+      "*": "ask"
+    },
+    "special": {
+      "external_directory": "ask",
+      "doom_loop": "deny"
+    }
+  }
+}

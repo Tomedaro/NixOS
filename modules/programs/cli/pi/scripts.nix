@@ -93,6 +93,7 @@ except json.JSONDecodeError:
   srcMcp = ./mcp/global.json;
   srcGlobalAgents = ./resources/global/AGENTS.md;
   srcPolicies = ./policies;
+  srcPermissionExtensionConfig = ./extensions/pi-permission-system/config.json;
   srcStudyManaged = ./resources/study/managed;
   srcStudySeed = ./resources/study/seed;
   srcWorkManaged = ./resources/work/managed;
@@ -225,6 +226,7 @@ except json.JSONDecodeError:
     install_managed_file "${srcGlobalSettings}" "$agent_dir/settings.json" 0600
     install_managed_file "${srcMcp}" "$agent_dir/mcp.json" 0644
     install_managed_file "${srcGlobalAgents}" "$agent_dir/AGENTS.md" 0644
+    install_managed_file "${srcPermissionExtensionConfig}" "$agent_dir/extensions/pi-permission-system/config.json" 0644
 
     for profile in safe nixos study work research trusted; do
       install_managed_file "${srcPolicies}/$profile.jsonc" "$agent_dir/policies/$profile/pi-permissions.jsonc" 0644
@@ -595,6 +597,7 @@ except json.JSONDecodeError:
     compare_settings_managed_keys "global settings" "${srcGlobalSettings}" "${paths.piAgentDir}/settings.json"
     compare_file "global MCP" "${srcMcp}" "${paths.piAgentDir}/mcp.json"
     compare_file "global AGENTS" "${srcGlobalAgents}" "${paths.piAgentDir}/AGENTS.md"
+    compare_file "permission extension config" "${srcPermissionExtensionConfig}" "${paths.piAgentDir}/extensions/pi-permission-system/config.json"
 
     for profile in safe nixos study work research trusted; do
       compare_file "policy $profile" "${srcPolicies}/$profile.jsonc" "${paths.piPoliciesDir}/$profile/pi-permissions.jsonc"
@@ -850,6 +853,7 @@ resources/nixos/prompts/security.md
 resources/nixos/prompts/setup.md
 resources/nixos/prompts/status.md
 resources/nixos/skills/pi-nix-self-maintenance/SKILL.md
+extensions/pi-permission-system/config.json
 "
     for rel in $required_files; do
       if [ -f "$src/$rel" ]; then
