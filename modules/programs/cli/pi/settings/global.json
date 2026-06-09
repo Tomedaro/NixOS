@@ -45,11 +45,11 @@
   "packages": [
     "npm:pi-permission-system@0.7.0",
     "npm:pi-hermes-memory@0.7.15",
-    "npm:pi-mcp-adapter@2.8.0",
-    "npm:pi-powerline-footer@0.6.0",
+    "npm:pi-mcp-adapter@2.9.0",
+    "npm:pi-powerline-footer@0.6.1",
     "npm:pi-themes@1.0.1",
     {
-      "source": "npm:pi-ask-user@0.11.0",
+      "source": "npm:pi-ask-user@0.11.2",
       "extensions": []
     }
   ]
