@@ -51,6 +51,10 @@
     {
       "source": "npm:pi-ask-user@0.11.2",
       "extensions": []
+    },
+    {
+      "source": "npm:pi-subagents@0.28.0",
+      "extensions": []
     }
   ]
 }
