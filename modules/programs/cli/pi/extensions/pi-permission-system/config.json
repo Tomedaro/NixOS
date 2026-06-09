@@ -2,19 +2,14 @@
   "$schema": "https://raw.githubusercontent.com/gotgenes/pi-permission-system/main/schemas/permissions.schema.json",
   "permission": {
     "*": "ask",
+    "read": "allow",
+    "write": "allow",
+    "edit": "allow",
+    "grep": "allow",
+    "find": "allow",
+    "ls": "allow",
     "path": {
       "*": "allow"
-    },
-    "tools": {
-      "*": "ask",
-      "read": "allow",
-      "grep": "allow",
-      "find": "allow",
-      "ls": "allow",
-      "write": "allow",
-      "edit": "allow",
-      "bash": "ask",
-      "mcp": "allow"
     },
     "bash": {
       "*": "ask",
@@ -30,6 +25,7 @@
       "head *": "allow",
       "tail *": "allow",
       "wc *": "allow",
+      "echo *": "allow",
       "git status --short": "allow",
       "git diff --stat": "allow",
       "git diff --check": "allow",
