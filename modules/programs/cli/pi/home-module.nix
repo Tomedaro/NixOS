@@ -25,6 +25,7 @@ in
     scripts.piCompatCheck
     scripts.piSourceCheck
     scripts.ankiSafeWriter
+    scripts.piTestAnkiSafeWriter
     wrappers.piSmart
     wrappers.piRaw
     wrappers.piAdmin

@@ -380,6 +380,7 @@ Usage:
   pi-admin compat
   pi-admin mode
   pi-admin source-check
+  pi-admin test-anki-safe-writer
   pi-admin security
   pi-admin help
 
@@ -529,6 +530,9 @@ EOF
         ;;
       compat)
         exec ${scripts.piCompatCheck}/bin/pi-compat-check "$@"
+        ;;
+      test-anki-safe-writer)
+        exec ${scripts.piTestAnkiSafeWriter}/bin/pi-test-anki-safe-writer "$@"
         ;;
       security)
         ${cat} <<'EOF'

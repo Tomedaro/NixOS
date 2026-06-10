@@ -14,14 +14,14 @@ __pycache__/
 *.py[cod]
 
 # Pi agent local state
-.pi/checkpoints/
-.pi/sessions/
+.pi/
 
 # Local session artifacts
 .corrections/
 
 # Backup/review artifacts
 *.bak
+*.bak.*
 *REVIEW-*.md
 
 # Local Pi module backup artifacts

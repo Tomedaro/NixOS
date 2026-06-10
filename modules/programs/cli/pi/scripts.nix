@@ -976,7 +976,26 @@ resources/work/seed
   '';
 
   ankiSafeWriter = (import ./anki-safe-writer { inherit pkgs lib; }).ankiSafeWriter;
+
+  piTestAnkiSafeWriter = pkgs.writeShellScriptBin "pi-test-anki-safe-writer" ''
+    set -euo pipefail
+    src="${paths.piSourceDir}"
+    test_file="$src/anki-safe-writer/test_anki_safe_writer.py"
+    src_file="$src/anki-safe-writer/anki_safe_writer.py"
+    if [ ! -f "$test_file" ]; then
+      echo "FAIL: test file not found at $test_file" >&2
+      echo "Run from the NixOS repository root." >&2
+      exit 1
+    fi
+    if [ ! -f "$src_file" ]; then
+      echo "FAIL: source file not found at $src_file" >&2
+      echo "Run from the NixOS repository root." >&2
+      exit 1
+    fi
+    exec ${pkgs.python3}/bin/python3 "$test_file"
+  '';
+
 in
 {
-  inherit piBootstrap piStudyInit piStudyTutorInit piWorkInit piCompatCheck piDoctor piDriftCheck piSourceCheck ankiSafeWriter;
+  inherit piBootstrap piStudyInit piStudyTutorInit piWorkInit piCompatCheck piDoctor piDriftCheck piSourceCheck ankiSafeWriter piTestAnkiSafeWriter;
 }
