@@ -29,3 +29,7 @@ PI_PROFILE=cautious pi
 ## Raw Pi
 
 Use `pi-raw` to bypass the smart launcher and run the wrapped upstream Pi binary directly.
+
+**MCP caveat:** `pi-raw` inherits the active `~/.pi/agent/mcp.json` from the last wrapper
+launch and does not perform profile-aware MCP switching. Reset with `pi-admin sync global`
+or launch any non-study wrapper before using `pi-raw` in a non-study context.

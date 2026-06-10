@@ -1,0 +1,59 @@
+{
+  "settings": {
+    "toolPrefix": "short",
+    "idleTimeout": 10
+  },
+  "mcpServers": {
+    "anki-read-strict": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@ankimcp/anki-mcp-server@0.19.2",
+        "--stdio",
+        "--read-only"
+      ],
+      "env": {
+        "ANKI_CONNECT_URL": "http://127.0.0.1:8765",
+        "ANKI_CONNECT_API_VERSION": "6",
+        "READ_ONLY": "true"
+      },
+      "lifecycle": "lazy",
+      "idleTimeout": 10,
+      "directTools": false,
+      "exposeResources": false,
+      "excludeTools": [
+        "sync",
+        "rate_card",
+        "present_card",
+        "guiCurrentCard",
+        "guiShowAnswer",
+        "guiShowQuestion",
+        "guiAnswerCard",
+        "guiUndo",
+        "guiBrowse",
+        "guiDeckBrowser",
+        "guiDeckOverview",
+        "guiSelectedNotes",
+        "guiAddCards",
+        "guiEditNote",
+        "guiSelectCard",
+        "createDeck",
+        "changeDeck",
+        "addNote",
+        "addNotes",
+        "updateNoteFields",
+        "deleteNotes",
+        "addTags",
+        "removeTags",
+        "replaceTags",
+        "clearUnusedTags",
+        "storeMediaFile",
+        "deleteMediaFile",
+        "retrieveMediaFile",
+        "createModel",
+        "updateModelStyling"
+      ],
+      "debug": false
+    }
+  }
+}

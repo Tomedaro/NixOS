@@ -40,30 +40,30 @@ while i < n:
         out.append(ch)
         if escape:
             escape = False
-        elif ch == chr(92):
+        elif ch == '\\':
             escape = True
-        elif ch == chr(34):
+        elif ch == '"':
             in_string = False
         i += 1
         continue
 
-    if ch == chr(34):
+    if ch == '"':
         in_string = True
         out.append(ch)
         i += 1
         continue
 
-    if ch == chr(47) and i + 1 < n and text[i + 1] == chr(47):
+    if ch == '/' and i + 1 < n and text[i + 1] == '/':
         i += 2
-        while i < n and text[i] not in (chr(10), chr(13)):
+        while i < n and text[i] not in ('\n', '\r'):
             i += 1
         continue
 
-    if ch == chr(47) and i + 1 < n and text[i + 1] == chr(42):
+    if ch == '/' and i + 1 < n and text[i + 1] == '*':
         i += 2
         closed = False
         while i + 1 < n:
-            if text[i] == chr(42) and text[i + 1] == chr(47):
+            if text[i] == '*' and text[i + 1] == '/':
                 i += 2
                 closed = True
                 break
@@ -91,6 +91,8 @@ except json.JSONDecodeError:
   srcStudyTutorOverlay = ./settings/study-tutor.overlay.json;
   srcWorkOverlay = ./settings/work.overlay.json;
   srcMcp = ./mcp/global.json;
+  srcNixosMcp = ./mcp/nixos.json;
+  srcStudyMcp = ./mcp/study.json;
   srcGlobalAgents = ./resources/global/AGENTS.md;
   srcPolicies = ./policies;
   srcPermissionExtensionConfig = ./extensions/pi-permission-system/config.json;
@@ -225,6 +227,13 @@ except json.JSONDecodeError:
 
     install_managed_file "${srcGlobalSettings}" "$agent_dir/settings.json" 0600
     install_managed_file "${srcMcp}" "$agent_dir/mcp.json" 0644
+
+    ${mkdir} -p "$agent_dir/mcp"
+    install_managed_file "${srcMcp}" "$agent_dir/mcp/global.json" 0644
+    install_managed_file "${srcNixosMcp}" "$agent_dir/mcp/nixos.json" 0644
+    install_managed_file "${srcStudyMcp}" "$agent_dir/mcp/study.json" 0644
+    printf '{"mcpServers":{}}\n' > "$agent_dir/mcp/work.json"
+    printf '{"mcpServers":{}}\n' > "$agent_dir/mcp/research.json"
     install_managed_file "${srcGlobalAgents}" "$agent_dir/AGENTS.md" 0644
     install_managed_file "${srcPermissionExtensionConfig}" "$agent_dir/extensions/pi-permission-system/config.json" 0644
 
@@ -465,7 +474,13 @@ except json.JSONDecodeError:
     echo "Commands:"
     doctor_status=0
     missing_commands=0
-    for cmd in pi pi-raw pi-admin pi-readonly pi-cautious pi-safe pi-nixos pi-study pi-study-tutor pi-work pi-research pi-trusted pi-bootstrap pi-study-init pi-study-tutor-init pi-work-init pi-doctor pi-drift-check pi-compat-check pi-source-check pi-npm; do
+    for cmd in \
+      pi pi-raw pi-admin \
+      pi-readonly pi-cautious pi-safe \
+      pi-nixos pi-study pi-study-tutor pi-work pi-research pi-trusted \
+      pi-bootstrap pi-study-init pi-study-tutor-init pi-work-init \
+      pi-doctor pi-drift-check pi-compat-check pi-source-check pi-npm \
+    ; do
       printf '%-24s ' "$cmd"
       if command_path="$(command -v "$cmd" 2>/dev/null)"; then
         echo "$command_path"
@@ -596,6 +611,18 @@ except json.JSONDecodeError:
 
     compare_settings_managed_keys "global settings" "${srcGlobalSettings}" "${paths.piAgentDir}/settings.json"
     compare_file "global MCP" "${srcMcp}" "${paths.piAgentDir}/mcp.json"
+
+    # Verify profile-specific MCP configs
+    for pf in global nixos study work research; do
+      src_mcp="${paths.piSourceDir}/mcp/$pf.json"
+      dst_mcp="${paths.piAgentDir}/mcp/$pf.json"
+      if [ -f "$src_mcp" ]; then
+        compare_file "profile MCP ($pf)" "$src_mcp" "$dst_mcp"
+      elif [ -f "$dst_mcp" ]; then
+        echo "DRIFT: profile MCP ($pf) source missing but runtime file exists at $dst_mcp"
+      fi
+    done
+
     compare_file "global AGENTS" "${srcGlobalAgents}" "${paths.piAgentDir}/AGENTS.md"
     compare_file "permission extension config" "${srcPermissionExtensionConfig}" "${paths.piAgentDir}/extensions/pi-permission-system/config.json"
 
@@ -732,16 +759,21 @@ except json.JSONDecodeError:
       done
     fi
 
-    # ── 2. Validate mcp/global.json ───────────────────────────
-    mcp_file="$src/mcp/global.json"
-    if [ -f "$mcp_file" ]; then
-      if ${jq} -e . "$mcp_file" >/dev/null 2>&1; then
-        ok "mcp/global.json is valid JSON"
-      else
-        fail "mcp/global.json is invalid JSON"
-      fi
+    # ── 2. Validate all MCP JSON configs ─────────────────────
+    shopt -s nullglob
+    mcp_files=("$src/mcp/"*.json)
+    shopt -u nullglob
+    if [ ''${#mcp_files[@]} -eq 0 ]; then
+      fail "no MCP JSON configs found under $src/mcp/"
     else
-      fail "MCP config missing: mcp/global.json"
+      for mcp_file in "''${mcp_files[@]}"; do
+        base="$(basename "$mcp_file")"
+        if ${jq} -e . "$mcp_file" >/dev/null 2>&1; then
+          ok "mcp/$base is valid JSON"
+        else
+          fail "mcp/$base is invalid JSON"
+        fi
+      done
     fi
 
     # ── 3. Validate docs/LOOKUP.json ──────────────────────────
@@ -942,7 +974,9 @@ resources/work/seed
       exit 1
     fi
   '';
+
+  ankiSafeWriter = (import ./anki-safe-writer { inherit pkgs lib; }).ankiSafeWriter;
 in
 {
-  inherit piBootstrap piStudyInit piStudyTutorInit piWorkInit piCompatCheck piDoctor piDriftCheck piSourceCheck;
+  inherit piBootstrap piStudyInit piStudyTutorInit piWorkInit piCompatCheck piDoctor piDriftCheck piSourceCheck ankiSafeWriter;
 }

@@ -14,6 +14,12 @@ The smart launcher selects the right mode automatically. See `docs/SMART_LAUNCHE
 
 Runs the wrapped upstream Pi binary directly, bypassing the smart launcher.
 
+**MCP caveat:** `pi-raw` skips profile-aware MCP switching. It inherits whatever
+`~/.pi/agent/mcp.json` was last set by a wrapper launch or `pi-admin sync`.
+If the last active profile was `study`, Anki MCP tools may still be present.
+Do not use `pi-raw` for Anki work. To reset MCP to the global (no-Anki) config,
+run `pi-admin sync global` or launch any non-study wrapper such as `pi-nixos`.
+
 ## `pi-admin`
 
 Maintenance interface for status, sync, doctor, drift, compatibility, and security notes.

@@ -12,13 +12,13 @@ let
     set -euo pipefail
     mkdir -p "${paths.piNpmDir}"
     export NPM_CONFIG_PREFIX="${paths.piNpmDir}"
-    exec ${pkgs.nodejs_latest}/bin/npm "$@"
+    exec ${pkgs.nodejs_22}/bin/npm "$@"
   '';
 
   piRuntimePath = pkgs.lib.makeBinPath (
     [
       piNpm
-      pkgs.nodejs_latest
+      pkgs.nodejs_22
       pkgs.git
       pkgs.openssh
       pkgs.ripgrep

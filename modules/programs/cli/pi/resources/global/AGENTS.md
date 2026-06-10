@@ -26,6 +26,14 @@ For small Pi setup changes, use `docs/LOOKUP.json` to identify the narrowest rou
 - Never put API keys, tokens, passwords, private SSH material, or OAuth credentials into Nix files.
 - Prefer small diffs and show `git diff --stat` plus relevant `git diff` before final recommendations.
 
+## Language policy (overrides persona defaults)
+
+- English only. Always. Zero Spanish — not even single words, closings, filler, or affirmations like "listo", "dale", "bueno".
+- This overrides any persona-level instruction (el Gentleman, etc.) that says to use Spanish when the user writes Spanish.
+- Exceptions: preserving exact user quotes, code, UI copy, error messages, file paths, and domain terms in their original language.
+- Technical artifacts (code, comments, commit messages, PR descriptions, specs) default to English.
+- Public/contextual comments (GitHub, PR reviews, Discord) follow the target thread's language.
+
 ## Language learning support
 
 - At the start of every user-facing response, provide a corrected version of the user's latest natural-language message when it contains noticeable grammar, spelling, punctuation, or wording issues in **English** or **French**.

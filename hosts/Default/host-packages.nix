@@ -1,7 +1,6 @@
 { pkgs, inputs, ... }:
 
 let
-  # Create a custom wrapped version of Anki
   anki-wayland-fixed = pkgs.symlinkJoin {
     name = "anki";
     paths = [ pkgs.anki-bin ];
@@ -32,10 +31,10 @@ in
     jq
     sedutil
     bibata-cursors
-    sddm-astronaut        # Overlayed
-    pkgs.kdePackages.qtsvg
-    pkgs.kdePackages.qtmultimedia
-    pkgs.kdePackages.qtvirtualkeyboard
+    sddm-astronaut        # Overlaid
+    kdePackages.qtsvg
+    kdePackages.qtmultimedia
+    kdePackages.qtvirtualkeyboard
 
     # From flake inputs
     inputs.bzmenu.packages.${stdenv.hostPlatform.system}.default
@@ -43,18 +42,18 @@ in
     inputs.zen-browser.packages.${stdenv.hostPlatform.system}.default
 
     # Dev tools
+    lean-ctx
     obsidian
     ludusavi
     proton-vpn
     github-desktop
-    # pokego # Overlayed
   ];
 
   # Personal home packages via home-manager
   home-manager.sharedModules = [
     (_: {
       home.packages = with pkgs; [
-        # Applicationws
+        # Applications
         qbittorrent
         telegram-desktop
         zoom-us
@@ -63,7 +62,6 @@ in
         steam
         tor-browser
         localsend
-
 
         # Terminal tools
         fuzzel
@@ -76,11 +74,6 @@ in
         nix-prefetch-scripts
         microfetch
         ripgrep
-        tldr
-        unzip
-        grim
-        bun
-        tldr
         yt-dlg
         yt-dlp
 

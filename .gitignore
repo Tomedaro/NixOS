@@ -10,15 +10,22 @@ dev-shells/*/flake.lock
 *.tmp
 
 [Bb]ackup
-[Bb]ackup/*
 __pycache__/
 *.py[cod]
-*.pyc
 
 # Pi agent local state
 .pi/checkpoints/
 .pi/sessions/
 
+# Local session artifacts
+.corrections/
+
+# Backup/review artifacts
+*.bak
+*REVIEW-*.md
+
 # Local Pi module backup artifacts
 modules/programs/cli/pi.before-*/
 modules/programs/cli/pi/*.before-*
+# Local Pi runtime state
+.atl/

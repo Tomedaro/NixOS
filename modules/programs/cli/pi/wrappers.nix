@@ -15,6 +15,8 @@ let
   jq = "${pkgs.jq}/bin/jq";
   du = "${pkgs.coreutils}/bin/du";
   mv = "${pkgs.coreutils}/bin/mv";
+  cp = "${pkgs.coreutils}/bin/cp";
+  cmp = "${pkgs.diffutils}/bin/cmp";
   chmod = "${pkgs.coreutils}/bin/chmod";
 
   srcGlobalSettings = ./settings/global.json;
@@ -98,6 +100,27 @@ let
     fi
 
     ${mkdir} -p "$PI_CODING_AGENT_SESSION_DIR"
+
+    # ── Profile-aware MCP switching ─────────────────────────────
+    pi_mcp_dir="${paths.piAgentDir}/mcp"
+    pi_mcp_active="${paths.piAgentDir}/mcp.json"
+    pi_mcp_src="$pi_mcp_dir/${profile}.json"
+
+    if [ ! -f "$pi_mcp_src" ]; then
+      pi_mcp_src="$pi_mcp_dir/global.json"
+    fi
+
+    if [ -f "$pi_mcp_src" ]; then
+      if ! ${cmp} -s "$pi_mcp_src" "$pi_mcp_active"; then
+        if [ -f "$pi_mcp_active" ] && [ ! -f "$pi_mcp_active.before-pi-nix" ]; then
+          ${cp} "$pi_mcp_active" "$pi_mcp_active.before-pi-nix"
+        fi
+        ${cp} "$pi_mcp_src" "$pi_mcp_active"
+      fi
+    else
+      echo "warning: no MCP config for profile '${profile}' at $pi_mcp_src" >&2
+    fi
+    # ── End MCP switching ────────────────────────────────────────
   '';
 
   rejectManagedPolicyBypassOverrides = ''
@@ -432,7 +455,7 @@ EOF
         ${jq} '{defaultProvider,defaultModel,defaultThinkingLevel,theme,powerline}' "${paths.piAgentDir}/settings.json" 2>/dev/null || true
         echo
         echo "Control packages:"
-        for pkg in @gotgenes/pi-permission-system pi-mcp-adapter pi-powerline-footer pi-themes pi-ask-user; do
+        for pkg in @gotgenes/pi-permission-system pi-mcp-adapter pi-powerline-footer pi-themes; do
           if [ -f "${paths.piNpmDir}/node_modules/$pkg/package.json" ]; then
             version="$(${jq} -r '.version // "unknown"' "${paths.piNpmDir}/node_modules/$pkg/package.json" 2>/dev/null || echo unknown)"
             echo "OK: $pkg@$version"
@@ -451,22 +474,18 @@ EOF
         case "$target" in
           global)
             ${scripts.piBootstrap}/bin/pi-bootstrap
-            write_state_stamp
             ;;
           study)
             ${scripts.piBootstrap}/bin/pi-bootstrap
             ${scripts.piStudyInit}/bin/pi-study-init
-            write_state_stamp
             ;;
           study-tutor|tutor)
             ${scripts.piBootstrap}/bin/pi-bootstrap
             ${scripts.piStudyTutorInit}/bin/pi-study-tutor-init
-            write_state_stamp
             ;;
           work)
             ${scripts.piBootstrap}/bin/pi-bootstrap
             ${scripts.piWorkInit}/bin/pi-work-init
-            write_state_stamp
             ;;
           all)
             ${scripts.piBootstrap}/bin/pi-bootstrap
@@ -476,7 +495,6 @@ EOF
             else
               echo "Skipping work sync because PI_WORK_DIR is not set."
             fi
-            write_state_stamp
             ;;
           current)
             ${scripts.piBootstrap}/bin/pi-bootstrap
@@ -491,7 +509,6 @@ EOF
                 ;;
               *) : ;;
             esac
-            write_state_stamp
             ;;
           *)
             echo "Unknown sync target: $target" >&2
@@ -499,6 +516,7 @@ EOF
             exit 2
             ;;
         esac
+            write_state_stamp
         ;;
       doctor)
         exec ${scripts.piDoctor}/bin/pi-doctor "$@"
