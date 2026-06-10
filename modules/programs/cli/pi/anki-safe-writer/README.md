@@ -81,6 +81,11 @@ batch-plans/ → batch-aborted/
 | `abort-batch-plan` | Move a batch plan to batch-aborted/ |
 | `list-batch-plans` | List files in batch-plans/ |
 | `list-batch-aborted` | List files in batch-aborted/ |
+| `plan-update-note` | Plan an update to an existing generated note (planning only) |
+| `inspect-update-plan` | Display an update plan file |
+| `abort-update-plan` | Move an update plan to update-aborted/ |
+| `list-update-plans` | List files in update-plans/ |
+| `list-update-aborted` | List files in update-aborted/ |
 
 ## Repeated single-note workflow
 
@@ -155,6 +160,42 @@ Only these keys are accepted. Unknown keys are rejected.
 - Tags must be exactly `pi-generated` and `needs-human-review`
 - Only `Pi Sandbox` deck and `Basic` model
 - Only `Front` and `Back` fields
+
+## Update planning (planning-only)
+
+Update planning allows creating local plans for updating existing `pi-generated` notes.
+**Updates are not applied.** `updateNoteFields` is never called by this version.
+
+### Lifecycle directories
+
+- `update-plans/` — created update plan artifacts
+- `update-aborted/` — aborted update plans
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `plan-update-note` | Plan an update to an existing generated note |
+| `inspect-update-plan` | Display an update plan file |
+| `abort-update-plan` | Move an update plan to update-aborted/ |
+| `list-update-plans` | List files in update-plans/ |
+| `list-update-aborted` | List files in update-aborted/ |
+
+### Eligibility requirements
+
+- The note must have an applied record in the local ledger.
+- The note must be live in Anki (`notesInfo` returns fields).
+- The note must be in `Pi Sandbox` with `Basic` model.
+- The note must have tags `pi-generated` and `needs-human-review`.
+- The note must not have been rolled back.
+- Only `Front` and `Back` can be updated.
+- At least one field must differ from the current live value (no-op rejected).
+- The after-state must not duplicate another existing generated note.
+
+### Allowed AnkiConnect actions
+
+- planning: `version`, `notesInfo`, `findNotes`
+- No write actions are called.
 
 ## Test harness
 

@@ -23,6 +23,8 @@ ROLLBACK_APPROVED_DIR = STATE_ROOT / "rollback-approved"
 ROLLBACK_APPLIED_DIR = STATE_ROOT / "rollback-applied"
 BATCH_PLANS_DIR = STATE_ROOT / "batch-plans"
 BATCH_ABORTED_DIR = STATE_ROOT / "batch-aborted"
+UPDATE_PLANS_DIR = STATE_ROOT / "update-plans"
+UPDATE_ABORTED_DIR = STATE_ROOT / "update-aborted"
 ANKI_CONNECT_URL = os.environ.get(
     "ANKI_CONNECT_URL", "http://127.0.0.1:8765"
 )
@@ -39,6 +41,8 @@ _TRACKED_DIRS = {
     "rollback-applied": ROLLBACK_APPLIED_DIR,
     "batch-plans": BATCH_PLANS_DIR,
     "batch-aborted": BATCH_ABORTED_DIR,
+    "update-plans": UPDATE_PLANS_DIR,
+    "update-aborted": UPDATE_ABORTED_DIR,
 }
 
 
@@ -1101,6 +1105,233 @@ cmd_list_rollback_plans = _make_list_cmd(ROLLBACK_PLANS_DIR)
 cmd_list_rollback_approved = _make_list_cmd(ROLLBACK_APPROVED_DIR)
 cmd_list_batch_plans = _make_list_cmd(BATCH_PLANS_DIR)
 cmd_list_batch_aborted = _make_list_cmd(BATCH_ABORTED_DIR)
+
+
+def cmd_plan_update_note(args):
+    """Plan an update to an existing generated note. Planning-only, no Anki writes."""
+    note_id = args.note_id
+    if not note_id or not isinstance(note_id, int):
+        print(json.dumps({"status": "rejected",
+                          "error": "note_id must be a positive integer"},
+                         indent=2))
+        return 1
+
+    front = (args.front or "").strip()
+    back = (args.back or "").strip()
+    if not front and not back:
+        print(json.dumps({"status": "rejected",
+                          "error": "At least one of --front or --back is required"},
+                         indent=2))
+        return 1
+
+    # Look up applied record
+    applied_listing = _list_dir(APPLIED_DIR)
+    applied_record = None
+    for f in applied_listing["files"]:
+        try:
+            data = json.loads(Path(f["path"]).read_text())
+            if data.get("note_id") == note_id:
+                applied_record = data
+                applied_path = f["path"]
+                break
+        except (json.JSONDecodeError, OSError):
+            continue
+
+    if not applied_record:
+        print(json.dumps({"status": "rejected",
+                          "error": f"No applied record found for note_id {note_id}"},
+                         indent=2))
+        return 1
+
+    # Check not already rolled back
+    rb_listing = _list_dir(ROLLBACK_APPLIED_DIR)
+    for f in rb_listing["files"]:
+        try:
+            data = json.loads(Path(f["path"]).read_text())
+            if data.get("deleted_note_id") == note_id:
+                print(json.dumps({"status": "rejected",
+                                  "error": f"Note {note_id} was already rolled back"},
+                                 indent=2))
+                return 1
+        except (json.JSONDecodeError, OSError):
+            continue
+
+    errors = []
+
+    # Live notesInfo check
+    try:
+        info = anki_request("notesInfo", {"notes": [note_id]})
+    except Exception as e:
+        print(json.dumps({"status": "rejected",
+                          "error": f"notesInfo failed: {e}"},
+                         indent=2))
+        return 1
+
+    if not info or not info[0].get("fields"):
+        errors.append(f"Note {note_id} not found in Anki or has no fields")
+    else:
+        note = info[0]
+        live_fields = note.get("fields", {})
+        live_tags = note.get("tags", [])
+        live_model = note.get("modelName", "")
+        live_cards = note.get("cards", [])
+
+        if live_model != "Basic":
+            errors.append(f"Model must be 'Basic', got '{live_model}'")
+        if "Front" not in live_fields or "Back" not in live_fields:
+            errors.append("Live note missing Front or Back fields")
+        if "pi-generated" not in live_tags:
+            errors.append("Live note missing tag 'pi-generated'")
+        if "needs-human-review" not in live_tags:
+            errors.append("Live note missing tag 'needs-human-review'")
+
+        captured_before = {
+            "Front": live_fields.get("Front", {}).get("value", ""),
+            "Back": live_fields.get("Back", {}).get("value", ""),
+        }
+        captured_before_tags = live_tags
+        captured_card_ids = live_cards
+
+    # findNotes safety query
+    if not errors:
+        try:
+            ids = anki_request("findNotes", {
+                "query": f'deck:"Pi Sandbox" tag:pi-generated tag:needs-human-review nid:{note_id}'})
+        except Exception as e:
+            errors.append(f"findNotes safety query failed: {e}")
+        else:
+            if note_id not in ids:
+                errors.append(
+                    f"Note {note_id} not found in Pi Sandbox with required tags")
+
+    if errors:
+        print(json.dumps({"status": "rejected", "errors": errors}, indent=2))
+        return 1
+
+    # Build requested after-state
+    after_front = front if front else captured_before["Front"]
+    after_back = back if back else captured_before["Back"]
+    after_fields = {"Front": after_front, "Back": after_back}
+
+    # No-op check
+    if after_front == captured_before["Front"] and after_back == captured_before["Back"]:
+        print(json.dumps({"status": "rejected",
+                          "error": "No-op update: requested values match current live values"},
+                         indent=2))
+        return 1
+
+    changed = []
+    if after_front != captured_before["Front"]:
+        changed.append("Front")
+    if after_back != captured_before["Back"]:
+        changed.append("Back")
+
+    # Duplicate check against other generated notes
+    try:
+        existing_ids = anki_request("findNotes", {
+            "query": 'deck:"Pi Sandbox" tag:pi-generated tag:needs-human-review'})
+    except Exception as e:
+        print(json.dumps({"status": "rejected",
+                          "error": f"findNotes for duplicate check failed: {e}"},
+                         indent=2))
+        return 1
+
+    dup_found = False
+    dup_ids = []
+    if existing_ids:
+        other_ids = [n for n in existing_ids if n != note_id]
+        if other_ids:
+            try:
+                info_others = anki_request("notesInfo", {"notes": other_ids})
+            except Exception as e:
+                print(json.dumps({"status": "rejected",
+                                  "error": f"notesInfo for duplicate check failed: {e}"},
+                                 indent=2))
+                return 1
+            for other in info_others:
+                if not other or not other.get("fields"):
+                    continue
+                of = other.get("fields", {})
+                other_front = of.get("Front", {}).get("value", "").strip()
+                other_back = of.get("Back", {}).get("value", "").strip()
+                if other_front == after_front and other_back == after_back:
+                    dup_found = True
+                    dup_ids.append(other.get("noteId"))
+
+    if dup_found:
+        print(json.dumps({"status": "rejected",
+                          "errors": [{"error": f"Duplicate after-state matches existing note(s): {dup_ids}"}]},
+                         indent=2))
+        return 1
+
+    # Create update plan
+    UPDATE_PLANS_DIR.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    plan = {
+        "schema_version": "anki-safe-writer.update-plan.v1",
+        "plan_type": "update-basic-note",
+        "apply_supported": False,
+        "approval_supported": False,
+        "created_at_utc": ts,
+        "note_id": note_id,
+        "source_applied_record": Path(applied_path).name,
+        "eligibility": {
+            "target_deck": "Pi Sandbox",
+            "model_name": "Basic",
+            "required_tags": ["pi-generated", "needs-human-review"],
+            "live_present": True,
+            "live_deck_check": {"method": "findNotes", "matched": True},
+            "captured_before_fields": captured_before,
+            "captured_before_tags": captured_before_tags,
+            "captured_card_ids": captured_card_ids,
+        },
+        "requested_after_fields": after_fields,
+        "changed_fields": changed,
+        "validation": {
+            "can_update_plan": True,
+            "unknown_fields_rejected": True,
+            "noop_rejected": True,
+            "duplicate_after_check": "passed",
+        },
+        "future_action_if_enabled": "updateNoteFields",
+        "safety_notice": "Planning-only artifact. updateNoteFields is not called by this version.",
+    }
+
+    plan_file = UPDATE_PLANS_DIR / f"update-plan-{ts}.json"
+    plan_file.write_text(json.dumps(plan, indent=2))
+    print(json.dumps({"status": "planned",
+                      "plan_file": str(plan_file),
+                      "note_id": note_id,
+                      "changed_fields": changed,
+                      "apply_supported": False,
+                      "approval_supported": False}, indent=2))
+    return 0
+
+
+def cmd_inspect_update_plan(args):
+    path = _resolve_plan(args.plan_file, allowed_dirs=(UPDATE_PLANS_DIR,))
+    plan = json.loads(path.read_text())
+    print(json.dumps(plan, indent=2))
+    return 0
+
+
+def cmd_abort_update_plan(args):
+    path = _resolve_plan(args.plan_file, allowed_dirs=(UPDATE_PLANS_DIR,))
+    plan = json.loads(path.read_text())
+    plan["status"] = "aborted"
+    plan["aborted_at_utc"] = datetime.now(timezone.utc).isoformat()
+    UPDATE_ABORTED_DIR.mkdir(parents=True, exist_ok=True)
+    dest = UPDATE_ABORTED_DIR / path.name
+    dest.write_text(json.dumps(plan, indent=2))
+    path.unlink()
+    print(json.dumps({"status": "aborted", "moved_to": str(dest)}, indent=2))
+    return 0
+
+
+cmd_list_update_plans = _make_list_cmd(UPDATE_PLANS_DIR)
+cmd_list_update_aborted = _make_list_cmd(UPDATE_ABORTED_DIR)
+
+
 def cmd_ledger_audit(args):
     """Reconcile local state artifacts. Optionally check live Anki."""
     report = {
@@ -1407,7 +1638,8 @@ def main():
     for cmd_name in ("list-plans", "list-approved", "list-applied",
                      "list-rollback-plans", "list-rollback-approved",
                      "list-rollback-applied",
-                     "list-batch-plans", "list-batch-aborted"):
+                     "list-batch-plans", "list-batch-aborted",
+                     "list-update-plans", "list-update-aborted"):
         p = sub.add_parser(cmd_name, help=f"List files in {cmd_name.split('-', 1)[1]}/")
 
     p = sub.add_parser("preflight-create-note",
@@ -1432,6 +1664,24 @@ def main():
 
     p = sub.add_parser("abort-batch-plan",
                         help="Move a batch plan to batch-aborted/")
+    p.add_argument("plan_file")
+
+    p = sub.add_parser("plan-update-note",
+                        help="Plan an update to an existing generated note "
+                             "(planning only)")
+    p.add_argument("--note-id", type=int, required=True,
+                    help="ID of the note to update")
+    p.add_argument("--front", default="",
+                    help="New Front value (omit to keep current)")
+    p.add_argument("--back", default="",
+                    help="New Back value (omit to keep current)")
+
+    p = sub.add_parser("inspect-update-plan",
+                        help="Display an update plan file")
+    p.add_argument("plan_file")
+
+    p = sub.add_parser("abort-update-plan",
+                        help="Move an update plan to update-aborted/")
     p.add_argument("plan_file")
 
     p = sub.add_parser("plan-create-note",
@@ -1504,9 +1754,14 @@ def main():
         "list-rollback-applied": cmd_list_rollback_applied,
         "list-batch-plans": cmd_list_batch_plans,
         "list-batch-aborted": cmd_list_batch_aborted,
+        "list-update-plans": cmd_list_update_plans,
+        "list-update-aborted": cmd_list_update_aborted,
         "plan-create-notes-batch": cmd_plan_create_notes_batch,
         "inspect-batch-plan": cmd_inspect_batch_plan,
         "abort-batch-plan": cmd_abort_batch_plan,
+        "plan-update-note": cmd_plan_update_note,
+        "inspect-update-plan": cmd_inspect_update_plan,
+        "abort-update-plan": cmd_abort_update_plan,
         "plan-create-note": cmd_plan_create_note,
         "inspect-plan": cmd_inspect_plan,
         "approve-plan": cmd_approve_plan,

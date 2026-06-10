@@ -19,6 +19,7 @@ SOURCE = HERE / "anki_safe_writer.py"
 FAKE_NOTES = [
     {
         "noteId": 1781115948589,
+        "modelName": "Basic",
         "fields": {
             "Front": {"value": "What tag marks notes created by anki-safe-writer?"},
             "Back": {"value": "pi-generated"},
@@ -28,6 +29,7 @@ FAKE_NOTES = [
     },
     {
         "noteId": 1781121362824,
+        "modelName": "Basic",
         "fields": {
             "Front": {"value": "What tag marks notes that still need human review?"},
             "Back": {"value": "needs-human-review"},
@@ -77,7 +79,15 @@ class FakeAnkiConnectHandler(BaseHTTPRequestHandler):
         elif action == "findNotes":
             query = params.get("query", "")
             if "pi-generated" in query and "needs-human-review" in query:
-                return [n["noteId"] for n in FAKE_NOTES]
+                ids = [n["noteId"] for n in FAKE_NOTES]
+                # Support nid: filter
+                if "nid:" in query:
+                    import re
+                    m = re.findall(r"nid:(\d+)", query)
+                    if m:
+                        requested = [int(x) for x in m]
+                        ids = [i for i in ids if i in requested]
+                return ids
             return []
         elif action == "notesInfo":
             return [n for n in FAKE_NOTES if n["noteId"] in params.get("notes", [])]
@@ -172,6 +182,44 @@ class AnkiSafeWriterTest(unittest.TestCase):
 
     def _batch_aborted_dir(self):
         return Path(self.state_dir.name) / "batch-aborted"
+
+    def _create_fake_applied(self, note_id):
+        """Write a fake applied result so update planning can find it."""
+        d = Path(self.state_dir.name) / "applied"
+        d.mkdir(parents=True, exist_ok=True)
+        result = {
+            "schema_version": 1,
+            "timestamp": "2026-06-10T18:25:48Z",
+            "source_plan": "plan-test.json",
+            "note_id": note_id,
+            "status": "applied",
+            "actions_called": ["version", "addNote"],
+            "sync_called": False,
+            "target_deck": "Pi Sandbox",
+            "model_name": "Basic",
+            "tags": ["pi-generated", "needs-human-review"],
+        }
+        (d / f"result-plan-test-{note_id}.json").write_text(json.dumps(result))
+
+    def _update_plans_dir(self):
+        return Path(self.state_dir.name) / "update-plans"
+
+    def _update_aborted_dir(self):
+        return Path(self.state_dir.name) / "update-aborted"
+
+    def _find_update_plan(self):
+        d = self._update_plans_dir()
+        if not d.exists():
+            return None
+        files = sorted(d.iterdir())
+        return str(files[0]) if files else None
+
+    def _find_update_aborted(self):
+        d = self._update_aborted_dir()
+        if not d.exists():
+            return None
+        files = sorted(d.iterdir())
+        return str(files[0]) if files else None
 
     def _find_batch_plan(self):
         """Return the first batch plan file path, or None."""
@@ -453,6 +501,106 @@ class TestPathGuard(AnkiSafeWriterTest):
             self.assertIn("resolve inside", out.lower())
         finally:
             os.unlink(outside_path)
+
+
+# ── Update-plan tests ──────────────────────────────────────────────────────
+
+class TestUpdatePlanLifecycle(AnkiSafeWriterTest):
+    """Happy path: plan, inspect, list, abort an update."""
+
+    def test_full_lifecycle(self):
+        self._create_fake_applied(1781115948589)
+
+        # Plan update
+        rc, out, _ = self._run("plan-update-note",
+                                "--note-id", "1781115948589",
+                                "--back", "pi-generated (safe-writer)")
+        self.assertEqual(0, rc, f"plan failed: {out}")
+        result = json.loads(out)
+        self.assertEqual("planned", result["status"])
+        self.assertFalse(result["apply_supported"])
+        self.assertFalse(result["approval_supported"])
+        self.assertEqual(["Back"], result["changed_fields"])
+
+        up_path = self._find_update_plan()
+        self.assertIsNotNone(up_path)
+
+        # Inspect
+        rc, out, _ = self._run("inspect-update-plan", up_path)
+        self.assertEqual(0, rc)
+        plan = json.loads(out)
+        self.assertEqual("anki-safe-writer.update-plan.v1", plan["schema_version"])
+        self.assertEqual("update-basic-note", plan["plan_type"])
+        self.assertFalse(plan["apply_supported"])
+        self.assertFalse(plan["approval_supported"])
+        self.assertEqual(1781115948589, plan["note_id"])
+        self.assertIn("Back", plan["changed_fields"])
+        self.assertEqual("pi-generated", plan["eligibility"]["captured_before_fields"]["Back"])
+        self.assertEqual("pi-generated (safe-writer)",
+                         plan["requested_after_fields"]["Back"])
+        self.assertEqual("What tag marks notes created by anki-safe-writer?",
+                         plan["requested_after_fields"]["Front"])
+
+        # List
+        rc, out, _ = self._run("list-update-plans")
+        self.assertEqual(0, rc)
+        listing = json.loads(out)
+        self.assertTrue(listing["directory_exists"])
+        self.assertEqual(1, len(listing["files"]))
+
+        # No forbidden actions during planning
+        self.fake_anki.assert_forbidden_not_called(self)
+
+        # Abort
+        rc, out, _ = self._run("abort-update-plan", up_path)
+        self.assertEqual(0, rc)
+
+        # Verify moved
+        self.assertIsNone(self._find_update_plan())
+        self.assertIsNotNone(self._find_update_aborted())
+
+        # No forbidden actions during abort
+        self.fake_anki.assert_forbidden_not_called(self)
+
+
+class TestUpdatePlanRefusals(AnkiSafeWriterTest):
+    """Negative tests for update planning."""
+
+    def test_no_applied_record(self):
+        rc, out, _ = self._run("plan-update-note",
+                                "--note-id", "1781115948589",
+                                "--back", "new back")
+        self.assertNotEqual(0, rc)
+        self.assertIn("no applied record", out.lower())
+        self.fake_anki.assert_forbidden_not_called(self)
+
+    def test_noop_update(self):
+        self._create_fake_applied(1781115948589)
+        rc, out, _ = self._run("plan-update-note",
+                                "--note-id", "1781115948589",
+                                "--front", "What tag marks notes created by anki-safe-writer?",
+                                "--back", "pi-generated")
+        self.assertNotEqual(0, rc)
+        self.assertIn("no-op", out.lower())
+        self.fake_anki.assert_forbidden_not_called(self)
+
+    def test_single_note_commands_refuse_update_plan(self):
+        self._create_fake_applied(1781115948589)
+        rc, out, _ = self._run("plan-update-note",
+                                "--note-id", "1781115948589",
+                                "--back", "new back")
+        self.assertEqual(0, rc)
+        up_path = self._find_update_plan()
+
+        # approve-plan must refuse
+        rc, out, _ = self._run("approve-plan", up_path)
+        self.assertNotEqual(0, rc)
+
+        # apply-approved-plan must refuse
+        rc, out, _ = self._run("apply-approved-plan", up_path, "--apply")
+        self.assertNotEqual(0, rc)
+
+        self.fake_anki.assert_forbidden_not_called(self)
 
 
 if __name__ == "__main__":
