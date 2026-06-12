@@ -1,0 +1,24 @@
+{
+  "memoryMode": "policy-only",
+  "memoryPolicyStyle": "compact",
+  "memoryCharLimit": 5000,
+  "userCharLimit": 5000,
+  "projectCharLimit": 5000,
+  "memoryDir": "~/.pi/agent/pi-hermes-memory",
+  "projectsMemoryDir": "projects-memory",
+  "sessionSearch": {
+    "variant": "legacy"
+  },
+  "reviewEnabled": true,
+  "nudgeInterval": 10,
+  "nudgeToolCalls": 15,
+  "memoryOverflowStrategy": "auto-consolidate",
+  "correctionDetection": true,
+  "failureInjectionEnabled": true,
+  "failureInjectionMaxAgeDays": 7,
+  "failureInjectionMaxEntries": 3,
+  "flushOnCompact": true,
+  "flushOnShutdown": true,
+  "flushMinTurns": 6,
+  "flushRecentMessages": 0
+}

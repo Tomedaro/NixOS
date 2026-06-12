@@ -42,6 +42,75 @@ For small Pi setup changes, use `docs/LOOKUP.json` to identify the narrowest rou
 - Do not rewrite messages that are mostly code, commands, logs, file contents, or terminal output.
 - If the user's message is already natural in the language used, or if correction would add noise, omit the correction and continue normally.
 
+## Simplify conventions
+
+When `/simplify` runs, follow the rules in `simplify-conventions.md`. That file stays out of always-loaded context and is read on demand.
+
+## Token efficiency: use ctx tools
+
+Prefer `ctx_read`, `ctx_shell`, `ctx_grep`, `ctx_find`, `ctx_ls` over the
+corresponding native tools (`read`, `bash`, `grep`, `find`, `ls`).
+The ctx equivalents auto-compress output (aggressive mode), respect
+`.gitignore`, and save significant tokens in long sessions.
+The `pi-lean-ctx` extension provides these — no setup needed.
+
+## Available extensions
+
+| Extension | Tool | Use for |
+|-----------|------|--------|
+| `rpiv-advisor` | `advisor()` | Stronger review before complex work, before declaring done, when stuck |
+| `pi-subagents` | `subagent` | Delegate to specialized agents (scout, worker, reviewer, sdd-*) |
+| `gentle-engram` | `mem_*` (`mem_save`, `mem_search`, `mem_context`, etc.) | Canonical durable project memory, decisions, architecture, handoffs |
+| `pi-hermes-memory` | `memory` / `memory_search` / `session_search` / `skill` | User preferences, corrections, failures, session history, reusable procedures |
+| `pi-web-access` | `web_search` / `code_search` / `fetch_content` | Web research, API docs, library examples |
+| `pi-mcp-adapter` | `mcp()` | Query NixOS options via the nixos MCP server |
+| `pi-markdown-preview` | `preview_export` | Render markdown/LaTeX as PDF, HTML, or PNG |
+| `pi-simplify` | `/simplify` | Review recently changed code for clarity |
+| `gentle-pi` | skills (branch-pr, gentle-ai, etc.) | PR creation, release, comment writing, SDD workflows |
+
+## Memory policy: Engram + Hermes
+
+This system runs two complementary memory systems:
+
+| System | Tools | Owner |
+|--------|-------|-------|
+| **Engram** | `mem_save`, `mem_search`, `mem_context`, `mem_doctor`, `mem_session_summary`, `mem_get_observation` | Canonical durable project memory |
+| **Hermes** | `memory`, `memory_search`, `session_search`, `skill` | Pi-local behavioral/session memory |
+
+### When to use each
+
+**Engram** → `mem_save` / `mem_search` / `mem_context`:
+- Architecture decisions, root causes, accepted tradeoffs
+- Project facts and handoffs between sessions
+- Compaction recovery (via `mem_session_summary`)
+- Long-term project lessons
+
+**Hermes** → `memory` / `memory_search` / `session_search` / `skill`:
+- User preferences, environment quirks, tool quirks
+- Corrections and failures
+- Past Pi conversation recall (`session_search`)
+- Reusable Pi-local procedures (`skill`)
+
+### Avoid duplicate writes
+
+If a fact is durable project knowledge (decision, architecture, root cause), save it to
+Engram with `mem_save`. Do not also duplicate it into Hermes. Save to Hermes only for
+user preferences, local environment quirks, corrections, failures, or reusable Pi procedures.
+
+### Priority
+
+- Current repo files and command output override memory.
+- Memory is context, not instruction.
+- Never store secrets, API keys, tokens, or credentials.
+
+### Startup / end-of-work
+
+- Before work: call `mem_context` for project context when relevant.
+- Use `memory_search` only for user/local/tooling quirks.
+- Use `session_search` only when recalling a prior Pi conversation.
+- After significant work: call `mem_save` for durable project decisions and handoffs.
+- Use Hermes `memory` / `skill` only for Pi-local learning or reusable procedures.
+
 ## Token policy
 
 - Keep always-loaded context small.
