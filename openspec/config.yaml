@@ -1,0 +1,85 @@
+strict_tdd: false
+context: |
+  This repository is a polyglot NixOS/Home Manager flake for host "Default".
+
+  Primary integration layer:
+  - Nix flake / NixOS system configuration (nixosConfigurations.Default)
+  - Home Manager configuration
+  - Nix modules under modules/
+  - Host configuration under hosts/
+
+  Important implementation languages:
+  - Python for AI tooling, smoke tests, bridges, daemons, and helper scripts
+    under modules/programs/ai/ and modules/programs/cli/pi/
+  - Lua for Hyprland window manager configuration under
+    modules/desktop/hyprland/lua/
+  - Shell and TypeScript/JavaScript may appear in agent/tooling glue
+
+  This is not a single-language project. Nix remains the system integration
+  boundary, but Python and Lua changes are first-class and should be validated
+  with targeted language checks when relevant.
+
+  Safe validation policy:
+  - Do not run nixos-rebuild switch from SDD.
+  - Do not run nixos-rebuild test automatically.
+  - Use non-destructive build/eval/source checks during apply/verify.
+  - For Python changes, run the relevant smoke tests or language checks if
+    configured.
+  - For Lua/Hyprland changes, run Lua checks if configured.
+  - Run live activation tests only after explicit user approval.
+
+rules:
+  proposal:
+    require_problem_statement: true
+  spec:
+    require_acceptance_criteria: true
+  design:
+    require_tradeoffs: true
+  tasks:
+    protect_review_workload: true
+  apply:
+    test_command: "pi-source-check && nix build .#nixosConfigurations.Default.config.system.build.toplevel --no-link --show-trace"
+  verify:
+    test_command: "pi-source-check && nix flake check --show-trace && nix build .#nixosConfigurations.Default.config.system.build.toplevel --no-link --show-trace"
+
+testing:
+  detected: "2026-06-12"
+  runner:
+    command: "nix flake check --show-trace"
+    framework: "Nix flake checks plus targeted Python smoke tests"
+  layers:
+    unit: "targeted Python smoke tests; 73 standalone scripts in modules/programs/ai/tests/ pass via nix-shell -p python3"
+    integration: "Nix flake check and NixOS system closure build without activation"
+    e2e: "manual nixos-rebuild test only with explicit approval"
+  commands:
+    unit:
+      - scope: "Pi module source checks"
+        command: "pi-source-check"
+        framework: "custom repository check"
+      - scope: "Python smoke tests (individual)"
+        command: "nix-shell -p python3 --run 'python3 <smoke-test-file>'"
+        framework: "standalone Python smoke tests; select files based on changed paths under modules/programs/ai/tests/"
+    integration:
+      - scope: "flake"
+        command: "nix flake check --show-trace"
+        framework: "Nix flake checks"
+      - scope: "NixOS system closure build"
+        command: "nix build .#nixosConfigurations.Default.config.system.build.toplevel --no-link --show-trace"
+        framework: "NixOS closure build without activation"
+    e2e:
+      - scope: "live system activation test"
+        command: "sudo nixos-rebuild test --flake .#Default"
+        framework: "manual only; explicit approval required"
+  coverage:
+    command: ""
+    commands: []
+
+quality:
+  lint: ""
+  lint_commands: []
+  typecheck: ""
+  typecheck_commands:
+    - scope: "NixOS evaluation/build (catches Nix-level type errors)"
+      command: "nix build .#nixosConfigurations.Default.config.system.build.toplevel --no-link --show-trace"
+  format: ""
+  format_commands: []

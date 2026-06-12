@@ -1,0 +1,8 @@
+{
+  "mode": "replace",
+  "enableMcp": true,
+  "binary": "/run/current-system/sw/bin/lean-ctx",
+  "env": {
+    "LEAN_CTX_COMPRESSION": "aggressive"
+  }
+}
