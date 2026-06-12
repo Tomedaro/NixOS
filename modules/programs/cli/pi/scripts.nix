@@ -1529,6 +1529,183 @@ let
         exit "$failures"
   '';
 
+  piMcpCheck = pkgs.writeShellScriptBin "pi-mcp-check" ''
+    set -euo pipefail
+    failures=0
+    warnings=0
+    checked=0
+    fail() { echo "FAIL: $1"; failures=$((failures + 1)); }
+    warn() { echo "WARN: $1"; warnings=$((warnings + 1)); }
+    ok()   { echo "OK: $1"; }
+
+    profiles="global nixos study work research"
+    mcp_dir="${paths.piSourceDir}/mcp"
+
+    echo "MCP config check"
+    echo
+
+    echo "--- Profile existence ---"
+    for pf in $profiles; do
+      checked=$((checked + 1))
+      src="$mcp_dir/$pf.json"
+      if [ -f "$src" ]; then
+        ok "MCP source exists: $pf.json"
+      else
+        fail "MCP source missing: $pf.json"
+      fi
+    done
+
+    echo
+    echo "--- Parse and mcpServers ---"
+    for pf in $profiles; do
+      src="$mcp_dir/$pf.json"
+      [ -f "$src" ] || continue
+
+      checked=$((checked + 1))
+      if ${jq} -e . "$src" >/dev/null 2>&1; then
+        ok "$pf.json parses cleanly"
+      else
+        fail "$pf.json: invalid JSON"
+        continue
+      fi
+
+      checked=$((checked + 1))
+      if ${jq} -e '.mcpServers' "$src" >/dev/null 2>&1; then
+        ok "$pf.json has mcpServers"
+      else
+        fail "$pf.json: missing mcpServers"
+        continue
+      fi
+
+      checked=$((checked + 1))
+      server_count=$(${jq} '.mcpServers | length' "$src" 2>/dev/null || echo 0)
+      if [ "$server_count" -eq 0 ]; then
+        ok "$pf.json: empty mcpServers"
+      fi
+
+      for srv in $(${jq} -r '.mcpServers | keys[]' "$src" 2>/dev/null || true); do
+        checked=$((checked + 1))
+        has_lifecycle=$(${jq} -r --arg s "$srv" '.mcpServers[$s] | if has("lifecycle") then .lifecycle else "" end' "$src" 2>/dev/null || true)
+        if [ -n "$has_lifecycle" ]; then
+          ok "$pf/$srv: lifecycle = $has_lifecycle"
+        else
+          warn "$pf/$srv: lifecycle is missing (implicit default)"
+        fi
+
+        checked=$((checked + 1))
+        dt=$(${jq} -r --arg s "$srv" '.mcpServers[$s] | if has("directTools") then .directTools | tostring else "" end' "$src" 2>/dev/null || true)
+        if [ -n "$dt" ]; then
+          ok "$pf/$srv: directTools = $dt"
+        else
+          warn "$pf/$srv: directTools is missing (implicit default)"
+        fi
+
+        cmd=$(${jq} -r --arg s "$srv" '.mcpServers[$s].command // ""' "$src" 2>/dev/null || true)
+        case "$cmd" in
+          nix)
+            args=$(${jq} -r --arg s "$srv" '.mcpServers[$s].args | @csv' "$src" 2>/dev/null || true)
+            echo "$args" | ${grep} -q 'github:' && warn "$pf/$srv: uses nix run github: (not repo-pinned)" ;;
+          npx)
+            warn "$pf/$srv: uses npx (runtime npm fetch)" ;;
+          /*|node)
+            # Absolute path or node wrapper — acceptable
+            ;;
+          *)
+            [ -n "$cmd" ] && warn "$pf/$srv: command '$cmd' is not an absolute path" ;;
+        esac
+      done
+    done
+
+    echo
+    echo "--- Engram invariants ---"
+    for pf in global nixos; do
+      src="$mcp_dir/$pf.json"
+      if [ ! -f "$src" ]; then
+        fail "$pf.json missing for Engram check"
+        continue
+      fi
+
+      checked=$((checked + 1))
+      engram_count=$(${jq} -r '.mcpServers | has("engram")' "$src" 2>/dev/null || echo false)
+      if [ "$engram_count" = "true" ]; then
+        ok "$pf: has engram server"
+      else
+        fail "$pf: missing engram server"
+        continue
+      fi
+
+      checked=$((checked + 1))
+      dt=$(${jq} -r '.mcpServers.engram | if has("directTools") then .directTools | tostring else "" end' "$src" 2>/dev/null || true)
+      if [ "$dt" = "false" ]; then
+        ok "$pf/engram: directTools = false"
+      else
+        fail "$pf/engram: directTools is '$dt', expected false"
+      fi
+    done
+
+    echo
+    echo "--- Anki invariants ---"
+    src="$mcp_dir/study.json"
+    if [ -f "$src" ]; then
+      checked=$((checked + 1))
+      has_anki=$(${jq} -r '.mcpServers | has("anki-read-strict")' "$src" 2>/dev/null || echo false)
+      if [ "$has_anki" = "true" ]; then
+        ok "study: has anki-read-strict server"
+      else
+        fail "study: missing anki-read-strict server"
+      fi
+
+      if [ "$has_anki" = "true" ]; then
+        checked=$((checked + 1))
+        dt=$(${jq} -r '.mcpServers["anki-read-strict"] | if has("directTools") then .directTools | tostring else "" end' "$src" 2>/dev/null || true)
+        if [ "$dt" = "false" ]; then
+          ok "study/anki: directTools = false"
+        else
+          fail "study/anki: directTools is '$dt', expected false"
+        fi
+
+        checked=$((checked + 1))
+        args=$(${jq} -r '.mcpServers["anki-read-strict"].args | @csv' "$src" 2>/dev/null || true)
+        if echo "$args" | ${grep} -q 'read.only\|read-only'; then
+          ok "study/anki: has --read-only flag"
+        else
+          fail "study/anki: missing --read-only flag"
+        fi
+
+        checked=$((checked + 1))
+        excluded=$(${jq} -r '.mcpServers["anki-read-strict"].excludeTools | length // 0' "$src" 2>/dev/null || echo 0)
+        if [ "$excluded" -gt 0 ]; then
+          ok "study/anki: $excluded excluded tools"
+        else
+          warn "study/anki: no excluded tools"
+        fi
+      fi
+    fi
+
+    echo
+    echo "--- Work/research invariants ---"
+    for pf in work research; do
+      src="$mcp_dir/$pf.json"
+      [ -f "$src" ] || continue
+
+      checked=$((checked + 1))
+      count=$(${jq} '.mcpServers | length' "$src" 2>/dev/null || echo 0)
+      if [ "$count" -eq 0 ]; then
+        ok "$pf.json: no MCP servers (expected)"
+      else
+        fail "$pf.json: has $count server(s), expected 0"
+      fi
+    done
+
+    echo
+    if [ "$failures" -eq 0 ]; then
+      echo "MCP check passed: $checked checks, 0 failures, $warnings warnings."
+    else
+      echo "MCP check FAILED: $checked checks, $failures failure(s), $warnings warnings."
+    fi
+    exit "$failures"
+  '';
+
 in
 {
   inherit
@@ -1544,5 +1721,6 @@ in
     piTestAnkiSafeWriter
     piHermesDoctor
     piPolicyLint
+    piMcpCheck
     ;
 }

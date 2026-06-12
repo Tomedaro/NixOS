@@ -391,6 +391,7 @@ let
       pi-admin compat
       pi-admin mode
       pi-admin policy-lint
+      pi-admin mcp-check
       pi-admin source-check
       pi-admin test-anki-safe-writer
       pi-admin security
@@ -548,6 +549,9 @@ let
             ;;
           policy-lint)
             exec ${scripts.piPolicyLint}/bin/pi-policy-lint "$@"
+            ;;
+          mcp-check)
+            exec ${scripts.piMcpCheck}/bin/pi-mcp-check "$@"
             ;;
           test-anki-safe-writer)
             exec ${scripts.piTestAnkiSafeWriter}/bin/pi-test-anki-safe-writer "$@"
