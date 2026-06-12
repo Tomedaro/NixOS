@@ -28,8 +28,8 @@ Status legend:
 
 | # | Task | Status | Commit/Notes |
 | 2.1 | `pi-admin explain-profile` | ❌ | |
-| 2.2 | `pi-admin mcp-check` | ❌ | |
-| 2.3 | `pi-admin policy-lint` | ❌ | |
+| 2.2 | `pi-admin mcp-check` | ✅ | Static MCP validation — directTools, lifecycle, unpinned commands |
+| 2.3 | `pi-admin policy-lint` | ✅ | Static structural checks on all 6 profile policy files |
 | 2.4 | Dry-run / diff for sync/drift | ❌ | |
 
 ## Phase 3 — Home Manager module interface
@@ -112,20 +112,20 @@ New section for the ChatGPT-reviewed memory and MCP hardening work.
 ## P0 — Fix drift noise
 
 | # | Task | Status | Commit/Notes |
-| 0.1 | Add mcp/work.json and mcp/research.json source files | ❌ | Creates empty mcpServers, removes permanent false drift |
+| 0.1 | Add mcp/work.json and mcp/research.json source files | ✅ | Creates empty mcpServers; drift now reports OK |
 
 ## P1 — Compatibility and permission enforcement
 
 | # | Task | Status | Commit/Notes |
-| 1.1 | peerDependency semver enforcement in pi-admin compat | ❌ | Fail on range mismatch for security/control packages |
+| 1.1 | peerDependency semver enforcement in pi-admin compat | ✅ | Warn-only; detects powerline-footer and simplify incompatibilities |
 | 1.2 | `pi-admin policy-test` runtime permission regression tests | ❌ | Verify safe/nixos/trusted profile behavior, secret path denial, pi-raw bypass |
-| 1.3 | `pi-admin policy-lint` | ❌ | Structural policy validation |
+| 1.3 | `pi-admin policy-lint` | ✅ | 119 checks, 0 failures on current profiles |
 | 1.4 | `pi-admin explain-profile` | ❌ | Profile detail introspection |
 
 ## P2 — MCP future-proofing
 
 | # | Task | Status | Commit/Notes |
-| 2.1 | `pi-admin mcp-check` | ❌ | Validate directTools, lifecycle, unpinned commands, source/runtime equality |
+| 2.1 | `pi-admin mcp-check` | ✅ | Static MCP validation only (40 checks, 0 failures); pinning deferred to P2.2 |
 | 2.2 | Pin mcp-nixos through flake/store path | ❌ | Replace nix run github: with store path |
 | 2.3 | Anki MCP pinning decision | ❌ | Keep npx with approval or wrap in derivation |
 
