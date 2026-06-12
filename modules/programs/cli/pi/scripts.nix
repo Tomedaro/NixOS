@@ -1346,6 +1346,189 @@ let
     exit "$status"
   '';
 
+  piPolicyLint = pkgs.writeShellScriptBin "pi-policy-lint" ''
+        set -euo pipefail
+        failures=0
+        warnings=0
+        checked=0
+        fail() { echo "FAIL: $1"; failures=$((failures + 1)); }
+        warn() { echo "WARN: $1"; warnings=$((warnings + 1)); }
+        ok()   { echo "OK: $1"; }
+
+        echo "Permission policy lint"
+        echo
+
+        policies_dir="${srcPolicies}"
+        profiles="safe nixos study work research trusted"
+
+        # Inline JSONC stripper: strips comments, outputs cleaned JSON to stdout
+        strip_jsonc() {
+          ${pkgs.python3}/bin/python3 -c '
+    import re, sys, json
+    text = sys.stdin.read()
+    text = re.sub(r"//[^\n]*", "", text)
+    text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
+    try:
+        obj = json.loads(text)
+        json.dump(obj, sys.stdout, indent=2)
+        sys.exit(0)
+    except json.JSONDecodeError as e:
+        sys.stderr.write("JSON ERROR: " + str(e) + "\n")
+        sys.exit(1)
+    '
+        }
+
+        # --- Check 1: all expected profile policies exist ---
+        echo "--- Profile existence ---"
+        for pf in $profiles; do
+          checked=$((checked + 1))
+          src="$policies_dir/$pf.jsonc"
+          if [ -f "$src" ]; then
+            ok "policy source exists: $pf.jsonc"
+          else
+            fail "policy source missing: $pf.jsonc"
+          fi
+        done
+
+        echo
+        echo "--- Parse and structural checks ---"
+        for pf in $profiles; do
+          src="$policies_dir/$pf.jsonc"
+          [ -f "$src" ] || continue
+
+          # Parse check
+          checked=$((checked + 1))
+          stripped=$(strip_jsonc < "$src" 2>/dev/null || true)
+          if [ -n "$stripped" ] && echo "$stripped" | ${jq} -e . >/dev/null 2>&1; then
+            ok "$pf.jsonc parses cleanly"
+          else
+            fail "$pf.jsonc: could not parse after comment stripping"
+            continue
+          fi
+
+          # Has required top-level sections
+          for section in defaultPolicy tools bash; do
+            checked=$((checked + 1))
+            if echo "$stripped" | ${jq} -e ".$section" >/dev/null 2>&1; then
+              ok "$pf.jsonc has section: $section"
+            else
+              warn "$pf.jsonc missing section: $section"
+            fi
+          done
+        done
+
+        echo
+        echo "--- Safe profile invariants ---"
+        src="$policies_dir/safe.jsonc"
+        if [ -f "$src" ]; then
+          stripped=$(strip_jsonc < "$src" 2>/dev/null || true)
+          if [ -n "$stripped" ]; then
+            for surface in bash write edit mcp; do
+              checked=$((checked + 1))
+              val=$(echo "$stripped" | ${jq} -r --arg s "$surface" '.["tools"][$s] // ""' 2>/dev/null || true)
+              if [ "$val" = "deny" ]; then
+                ok "safe: tools.$surface = deny"
+              else
+                fail "safe: tools.$surface is '$val', expected deny"
+              fi
+            done
+
+            # safe must deny bash:* via bash surface
+            checked=$((checked + 1))
+            bash_default=$(echo "$stripped" | ${jq} -r '.bash."*" // ""' 2>/dev/null || true)
+            if [ "$bash_default" = "deny" ]; then
+              ok "safe: bash.* = deny"
+            else
+              fail "safe: bash.* is '$bash_default', expected deny"
+            fi
+          fi
+        fi
+
+        echo
+        echo "--- Secret path deny patterns ---"
+        secret_patterns=".ssh .gnupg auth.json"
+        for pf in $profiles; do
+          src="$policies_dir/$pf.jsonc"
+          [ -f "$src" ] || continue
+          stripped=$(strip_jsonc < "$src" 2>/dev/null || true)
+          [ -n "$stripped" ] || continue
+
+          for secret in $secret_patterns; do
+            checked=$((checked + 1))
+            found=$(echo "$stripped" | ${jq} -r '[.bash | to_entries[] | select(.key | contains("'"$secret"'")) | .value] | first // ""' 2>/dev/null || true)
+            if [ -n "$found" ]; then
+              ok "$pf: bash denies $secret ($found)"
+            else
+              warn "$pf: no bash deny pattern for $secret"
+            fi
+          done
+        done
+
+        echo
+        echo "--- Dangerous command gating ---"
+        for pf in $profiles; do
+          src="$policies_dir/$pf.jsonc"
+          [ -f "$src" ] || continue
+          stripped=$(strip_jsonc < "$src" 2>/dev/null || true)
+          [ -n "$stripped" ] || continue
+
+          for pat in "rm -rf" "pi install" "pi remove" "pi uninstall" "sudo" "nixos-rebuild" "git reset" "git clean"; do
+            checked=$((checked + 1))
+            val=$(echo "$stripped" | ${jq} -r --arg p "$pat*" '.["bash"][$p] // ""' 2>/dev/null || true)
+            if [ -n "$val" ]; then
+              ok "$pf: bash gating $pat* ($val)"
+            else
+              warn "$pf: no explicit gate for $pat*; may fall through to default"
+            fi
+          done
+        done
+
+        echo
+        echo "--- MCP/skill stance summary ---"
+        for pf in $profiles; do
+          src="$policies_dir/$pf.jsonc"
+          [ -f "$src" ] || continue
+          stripped=$(strip_jsonc < "$src" 2>/dev/null || true)
+          [ -n "$stripped" ] || continue
+
+          for surface in mcp skills; do
+            checked=$((checked + 1))
+            val=$(echo "$stripped" | ${jq} -r --arg s "$surface" '.[$s]["*"] // ""' 2>/dev/null || true)
+            if [ -n "$val" ]; then
+              ok "$pf: $surface.* = $val"
+            else
+              val2=$(echo "$stripped" | ${jq} -r --arg s "$surface" '.[$s] // ""' 2>/dev/null || true)
+              warn "$pf: $surface.* not explicit; surface is '$val2'"
+            fi
+          done
+        done
+
+        echo
+        echo "--- External directory stance ---"
+        for pf in $profiles; do
+          src="$policies_dir/$pf.jsonc"
+          [ -f "$src" ] || continue
+          stripped=$(strip_jsonc < "$src" 2>/dev/null || true)
+          [ -n "$stripped" ] || continue
+
+          checked=$((checked + 1))
+          val=$(echo "$stripped" | ${jq} -r '.special.external_directory // ""' 2>/dev/null || true)
+          if [ -n "$val" ]; then
+            ok "$pf: external_directory = $val"
+          else
+            warn "$pf: external_directory not set via special surface"
+          fi
+        done
+
+        echo
+        if [ "$failures" -eq 0 ]; then
+          echo "Policy lint passed: $checked checks, 0 failures, $warnings warnings."
+        else
+          echo "Policy lint FAILED: $checked checks, $failures failure(s), $warnings warnings."
+        fi
+        exit "$failures"
+  '';
+
 in
 {
   inherit
@@ -1360,5 +1543,6 @@ in
     ankiSafeWriter
     piTestAnkiSafeWriter
     piHermesDoctor
+    piPolicyLint
     ;
 }

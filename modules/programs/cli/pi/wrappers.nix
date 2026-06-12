@@ -390,6 +390,7 @@ let
       pi-admin drift
       pi-admin compat
       pi-admin mode
+      pi-admin policy-lint
       pi-admin source-check
       pi-admin test-anki-safe-writer
       pi-admin security
@@ -544,6 +545,9 @@ let
             ;;
           compat)
             exec ${scripts.piCompatCheck}/bin/pi-compat-check "$@"
+            ;;
+          policy-lint)
+            exec ${scripts.piPolicyLint}/bin/pi-policy-lint "$@"
             ;;
           test-anki-safe-writer)
             exec ${scripts.piTestAnkiSafeWriter}/bin/pi-test-anki-safe-writer "$@"
