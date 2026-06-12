@@ -100,6 +100,8 @@ let
   srcMcp = ./mcp/global.json;
   srcNixosMcp = ./mcp/nixos.json;
   srcStudyMcp = ./mcp/study.json;
+  srcWorkMcp = ./mcp/work.json;
+  srcResearchMcp = ./mcp/research.json;
   srcGlobalAgents = ./resources/global/AGENTS.md;
   srcSimplifyConventions = ./resources/global/simplify-conventions.md;
   srcPolicies = ./policies;
@@ -242,8 +244,8 @@ let
     install_managed_file "${srcMcp}" "$agent_dir/mcp/global.json" 0644
     install_managed_file "${srcNixosMcp}" "$agent_dir/mcp/nixos.json" 0644
     install_managed_file "${srcStudyMcp}" "$agent_dir/mcp/study.json" 0644
-    printf '{"mcpServers":{}}\n' > "$agent_dir/mcp/work.json"
-    printf '{"mcpServers":{}}\n' > "$agent_dir/mcp/research.json"
+    install_managed_file "${srcWorkMcp}" "$agent_dir/mcp/work.json" 0644
+    install_managed_file "${srcResearchMcp}" "$agent_dir/mcp/research.json" 0644
     install_managed_file "${srcGlobalAgents}" "$agent_dir/AGENTS.md" 0644
     install_managed_file "${srcSimplifyConventions}" "$agent_dir/simplify-conventions.md" 0644
     install_managed_file "${srcPermissionExtensionConfig}" "$agent_dir/extensions/pi-permission-system/config.json" 0644
