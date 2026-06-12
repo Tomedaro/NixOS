@@ -1,4 +1,12 @@
-{ pkgs, lib, paths, piWrapped, piNpm, scripts }:
+{
+  pkgs,
+  lib,
+  paths,
+  piWrapped,
+  piNpm,
+  engramPackage,
+  scripts,
+}:
 
 let
   git = "${pkgs.git}/bin/git";
@@ -32,6 +40,8 @@ let
     export PI_SKIP_VERSION_CHECK=1
     export PI_TELEMETRY=0
     export PI_CACHE_RETENTION=long
+    export ENGRAM_BIN="${engramPackage}/bin/engram"
+    export ENGRAM_DATA_DIR="$HOME/.engram"
     ${rejectManagedPolicyBypassOverrides}
 
     preflight_fail() {
@@ -366,194 +376,211 @@ let
   '';
 
   piAdmin = pkgs.writeShellScriptBin "pi-admin" ''
-    set -euo pipefail
+        set -euo pipefail
 
-    usage() {
-      ${cat} <<'EOF'
-pi-admin - maintenance for the NixOS-managed Pi setup
+        usage() {
+          ${cat} <<'EOF'
+    pi-admin - maintenance for the NixOS-managed Pi setup
 
-Usage:
-  pi-admin status
-  pi-admin sync [global|study|study-tutor|work|current|all]
-  pi-admin doctor
-  pi-admin drift
-  pi-admin compat
-  pi-admin mode
-  pi-admin source-check
-  pi-admin test-anki-safe-writer
-  pi-admin security
-  pi-admin help
+    Usage:
+      pi-admin status
+      pi-admin sync [global|study|study-tutor|work|current|all]
+      pi-admin doctor
+      pi-admin memory-doctor
+      pi-admin drift
+      pi-admin compat
+      pi-admin mode
+      pi-admin source-check
+      pi-admin test-anki-safe-writer
+      pi-admin security
+      pi-admin help
 
-Daily use should be plain: pi
-Escape hatch: pi-raw
-EOF
-    }
+    Daily use should be plain: pi
+    Escape hatch: pi-raw
+    EOF
+        }
 
-    source_hash() {
-      if [ -d "${paths.piSourceDir}" ]; then
-        (cd "${paths.piSourceDir}" && ${find} . -type f ! -name '*.before-*' | ${sort} | while IFS= read -r f; do ${sha256sum} "$f"; done) | ${sha256sum} | ${cut} -d ' ' -f 1
-      else
-        echo unknown
-      fi
-    }
-
-    write_state_stamp() {
-      ${mkdir} -p "${paths.piAgentDir}"
-      tmp="$(${mktemp})"
-      hash="$(source_hash)"
-      now="$(${date} -u +%Y-%m-%dT%H:%M:%SZ)"
-      version="$(${piWrapped}/bin/pi --version 2>/dev/null || true)"
-      ${cat} > "$tmp" <<EOF
-{
-  "sourceRoot": "${paths.piSourceDir}",
-  "sourceHash": "$hash",
-  "syncedAtUtc": "$now",
-  "piVersion": "$version"
-}
-EOF
-      ${mv} "$tmp" "${paths.piAgentDir}/nix-managed-state.json"
-      ${chmod} 600 "${paths.piAgentDir}/nix-managed-state.json"
-    }
-
-    detect_mode() {
-      current="$(${realpath} -m "$PWD")"
-      nixos_repo="$(${realpath} -m "${paths.nixosRepo}")"
-      learning_dir="$(${realpath} -m "${paths.learningDir}")"
-      case "$current" in
-        "$nixos_repo"|"$nixos_repo"/*) echo nixos ;;
-        "$learning_dir"|"$learning_dir"/*) echo study ;;
-        *)
-          if ${git} rev-parse --show-toplevel >/dev/null 2>&1; then echo work; else echo research; fi
-          ;;
-      esac
-    }
-
-    cmd="''${1:-help}"
-    shift || true
-
-    case "$cmd" in
-      help|-h|--help)
-        usage
-        ;;
-      mode)
-        echo "Detected mode: $(detect_mode)"
-        echo "Override with PI_PROFILE=raw|nixos|study|study-tutor|work|research|trusted|cautious pi"
-        ;;
-      status)
-        echo "Pi status"
-        echo "Version: $(${piWrapped}/bin/pi --version 2>/dev/null || echo unknown)"
-        echo "Detected mode: $(detect_mode)"
-        echo "Source: ${paths.piSourceDir}"
-        echo "Source hash: $(source_hash)"
-        if [ -f "${paths.piAgentDir}/nix-managed-state.json" ]; then
-          echo "Last sync:"
-          ${jq} '{syncedAtUtc,piVersion,sourceHash}' "${paths.piAgentDir}/nix-managed-state.json" 2>/dev/null || true
-        else
-          echo "Last sync: no nix-managed-state.json stamp yet"
-        fi
-        echo
-        echo "Global model:"
-        ${jq} '{defaultProvider,defaultModel,defaultThinkingLevel,theme,powerline}' "${paths.piAgentDir}/settings.json" 2>/dev/null || true
-        echo
-        echo "Control packages:"
-        for pkg in @gotgenes/pi-permission-system pi-mcp-adapter pi-powerline-footer pi-themes; do
-          if [ -f "${paths.piNpmDir}/node_modules/$pkg/package.json" ]; then
-            version="$(${jq} -r '.version // "unknown"' "${paths.piNpmDir}/node_modules/$pkg/package.json" 2>/dev/null || echo unknown)"
-            echo "OK: $pkg@$version"
+        source_hash() {
+          if [ -d "${paths.piSourceDir}" ]; then
+            (cd "${paths.piSourceDir}" && ${find} . -type f ! -name '*.before-*' | ${sort} | while IFS= read -r f; do ${sha256sum} "$f"; done) | ${sha256sum} | ${cut} -d ' ' -f 1
           else
-            echo "MISSING: $pkg"
+            echo unknown
           fi
-        done
-        echo
-        echo "Cache sizes:"
-        ${du} -sh "${paths.piNpmDir}" "${paths.learningDir}/.pi/npm" "''${PI_WORK_DIR:-${paths.workDir}}/.pi/npm" 2>/dev/null || true
-        echo
-        echo "Use 'pi-admin doctor' for verbose diagnostics and 'pi-admin drift' for source/runtime drift."
-        ;;
-      sync)
-        target="''${1:-current}"
-        case "$target" in
-          global)
-            ${scripts.piBootstrap}/bin/pi-bootstrap
+        }
+
+        write_state_stamp() {
+          ${mkdir} -p "${paths.piAgentDir}"
+          tmp="$(${mktemp})"
+          hash="$(source_hash)"
+          now="$(${date} -u +%Y-%m-%dT%H:%M:%SZ)"
+          version="$(${piWrapped}/bin/pi --version 2>/dev/null || true)"
+          ${cat} > "$tmp" <<EOF
+    {
+      "sourceRoot": "${paths.piSourceDir}",
+      "sourceHash": "$hash",
+      "syncedAtUtc": "$now",
+      "piVersion": "$version"
+    }
+    EOF
+          ${mv} "$tmp" "${paths.piAgentDir}/nix-managed-state.json"
+          ${chmod} 600 "${paths.piAgentDir}/nix-managed-state.json"
+        }
+
+        detect_mode() {
+          current="$(${realpath} -m "$PWD")"
+          nixos_repo="$(${realpath} -m "${paths.nixosRepo}")"
+          learning_dir="$(${realpath} -m "${paths.learningDir}")"
+          case "$current" in
+            "$nixos_repo"|"$nixos_repo"/*) echo nixos ;;
+            "$learning_dir"|"$learning_dir"/*) echo study ;;
+            *)
+              if ${git} rev-parse --show-toplevel >/dev/null 2>&1; then echo work; else echo research; fi
+              ;;
+          esac
+        }
+
+        cmd="''${1:-help}"
+        shift || true
+
+        case "$cmd" in
+          help|-h|--help)
+            usage
             ;;
-          study)
-            ${scripts.piBootstrap}/bin/pi-bootstrap
-            ${scripts.piStudyInit}/bin/pi-study-init
+          mode)
+            echo "Detected mode: $(detect_mode)"
+            echo "Override with PI_PROFILE=raw|nixos|study|study-tutor|work|research|trusted|cautious pi"
             ;;
-          study-tutor|tutor)
-            ${scripts.piBootstrap}/bin/pi-bootstrap
-            ${scripts.piStudyTutorInit}/bin/pi-study-tutor-init
-            ;;
-          work)
-            ${scripts.piBootstrap}/bin/pi-bootstrap
-            ${scripts.piWorkInit}/bin/pi-work-init
-            ;;
-          all)
-            ${scripts.piBootstrap}/bin/pi-bootstrap
-            ${scripts.piStudyInit}/bin/pi-study-init
-            if [ -n "''${PI_WORK_DIR:-}" ]; then
-              ${scripts.piWorkInit}/bin/pi-work-init
+          status)
+            echo "Pi status"
+            echo "Version: $(${piWrapped}/bin/pi --version 2>/dev/null || echo unknown)"
+            echo "Detected mode: $(detect_mode)"
+            echo "Source: ${paths.piSourceDir}"
+            echo "Source hash: $(source_hash)"
+            if [ -f "${paths.piAgentDir}/nix-managed-state.json" ]; then
+              echo "Last sync:"
+              ${jq} '{syncedAtUtc,piVersion,sourceHash}' "${paths.piAgentDir}/nix-managed-state.json" 2>/dev/null || true
             else
-              echo "Skipping work sync because PI_WORK_DIR is not set."
+              echo "Last sync: no nix-managed-state.json stamp yet"
             fi
+            echo
+            echo "Global model:"
+            ${jq} '{defaultProvider,defaultModel,defaultThinkingLevel,theme,powerline}' "${paths.piAgentDir}/settings.json" 2>/dev/null || true
+            echo
+            echo "Control packages:"
+            for pkg in @gotgenes/pi-permission-system pi-mcp-adapter pi-powerline-footer pi-themes; do
+              if [ -f "${paths.piNpmDir}/node_modules/$pkg/package.json" ]; then
+                version="$(${jq} -r '.version // "unknown"' "${paths.piNpmDir}/node_modules/$pkg/package.json" 2>/dev/null || echo unknown)"
+                echo "OK: $pkg@$version"
+              else
+                echo "MISSING: $pkg"
+              fi
+            done
+            echo
+            echo "Cache sizes:"
+            ${du} -sh "${paths.piNpmDir}" "${paths.learningDir}/.pi/npm" "''${PI_WORK_DIR:-${paths.workDir}}/.pi/npm" 2>/dev/null || true
+            echo
+            echo "Use 'pi-admin doctor' for verbose diagnostics and 'pi-admin drift' for source/runtime drift."
             ;;
-          current)
-            ${scripts.piBootstrap}/bin/pi-bootstrap
-            mode="$(detect_mode)"
-            case "$mode" in
-              study) ${scripts.piStudyInit}/bin/pi-study-init ;;
+          sync)
+            target="''${1:-current}"
+            case "$target" in
+              global)
+                ${scripts.piBootstrap}/bin/pi-bootstrap
+                ;;
+              study)
+                ${scripts.piBootstrap}/bin/pi-bootstrap
+                ${scripts.piStudyInit}/bin/pi-study-init
+                ;;
+              study-tutor|tutor)
+                ${scripts.piBootstrap}/bin/pi-bootstrap
+                ${scripts.piStudyTutorInit}/bin/pi-study-tutor-init
+                ;;
               work)
-                if ${git} rev-parse --show-toplevel >/dev/null 2>&1; then
-                  export PI_WORK_DIR="$(${git} rev-parse --show-toplevel)"
+                ${scripts.piBootstrap}/bin/pi-bootstrap
+                ${scripts.piWorkInit}/bin/pi-work-init
+                ;;
+              all)
+                ${scripts.piBootstrap}/bin/pi-bootstrap
+                ${scripts.piStudyInit}/bin/pi-study-init
+                if [ -n "''${PI_WORK_DIR:-}" ]; then
                   ${scripts.piWorkInit}/bin/pi-work-init
+                else
+                  echo "Skipping work sync because PI_WORK_DIR is not set."
                 fi
                 ;;
-              *) : ;;
+              current)
+                ${scripts.piBootstrap}/bin/pi-bootstrap
+                mode="$(detect_mode)"
+                case "$mode" in
+                  study) ${scripts.piStudyInit}/bin/pi-study-init ;;
+                  work)
+                    if ${git} rev-parse --show-toplevel >/dev/null 2>&1; then
+                      export PI_WORK_DIR="$(${git} rev-parse --show-toplevel)"
+                      ${scripts.piWorkInit}/bin/pi-work-init
+                    fi
+                    ;;
+                  *) : ;;
+                esac
+                ;;
+              *)
+                echo "Unknown sync target: $target" >&2
+                usage >&2
+                exit 2
+                ;;
             esac
+                write_state_stamp
+            ;;
+          doctor)
+            exec ${scripts.piDoctor}/bin/pi-doctor "$@"
+            ;;
+          memory-doctor|hermes-doctor)
+            exec ${scripts.piHermesDoctor}/bin/pi-hermes-doctor "$@"
+            ;;
+          source-check)
+            exec ${scripts.piSourceCheck}/bin/pi-source-check "$@"
+            ;;
+          drift)
+            exec ${scripts.piDriftCheck}/bin/pi-drift-check "$@"
+            ;;
+          compat)
+            exec ${scripts.piCompatCheck}/bin/pi-compat-check "$@"
+            ;;
+          test-anki-safe-writer)
+            exec ${scripts.piTestAnkiSafeWriter}/bin/pi-test-anki-safe-writer "$@"
+            ;;
+          security)
+            ${cat} <<'EOF'
+    Pi security summary
+
+    - Plain `pi` is the daily smart launcher, not a sandbox.
+    - `pi-cautious` / `PI_PROFILE=cautious pi` is policy-backed convenience only; `pi-readonly` and `pi-safe` are compatibility aliases.
+    - Historical symlink tests showed policy-only external-directory checks can be bypassed if paths are checked textually instead of canonically.
+    - Do not use cautious mode as a security boundary for untrusted repositories.
+    - Real isolation requires canonical path checks and/or OS-level sandboxing such as bubblewrap/pi-sandbox after audit.
+    - Read docs: modules/programs/cli/pi/docs/SECURITY.md and SECURITY_LIMITATIONS.md
+    EOF
             ;;
           *)
-            echo "Unknown sync target: $target" >&2
+            echo "Unknown pi-admin command: $cmd" >&2
             usage >&2
             exit 2
             ;;
         esac
-            write_state_stamp
-        ;;
-      doctor)
-        exec ${scripts.piDoctor}/bin/pi-doctor "$@"
-        ;;
-      source-check)
-        exec ${scripts.piSourceCheck}/bin/pi-source-check "$@"
-        ;;
-      drift)
-        exec ${scripts.piDriftCheck}/bin/pi-drift-check "$@"
-        ;;
-      compat)
-        exec ${scripts.piCompatCheck}/bin/pi-compat-check "$@"
-        ;;
-      test-anki-safe-writer)
-        exec ${scripts.piTestAnkiSafeWriter}/bin/pi-test-anki-safe-writer "$@"
-        ;;
-      security)
-        ${cat} <<'EOF'
-Pi security summary
-
-- Plain `pi` is the daily smart launcher, not a sandbox.
-- `pi-cautious` / `PI_PROFILE=cautious pi` is policy-backed convenience only; `pi-readonly` and `pi-safe` are compatibility aliases.
-- Historical symlink tests showed policy-only external-directory checks can be bypassed if paths are checked textually instead of canonically.
-- Do not use cautious mode as a security boundary for untrusted repositories.
-- Real isolation requires canonical path checks and/or OS-level sandboxing such as bubblewrap/pi-sandbox after audit.
-- Read docs: modules/programs/cli/pi/docs/SECURITY.md and SECURITY_LIMITATIONS.md
-EOF
-        ;;
-      *)
-        echo "Unknown pi-admin command: $cmd" >&2
-        usage >&2
-        exit 2
-        ;;
-    esac
   '';
 in
 {
-  inherit piSmart piRaw piAdmin piReadonly piCautious piSafe piNixos piStudy piStudyTutor piWork piResearch piTrusted;
+  inherit
+    piSmart
+    piRaw
+    piAdmin
+    piReadonly
+    piCautious
+    piSafe
+    piNixos
+    piStudy
+    piStudyTutor
+    piWork
+    piResearch
+    piTrusted
+    ;
 }

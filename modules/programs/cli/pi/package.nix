@@ -1,24 +1,27 @@
-{ pkgs, inputs ? {}, paths }:
+{
+  pkgs,
+  inputs ? { },
+  paths,
+}:
 
 let
   system = pkgs.stdenv.hostPlatform.system;
+  nodejs = pkgs.nodejs_24;
 
   piPackage =
-    if inputs ? piNix
-    then inputs.piNix.packages.${system}.coding-agent
-    else pkgs.pi-coding-agent;
+    if inputs ? piNix then inputs.piNix.packages.${system}.coding-agent else pkgs.pi-coding-agent;
 
   piNpm = pkgs.writeShellScriptBin "pi-npm" ''
     set -euo pipefail
     mkdir -p "${paths.piNpmDir}"
     export NPM_CONFIG_PREFIX="${paths.piNpmDir}"
-    exec ${pkgs.nodejs_22}/bin/npm "$@"
+    exec ${nodejs}/bin/npm "$@"
   '';
 
   piRuntimePath = pkgs.lib.makeBinPath (
     [
       piNpm
-      pkgs.nodejs_22
+      nodejs
       pkgs.git
       pkgs.openssh
       pkgs.ripgrep
@@ -34,9 +37,12 @@ let
       pkgs.gawk
       pkgs.findutils
       pkgs.util-linux
+      engramPackage
     ]
     ++ pkgs.lib.optional (pkgs ? bubblewrap) pkgs.bubblewrap
   );
+
+  engramPackage = pkgs.callPackage ./packages/engram.nix { };
 
   piWrapped = pkgs.symlinkJoin {
     name = "pi-coding-agent";
@@ -54,5 +60,11 @@ let
   };
 in
 {
-  inherit piWrapped piNpm piPackage piRuntimePath;
+  inherit
+    piWrapped
+    piNpm
+    piPackage
+    piRuntimePath
+    engramPackage
+    ;
 }
