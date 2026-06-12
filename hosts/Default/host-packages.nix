@@ -27,11 +27,13 @@ in
     foliate
     sioyek
     lm_sensors
+    woeusb
+    ventoy-full
     guvcview
     jq
     sedutil
     bibata-cursors
-    sddm-astronaut        # Overlaid
+    sddm-astronaut # Overlaid
     kdePackages.qtsvg
     kdePackages.qtmultimedia
     kdePackages.qtvirtualkeyboard
@@ -81,6 +83,20 @@ in
         krita
         vlc
         gimp
+
+        # Dev tooling (linters, formatters, LSPs)
+        nixd
+        nixfmt
+        statix
+        deadnix
+        ruff
+        pyright
+        python3
+        python3Packages.pytest
+        lua-language-server
+        stylua
+        luajit
+        lua51Packages.luacheck
       ];
     })
   ];
