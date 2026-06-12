@@ -29,3 +29,7 @@ modules/programs/cli/pi.before-*/
 modules/programs/cli/pi/*.before-*
 # Local Pi runtime state
 .atl/
+
+# Engram database files (local state, not config)
+.engram/*.db
+.engram/*.db-*
