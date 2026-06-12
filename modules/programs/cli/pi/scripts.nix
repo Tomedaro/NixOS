@@ -367,7 +367,7 @@ let
     echo "Pi compatibility check"
     echo
 
-    version="$(${pkgs.coreutils}/bin/timeout 10 ${piWrapped}/bin/pi --version 2>/dev/null || true)"
+    version="$(${pkgs.coreutils}/bin/timeout 10 ${piWrapped}/bin/pi --version 2>&1 | ${pkgs.coreutils}/bin/tail -1 2>/dev/null || true)"
     if [ -n "$version" ]; then
       echo "Pi version: $version"
     else
@@ -397,6 +397,12 @@ let
     check_help_flag "--session-dir"
 
     echo
+    semver_sat() {
+      local ver="$1" dep="$2"
+      local lower="$(printf '%s\n%s\n' "$ver" "$dep" | ${pkgs.coreutils}/bin/sort -V | ${pkgs.coreutils}/bin/head -1)"
+      printf '%s' "$lower"
+    }
+
     echo "Pinned control package specs:"
     while IFS= read -r spec; do
       case "$spec" in
@@ -410,7 +416,6 @@ let
       | if type == "object" then .source else . end
     ' "${srcGlobalSettings}")
 
-    echo
     echo "Installed package versions, if present:"
     while IFS= read -r spec; do
       case "$spec" in
@@ -434,6 +439,29 @@ let
             peer="$(${jq} -c '.peerDependencies // {}' "$pkg_json" 2>/dev/null || echo '{}')"
             if [ "$peer" != "{}" ]; then
               echo "    peerDependencies: $peer"
+            fi
+            pi_peer_range=$(printf '%s' "$peer" | ${jq} -r '.["@earendil-works/pi-coding-agent"] // .["@mariozechner/pi-coding-agent"] // ""' 2>/dev/null || true)
+            if [ -n "$pi_peer_range" ] && [ "$pi_peer_range" != "*" ]; then
+              peer_sat=1
+              for part in $pi_peer_range; do
+                case "$part" in
+                  \>=*) tv=''${part#\>=}; lo="$(semver_sat "$version" "$tv")"; [ "$lo" != "$tv" ] && peer_sat=0 ;;
+                  \>*)  tv=''${part#>};  lo="$(semver_sat "$version" "$tv")"; [ "$lo" != "$tv" ] && peer_sat=0; [ "$version" = "$tv" ] && peer_sat=0 ;;
+                  \<=*) tv=''${part#\<=}; lo="$(semver_sat "$version" "$tv")"; [ "$lo" != "$version" ] && peer_sat=0 ;;
+                  \<*)  tv=''${part#<};  lo="$(semver_sat "$version" "$tv")"; [ "$lo" != "$version" ] && peer_sat=0; [ "$version" = "$tv" ] && peer_sat=0 ;;
+                  *)
+                    if echo "$part" | ${grep} -q '^[0-9]\+\.[0-9]\+\.[0-9]\+$'; then
+                      [ "$version" != "$part" ] && peer_sat=0
+                    else
+                      warn "$name: unsupported peer range syntax '$part', cannot evaluate"
+                      peer_sat=-1
+                    fi
+                    ;;
+                esac
+              done
+              if [ "$peer_sat" = "0" ]; then
+                warn "$name Pi peer range '$pi_peer_range' not satisfied by Pi $version"
+              fi
             fi
           else
             warn "$name is not installed under ${paths.piNpmDir}/node_modules; run a managed Pi profile once or run pi update --extensions before relying on wrappers that load this package"
