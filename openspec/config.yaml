@@ -76,10 +76,47 @@ testing:
 
 quality:
   lint: ""
-  lint_commands: []
+  lint_commands:
+    # -- Gates: pass cleanly, safe for automatic SDD --
+    - scope: "Nix formatting (gate)"
+      command: "nixfmt --check ."
+      tier: gate
+      note: "Passes cleanly. TODO: evaluate nixfmt-tree for directory-check deprecation."
+    # -- Candidates: promote after cleanup or config --
+    - scope: "Python lint (candidate)"
+      command: "ruff check ."
+      tier: candidate
+      note: "32 errors (22 E402 from sys.path in smoke tests). Needs per-file # noqa: E402 or selective config before gating."
+    - scope: "Lua formatting (candidate)"
+      command: "stylua --check modules/desktop/hyprland/lua/"
+      tier: candidate
+      note: "2 of 6 files need formatting. Promote after dedicated formatting commit."
+    # -- Advisory: informational, do not block --
+    - scope: "Nix anti-patterns (advisory)"
+      command: "statix check ."
+      tier: advisory
+      note: "~47 warnings on existing codebase not written with statix style in mind."
+    - scope: "Nix dead code (advisory)"
+      command: "deadnix --fail ."
+      tier: advisory
+      note: "3 unused declarations across dev-shells and pkgs. Known patterns, minor."
+    - scope: "Python formatting (advisory)"
+      command: "ruff format --check ."
+      tier: advisory
+      note: "50 files would be reformatted. Advisory until a dedicated formatting commit."
+    # -- Disabled: not applicable or needs configuration --
+    - scope: "Lua lint (disabled)"
+      command: "luacheck modules/desktop/hyprland/lua/"
+      tier: disabled
+      note: "474 false positives. Hyprland injects runtime globals (hl, mainMod, etc.). Not useful standalone."
   typecheck: ""
   typecheck_commands:
-    - scope: "NixOS evaluation/build (catches Nix-level type errors)"
+    - scope: "NixOS evaluation/build (gate)"
       command: "nix build .#nixosConfigurations.Default.config.system.build.toplevel --no-link --show-trace"
+      tier: gate
+    - scope: "Python typecheck (disabled)"
+      command: "pyright"
+      tier: disabled
+      note: "Timed out at 30s. Needs .pyrightconfig.json with exclude paths and scoped include."
   format: ""
   format_commands: []
