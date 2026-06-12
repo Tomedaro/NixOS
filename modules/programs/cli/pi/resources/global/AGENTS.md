@@ -111,6 +111,17 @@ user preferences, local environment quirks, corrections, failures, or reusable P
 - After significant work: call `mem_save` for durable project decisions and handoffs.
 - Use Hermes `memory` / `skill` only for Pi-local learning or reusable procedures.
 
+### SDD subagent memory orchestration
+
+SDD subagents do not have memory tools by default. The parent Pi session owns all memory orchestration:
+
+1. **Before launching** a subagent, call `mem_context` or `mem_search` when project history may matter.
+2. **Pass only relevant** memory context into the subagent prompt — do not dump the full memory protocol.
+3. **Subagents report** discoveries, decisions, and phase artifacts back to the parent.
+4. **Parent reviews** and calls `mem_save` for durable project memory after the subagent completes.
+5. **Hermes tools** (`memory`, `memory_search`, `session_search`, `skill`) remain parent-only for SDD workflows.
+6. Do not give SDD subagents broad memory write access without explicit architectural approval.
+
 ## Token policy
 
 - Keep always-loaded context small.
