@@ -645,29 +645,33 @@ let
   piDriftCheck = pkgs.writeShellScriptBin "pi-drift-check" ''
     set -euo pipefail
     status=0
+    hg="; run: pi-admin sync global"
+    hs="; run: pi-admin sync study"
+    hst="; run: pi-admin sync study-tutor"
+    hw="; set PI_WORK_DIR and run: pi-admin sync work"
 
     fail() { echo "DRIFT: $1"; status=1; }
     ok() { echo "OK: $1"; }
 
     compare_file() {
-      local label="$1" src="$2" dst="$3"
-      if [ ! -f "$dst" ]; then fail "$label missing: $dst"; return; fi
-      if ${cmp} -s "$src" "$dst"; then ok "$label"; else fail "$label differs"; fi
+      local label="$1" src="$2" dst="$3" hint="$4"
+      if [ ! -f "$dst" ]; then fail "$label missing: $dst$hint"; return; fi
+      if ${cmp} -s "$src" "$dst"; then ok "$label"; else fail "$label differs$hint"; fi
     }
 
     compare_settings_managed_keys() {
-      local label="$1" src="$2" dst="$3"
+      local label="$1" src="$2" dst="$3" hint="$4"
       local filter='{
         defaultProvider, defaultModel, defaultThinkingLevel, thinkingBudgets, hideThinkingBlock,
         enableInstallTelemetry, quietStartup, treeFilterMode, npmCommand, compaction,
         branchSummary, retry, steeringMode, followUpMode, enabledModels, packages,
         workingVibe, powerline, theme, prompts, skills, enableSkillCommands, profileName
       } | with_entries(select(.value != null))'
-      if [ ! -f "$dst" ]; then fail "$label missing: $dst"; return; fi
+      if [ ! -f "$dst" ]; then fail "$label missing: $dst$hint"; return; fi
       a="$(${mktemp})"; b="$(${mktemp})"
       ${jq} "$filter" "$src" > "$a"
       ${jq} "$filter" "$dst" > "$b"
-      if ${cmp} -s "$a" "$b"; then ok "$label managed keys"; else fail "$label managed keys differ"; fi
+      if ${cmp} -s "$a" "$b"; then ok "$label managed keys"; else fail "$label managed keys differ$hint"; fi
       ${rm} -f "$a" "$b"
     }
 
@@ -687,10 +691,10 @@ let
     }
 
     compare_managed_tree() {
-      local label="$1" src="$2" dst="$3" manifest="$4"
+      local label="$1" src="$2" dst="$3" manifest="$4" hint="$5"
       local source_manifest tree_status
       tree_status=0
-      tree_fail() { fail "$1"; tree_status=1; }
+      tree_fail() { fail "$1$hint"; tree_status=1; }
       source_manifest="$(${mktemp})"
       (cd "$src" && ${find} . -type f | ${sort} | ${sed} 's#^./##') > "$source_manifest"
 
@@ -723,8 +727,8 @@ let
       fi
     }
 
-    compare_settings_managed_keys "global settings" "${srcGlobalSettings}" "${paths.piAgentDir}/settings.json"
-    compare_file "global MCP" "${srcMcp}" "${paths.piAgentDir}/mcp.json"
+    compare_settings_managed_keys "global settings" "${srcGlobalSettings}" "${paths.piAgentDir}/settings.json" "$hg"
+    compare_file "global MCP" "${srcMcp}" "${paths.piAgentDir}/mcp.json" "$hg"
 
     # Verify profile-specific MCP configs
     for pf in global nixos study work research; do
@@ -735,20 +739,20 @@ let
       esac
       dst_mcp="${paths.piAgentDir}/mcp/$pf.json"
       if [ -f "$src_mcp" ]; then
-        compare_file "profile MCP ($pf)" "$src_mcp" "$dst_mcp"
+        compare_file "profile MCP ($pf)" "$src_mcp" "$dst_mcp" "$hg"
       elif [ -f "$dst_mcp" ]; then
         echo "DRIFT: profile MCP ($pf) source missing but runtime file exists at $dst_mcp"
       fi
     done
 
-    compare_file "global AGENTS" "${srcGlobalAgents}" "${paths.piAgentDir}/AGENTS.md"
-    compare_file "global simplify conventions" "${srcSimplifyConventions}" "${paths.piAgentDir}/simplify-conventions.md"
-    compare_file "permission extension config" "${srcPermissionExtensionConfig}" "${paths.piAgentDir}/extensions/pi-permission-system/config.json"
-    compare_file "lean-ctx extension config" "${srcLeanCtxExtensionConfig}" "${paths.piAgentDir}/extensions/pi-lean-ctx/config.json"
-    compare_file "Hermes config" "${srcHermesConfig}" "${paths.piAgentDir}/hermes-memory-config.json"
+    compare_file "global AGENTS" "${srcGlobalAgents}" "${paths.piAgentDir}/AGENTS.md" "$hg"
+    compare_file "global simplify conventions" "${srcSimplifyConventions}" "${paths.piAgentDir}/simplify-conventions.md" "$hg"
+    compare_file "permission extension config" "${srcPermissionExtensionConfig}" "${paths.piAgentDir}/extensions/pi-permission-system/config.json" "$hg"
+    compare_file "lean-ctx extension config" "${srcLeanCtxExtensionConfig}" "${paths.piAgentDir}/extensions/pi-lean-ctx/config.json" "$hg"
+    compare_file "Hermes config" "${srcHermesConfig}" "${paths.piAgentDir}/hermes-memory-config.json" "$hg"
 
     for profile in safe nixos study work research trusted; do
-      compare_file "policy $profile" "${srcPolicies}/$profile.jsonc" "${paths.piPoliciesDir}/$profile/pi-permissions.jsonc"
+      compare_file "policy $profile" "${srcPolicies}/$profile.jsonc" "${paths.piPoliciesDir}/$profile/pi-permissions.jsonc" "$hg"
     done
     compare_deepseek
 
@@ -758,30 +762,30 @@ let
       case "$profile" in
         study-tutor)
           compose_expected_settings "${srcStudyTutorOverlay}" "$tmp"
-          compare_settings_managed_keys "study-tutor settings" "$tmp" "${paths.learningDir}/.pi/settings.json"
+          compare_settings_managed_keys "study-tutor settings" "$tmp" "${paths.learningDir}/.pi/settings.json" "$hst"
           ;;
         study|*)
           compose_expected_settings "${srcStudyOverlay}" "$tmp"
-          compare_settings_managed_keys "study settings" "$tmp" "${paths.learningDir}/.pi/settings.json"
+          compare_settings_managed_keys "study settings" "$tmp" "${paths.learningDir}/.pi/settings.json" "$hs"
           ;;
       esac
       ${rm} -f "$tmp"
-      compare_managed_tree "study resources" "${srcStudyManaged}" "${paths.learningDir}" "${paths.learningDir}/.pi/managed-files.txt"
+      compare_managed_tree "study resources" "${srcStudyManaged}" "${paths.learningDir}" "${paths.learningDir}/.pi/managed-files.txt" "$hs"
     else
-      echo "SKIP: study settings not initialized"
+      echo "SKIP: study settings not initialized$hs"
     fi
 
     work="''${PI_WORK_DIR:-}"
     if [ -z "$work" ]; then
-      echo "SKIP: work settings not checked because PI_WORK_DIR is not set"
+      echo "SKIP: work settings not checked because PI_WORK_DIR is not set$hw"
     elif [ -f "$work/.pi/settings.json" ]; then
       tmp="$(${mktemp})"
       compose_expected_settings "${srcWorkOverlay}" "$tmp"
-      compare_settings_managed_keys "work settings" "$tmp" "$work/.pi/settings.json"
+      compare_settings_managed_keys "work settings" "$tmp" "$work/.pi/settings.json" "$hw"
       ${rm} -f "$tmp"
-      compare_managed_tree "work resources" "${srcWorkManaged}" "$work" "$work/.pi/managed-files.txt"
+      compare_managed_tree "work resources" "${srcWorkManaged}" "$work" "$work/.pi/managed-files.txt" "$hw"
     else
-      echo "SKIP: work settings not initialized at $work"
+      echo "SKIP: work settings not initialized at $work$hw"
     fi
 
     exit "$status"
