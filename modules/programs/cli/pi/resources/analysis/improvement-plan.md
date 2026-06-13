@@ -83,9 +83,13 @@ Stabilize source/runtime truth → enforce compatibility and permissions → pin
 - Drift-check uses generated store paths for comparison
 - `pi-admin mcp-check` now shows 0 warnings for mcp-nixos
 
-**2.3 Decide Anki MCP pinning strategy — ❌ NOT STARTED**
-- Currently `npx -y @ankimcp/anki-mcp-server@0.19.2 --read-only` with exact version but runtime fetch
-- Study-only, read-only, `directTools: false`, 30 write tools excluded — accepted exception for now
+**2.3 Decide Anki MCP pinning strategy — ✅ ACCEPTED EXCEPTION**
+- Decision: keep `npx -y @ankimcp/anki-mcp-server@0.19.2 --read-only` as accepted exception
+- Rationale: study-only, `directTools: false`, `--read-only`, `READ_ONLY=true`, 30 excluded write tools — no tools enter main prompt directly
+- Server is lazy and profile-scoped to study
+- Nix-packaging (26 NestJS/MCP SDK deps) is high maintenance relative to benefit
+- Remaining `pi-admin mcp-check` warning is intentional and visible
+- Revisit only if operational issues (registry unreachable, cache eviction) appear
 
 ### P3 — Memory architecture documentation and routing
 **3.1 Add `docs/MEMORY.md`**

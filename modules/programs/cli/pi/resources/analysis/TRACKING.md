@@ -127,7 +127,7 @@ New section for the ChatGPT-reviewed memory and MCP hardening work.
 | # | Task | Status | Commit/Notes |
 | 2.1 | `pi-admin mcp-check` | ✅ | Static MCP validation only (40 checks, 0 failures); pinning handled in P2.2 |
 | 2.2 | Pin mcp-nixos through flake/store path | ✅ | Flake input + wrapper; absolute store path; directTools: true explicit; drift-check follow-up |
-| 2.3 | Anki MCP pinning decision | ❌ | Keep npx with approval or wrap in derivation |
+| 2.3 | Anki MCP pinning decision | ✅ | Accepted exception: study-only, npx -y, directTools: false, 30 excluded tools, --read-only. Revisit if unreliable |
 
 ## P3 — Memory architecture documentation
 
