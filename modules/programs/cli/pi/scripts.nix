@@ -728,7 +728,11 @@ let
 
     # Verify profile-specific MCP configs
     for pf in global nixos study work research; do
-      src_mcp="${paths.piSourceDir}/mcp/$pf.json"
+      case "$pf" in
+        global) src_mcp="${srcMcp}" ;;
+        nixos)  src_mcp="${srcNixosMcp}" ;;
+        *)      src_mcp="${paths.piSourceDir}/mcp/$pf.json" ;;
+      esac
       dst_mcp="${paths.piAgentDir}/mcp/$pf.json"
       if [ -f "$src_mcp" ]; then
         compare_file "profile MCP ($pf)" "$src_mcp" "$dst_mcp"
