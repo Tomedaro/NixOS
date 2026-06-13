@@ -20,6 +20,19 @@ PI_COMPAT_ONLINE=1 pi-compat-check
 
 Use this before intentionally updating package pins. Do not treat live npm metadata as source of truth for the running setup until you edit `settings/global.json`, rebuild/test, and resync with `pi-bootstrap`.
 
+## Extension peer dependency warnings
+
+`pi-admin compat` checks Pi CLI capability and installed package peerDependencies. PeerDependency warnings are compatibility risk signals, not automatic failures.
+
+### Current accepted peer warnings
+
+| Package | Issue | Status |
+|---------|-------|--------|
+| `pi-powerline-footer@0.6.1` | Peer range excludes Pi `0.78.0` | Accepted for now — installed, no blocking runtime failure observed |
+| `pi-simplify@0.2.2` | Peer range excludes Pi `0.78.0` | Accepted for now — installed, no blocking runtime failure observed |
+
+These package versions were installed and functional before the Pi version bumped past their declared peer range. They continue to work. They must be re-evaluated during package update work. Do not treat them as permanently safe.
+
 ## Why this exists
 
 The Pi binary is provided by Nix, while Pi packages are installed by npm into `~/.pi/agent/npm`. Versioned npm package specs reduce accidental movement, but they are not the same as a Nix flake lock for the entire transitive dependency graph. `pi-readonly` also depends on the pinned `pi-permission-system` package being installed, because it refuses to start without that extension.

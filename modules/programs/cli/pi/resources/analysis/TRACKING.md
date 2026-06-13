@@ -66,6 +66,15 @@ Status legend:
 | A.2 | pi-admin wiring | ✅ | `pi-admin npm-check` dispatch and help |
 | A.3 | Online mode deferred | ⏸️ | Default offline; PI_NPM_CHECK_ONLINE=1 deferred to P6F
 
+### P6B — Document npm supply-chain risk model and accepted exceptions
+
+| # | Task | Status | Commit/Notes |
+| B.1 | NPM supply-chain posture in SECURITY.md | ✅ | Surfaces, mitigations, gaps, accepted risks, operating rules, honesty guardrails |
+| B.2 | Extension peer warnings in COMPATIBILITY.md | ✅ | pi-powerline-footer and pi-simplify peer warnings documented |
+| B.3 | Package update checklist in PACKAGE_UPDATES.md | ✅ | Review steps, validation gates, activation flow |
+| B.4 | LOOKUP.json routing | ✅ | npm_check and npm_supply_chain keys added |
+| B.5 | Tracking updates | ✅ | P6B marked complete
+
 ## Phase 7 — Shell maintainability
 
 | # | Task | Status | Commit/Notes |

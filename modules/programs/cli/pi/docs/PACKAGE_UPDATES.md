@@ -20,6 +20,37 @@ Pinned packages make normal rebuilds and bootstraps reproducible. Do not switch 
 8. Run `pi update --extensions` only when you intentionally want Pi to install/update the pinned resources.
 9. Confirm `pi-compat-check` reports no missing control packages before using `pi-readonly` or policy-backed profiles.
 
+## Package update checklist
+
+When updating any Pi extension or package pin:
+
+1. **Update exact package pins intentionally.**
+   - Edit `modules/programs/cli/pi/settings/global.json`.
+   - Do not use `npm update` or `npm audit fix` as the update strategy.
+
+2. **Run validation checks after editing.**
+   - `pi-admin npm-check` — verify direct versions match pins
+   - `pi-admin compat` — verify peerDependency ranges
+   - `pi-admin mcp-check` — verify MCP invariants, `directTools`, lifecycle
+   - `pi-source-check` — verify source integrity (170+ checks)
+   - Nix build if Nix/module files changed
+
+3. **Review these aspects for every updated package.**
+   - Direct version changes
+   - peerDependency ranges
+   - Lifecycle scripts (via `pi-admin npm-check`)
+   - Runtime fetch surfaces (via `pi-admin npm-check`)
+   - MCP `directTools` and lifecycle settings
+   - Anki/read-only constraints if touching study MCP
+   - Source/runtime drift after activation (via `pi-admin drift`)
+
+4. **Activate and confirm.**
+   - `sudo nixos-rebuild switch --flake .#Default`
+   - Re-run all validation checks
+   - Confirm `pi-admin drift` is clean
+
+> For future lockfile/offline work: this belongs to P6C or later, not the normal package update flow.
+
 ## Durable-change rule
 
 Do not use `pi install`, `pi remove`, `pi uninstall`, or `pi config` as the durable source of truth for this Nix-managed setup. Those commands mutate runtime settings. Durable changes belong in this module and then get synced into runtime.

@@ -131,6 +131,13 @@ Stabilize source/runtime truth → enforce compatibility and permissions → pin
 - Exit non-zero for integrity failures; exit zero with warnings for accepted risks
 - Does not install, update, lock, or mutate any state
 
+### P6B — Document npm supply-chain risk model and accepted exceptions — ✅ DONE
+- Added NPM supply-chain posture section to `docs/SECURITY.md` (surfaces, mitigations, gaps, accepted risks, operating rules)
+- Added extension peer warning documentation to `docs/COMPATIBILITY.md` (pi-powerline-footer, pi-simplify)
+- Added package update checklist to `docs/PACKAGE_UPDATES.md` (validation gates, review steps, activation flow)
+- Added `npm_check` and `npm_supply_chain` routing to `docs/LOOKUP.json`
+- Docs-only phase — no runtime/package/MCP behavior changed
+
 ### P6 — Script maintainability
 (Only after P0-P5 have stronger tests in place)
 

@@ -101,6 +101,16 @@
     "docs/CHANGE_ROUTING.md",
     "wrappers.nix"
   ],
+  "npm_check": [
+    "docs/SECURITY.md",
+    "scripts.nix"
+  ],
+  "npm_supply_chain": [
+    "docs/SECURITY.md",
+    "docs/COMPATIBILITY.md",
+    "docs/PACKAGE_UPDATES.md",
+    "settings/global.json"
+  ],
   "package_updates": [
     "docs/PACKAGE_UPDATES.md",
     "docs/COMPATIBILITY.md",
