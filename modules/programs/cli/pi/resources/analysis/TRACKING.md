@@ -83,8 +83,18 @@ Status legend:
 | C.3 | P6C3 — npm root ownership and lockfile strategy design | ✅ | Design A selected: 18-global-pins ownership only |
 | C.4 | P6C4 — generate candidate global-pins lockfile in temp dir | ✅ | 609 packages, 18 root deps, matches runtime exactly (esbuild minor drift expected) |
 | C.5 | Commit source global-pins lockfile under npm/global-pins/ | ✅ | package.json, package-lock.json, README.md committed |
-| C.6 | Extend pi-admin npm-check for lockfile comparison | ❌ | Pending — P6C6 |
+| C.6 | Extend pi-admin npm-check for lockfile comparison | ✅ | Source lockfile root deps vs source pins, runtime install, runtime lockfile entries, runtime extras classification |
 | C.7 | Documentation and tracking updates | ✅ | SECURITY, PACKAGE_UPDATES, DECISIONS, LOOKUP updated
+
+### P6D — Source lockfile comparison and runtime extras monitoring (part of P6C6)
+
+| # | Task | Status | Commit/Notes |
+| D.1 | Source lockfile root deps match source pins | ✅ | package.json and package-lock.json checked against settings/global.json |
+| D.2 | Per-package source lock entry check | ✅ | Version match vs source pins |
+| D.3 | Per-package runtime install check | ✅ | Version match vs source pins (reuses existing logic) |
+| D.4 | Per-package runtime lock entry check | ✅ | Version match vs source pins |
+| D.5 | Direct package field comparison | ✅ | resolved, integrity, hasInstallScript compared between source and runtime lockfiles |
+| D.6 | Runtime root extras classification | ✅ | Profile extras (info), lifecycle-risk extras (warn), user extras (info), unknown (warn)
 
 ## Phase 7 — Shell maintainability
 

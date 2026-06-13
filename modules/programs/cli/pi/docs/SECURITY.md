@@ -49,6 +49,8 @@ The Pi setup uses npm in three ways:
 | mcp-nixos pinning | Flake/store pinned — no longer fetched via `npm` at runtime |
 | Lifecycle visibility | `pi-admin npm-check` reports lifecycle scripts for direct and transitive packages |
 | Source global-pins lockfile | `modules/programs/cli/pi/npm/global-pins/` — covers 18 repo-owned packages (audit/comparison only) |
+| Source lockfile comparison | `pi-admin npm-check` compares source lockfile root deps against source pins, runtime install, and runtime lockfile entries |
+| Runtime root extras classification | `pi-admin npm-check` classifies extra runtime root packages as profile extras, known extras, or unknown |
 
 ### Current gaps
 

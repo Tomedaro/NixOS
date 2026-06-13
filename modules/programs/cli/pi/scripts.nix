@@ -30,6 +30,7 @@ let
   realpath = "${pkgs.coreutils}/bin/realpath";
   python3 = "${pkgs.python3}/bin/python3";
   tr = "${pkgs.coreutils}/bin/tr";
+  wc = "${pkgs.coreutils}/bin/wc";
 
   jsoncStrip = pkgs.writeText "jsonc-strip.py" ''
     import json
@@ -1201,6 +1202,26 @@ let
       esac
     }
 
+    pkg_name_from_spec() {
+      case "$1" in
+        @*/*@*) printf '%s\n' "$1" | ${sed} 's#^\(@[^/]\+/[^@]\+\)@.*#\1#' ;;
+        *@*)    printf '%s\n' "''${1%@*}" ;;
+        *)      printf '%s\n' "$1" ;;
+      esac
+    }
+
+    pkg_version_from_spec() {
+      case "$1" in
+        @*/*@*) printf '%s\n' "$1" | ${sed} 's#^@[^/]\+/[^@]\+@##' ;;
+        *@*)    printf '%s\n' "''${1##*@}" ;;
+        *)      printf '%s\n' "" ;;
+      esac
+    }
+
+    src_lock_dir="${paths.piSourceDir}/npm/global-pins"
+    src_pkg_json="$src_lock_dir/package.json"
+    src_pkg_lock="$src_lock_dir/package-lock.json"
+
     echo "NPM supply-chain check"
     echo
 
@@ -1261,24 +1282,156 @@ let
       fi
     done < <(get_package_specs)
 
+    runtime_pkg_json="${paths.piNpmDir}/package.json"
+    runtime_pkg_lock="${paths.piNpmDir}/package-lock.json"
+
+    echo
+
+    # ── Source global-pins lockfile ───────────────────────────────
+    echo "--- Source global-pins lockfile ---"
+
+    src_pins_tmp="$(${mktemp})"
+    src_pkg_tmp="$(${mktemp})"
+    src_lock_tmp="$(${mktemp})"
+
+    ${jq} -r '.packages[]?' "${srcGlobalSettings}" \
+      | ${sed} 's#^npm:##' \
+      | ${sort} > "$src_pins_tmp"
+
+    if [ -f "$src_pkg_json" ]; then
+      ${jq} -r '.dependencies // {} | to_entries[] | "\(.key)@\(.value)"' "$src_pkg_json" \
+        | ${sort} > "$src_pkg_tmp"
+      checked=$((checked + 1))
+      if ${cmp} -s "$src_pins_tmp" "$src_pkg_tmp"; then
+        ok "source package.json root deps match settings/global.json"
+      else
+        fail "source package.json root deps differ from settings/global.json"
+      fi
+    else
+      checked=$((checked + 1))
+      warn "source package.json missing at $src_pkg_json"
+    fi
+
+    if [ -f "$src_pkg_lock" ]; then
+      ${jq} -r '.packages[""].dependencies // {} | to_entries[] | "\(.key)@\(.value)"' "$src_pkg_lock" \
+        | ${sort} > "$src_lock_tmp"
+      checked=$((checked + 1))
+      if ${cmp} -s "$src_pins_tmp" "$src_lock_tmp"; then
+        ok "source package-lock.json root deps match settings/global.json"
+      else
+        fail "source package-lock.json root deps differ from settings/global.json"
+      fi
+    else
+      checked=$((checked + 1))
+      warn "source package-lock.json missing at $src_pkg_lock"
+    fi
+
+    checked=$((checked + 1))
+    pin_count=$(${wc} -l < "$src_pins_tmp")
+    ok "$pin_count source-owned packages in global pins"
+
+    # Check each source-owned package against source lock, runtime install, and runtime lock
+    while IFS= read -r spec; do
+      [ -z "$spec" ] && continue
+      pkg="$(pkg_name_from_spec "$spec")"
+      want_ver="$(pkg_version_from_spec "$spec")"
+      lock_key="node_modules/$pkg"
+
+      # Source lock entry
+      checked=$((checked + 1))
+      if [ -f "$src_pkg_lock" ]; then
+        src_lock_ver=$(${jq} -r --arg k "$lock_key" '.packages[$k] // {} | .version // "MISSING"' "$src_pkg_lock" 2>/dev/null)
+        if [ "$src_lock_ver" = "MISSING" ]; then
+          fail "source lockfile missing entry: $pkg"
+        elif [ "$src_lock_ver" != "$want_ver" ]; then
+          fail "source lockfile $pkg version $src_lock_ver != pinned $want_ver"
+        fi
+      fi
+
+      # Runtime lock entry
+      checked=$((checked + 1))
+      if [ -f "$runtime_pkg_lock" ]; then
+        run_lock_ver=$(${jq} -r --arg k "$lock_key" '.packages[$k] // {} | .version // "MISSING"' "$runtime_pkg_lock" 2>/dev/null)
+        if [ "$run_lock_ver" = "MISSING" ]; then
+          fail "runtime lockfile missing entry: $pkg"
+        elif [ "$run_lock_ver" != "$want_ver" ]; then
+          fail "runtime lockfile $pkg version $run_lock_ver != pinned $want_ver"
+        fi
+
+        # Compare direct package fields (resolved, integrity, hasInstallScript)
+        if [ -f "$src_pkg_lock" ]; then
+          checked=$((checked + 1))
+          src_res=$(${jq} -r --arg k "$lock_key" '.packages[$k].resolved // ""' "$src_pkg_lock" 2>/dev/null || true)
+          run_res=$(${jq} -r --arg k "$lock_key" '.packages[$k].resolved // ""' "$runtime_pkg_lock" 2>/dev/null || true)
+          if [ "$src_res" != "$run_res" ]; then
+            warn "$pkg resolved URL differs: source=$(echo "$src_res" | ${sed} 's|.*/||') runtime=$(echo "$run_res" | ${sed} 's|.*/||')"
+          fi
+
+          checked=$((checked + 1))
+          src_int=$(${jq} -r --arg k "$lock_key" '.packages[$k].integrity // ""' "$src_pkg_lock" 2>/dev/null || true)
+          run_int=$(${jq} -r --arg k "$lock_key" '.packages[$k].integrity // ""' "$runtime_pkg_lock" 2>/dev/null || true)
+          if [ "$src_int" != "$run_int" ]; then
+            warn "$pkg integrity differs between source and runtime lockfile"
+          fi
+
+          checked=$((checked + 1))
+          src_scr=$(${jq} -r --arg k "$lock_key" 'if .packages[$k].hasInstallScript then "true" else "false" end' "$src_pkg_lock" 2>/dev/null || echo false)
+          run_scr=$(${jq} -r --arg k "$lock_key" 'if .packages[$k].hasInstallScript then "true" else "false" end' "$runtime_pkg_lock" 2>/dev/null || echo false)
+          if [ "$src_scr" != "$run_scr" ]; then
+            warn "$pkg hasInstallScript flag differs: source=$src_scr runtime=$run_scr"
+          fi
+        fi
+      fi
+    done < <(get_package_specs | ${sed} 's#^npm:##')
+
+    # Classify runtime root extras
+    checked=$((checked + 1))
+    if [ -f "$runtime_pkg_json" ]; then
+      runtime_roots=$(${jq} -r '.dependencies // {} | keys[]' "$runtime_pkg_json" 2>/dev/null | ${sort} || true)
+      while IFS= read -r root_name; do
+        [ -z "$root_name" ] && continue
+        in_source=0
+        while IFS= read -r spec; do
+          [ -z "$spec" ] && continue
+          src_name=$(pkg_name_from_spec "$spec")
+          if [ "$src_name" = "$root_name" ]; then
+            in_source=1
+            break
+          fi
+        done < <(get_package_specs | ${sed} 's#^npm:##')
+
+        [ "$in_source" -eq 1 ] && continue
+
+        case "$root_name" in
+          @majorgilles/pi-learning-tutor|keating|teach-me)
+            info "runtime profile extra: $root_name"
+            ;;
+          context-mode|pi-memory)
+            warn "runtime extra with lifecycle/provenance risk: $root_name"
+            ;;
+          pi-obsidian|pi-studio)
+            info "runtime user/Pi/legacy extra: $root_name"
+            ;;
+          *)
+            warn "unknown runtime root extra: $root_name"
+            ;;
+        esac
+      done <<< "$runtime_roots"
+    fi
+
+    ${rm} -f "$src_pins_tmp" "$src_pkg_tmp" "$src_lock_tmp"
+
     echo
 
     # ── Lockfiles and install determinism ─────────────────────────
     echo "--- Lockfiles and install determinism ---"
 
     checked=$((checked + 1))
-    source_lockfiles="
-      ${paths.piSourceDir}/package-lock.json
-      ${paths.piSourceDir}/npm-shrinkwrap.json
-    "
-    source_lockfile_found=0
-    for lf in $source_lockfiles; do
-      if [ -f "$lf" ]; then
-        ok "source-controlled lockfile found: $(basename "$lf")"
-        source_lockfile_found=1
-      fi
-    done
-    if [ "$source_lockfile_found" -eq 0 ]; then
+    if [ -f "$src_pkg_lock" ]; then
+      ok "source-controlled lockfile found: $(basename "$src_pkg_lock")"
+      source_lockfile_found=1
+    else
+      source_lockfile_found=0
       warn "no source-controlled npm lockfile for Pi extension install"
     fi
 

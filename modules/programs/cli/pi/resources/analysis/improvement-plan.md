@@ -144,7 +144,13 @@ Stabilize source/runtime truth → enforce compatibility and permissions → pin
 - **P6C3**: Root ownership and lockfile strategy design (Design A: 18-global-pins only)
 - **P6C4**: Generated candidate lockfile in temp dir — 609 packages, 18 root deps, matches runtime
 - **P6C5**: Committed source lockfile under `npm/global-pins/` (package.json, package-lock.json, README.md)
-- **P6C6**: Extend `pi-admin npm-check` for lockfile comparison — pending
+- **P6C6**: Extended `pi-admin npm-check` for lockfile comparison — ✅ DONE
+  - Source lockfile root deps vs source pins (FAIL on mismatch)
+  - Source lockfile entry per package vs source pins (FAIL on mismatch)
+  - Runtime installed version vs source pins (FAIL on mismatch)
+  - Runtime lockfile entry per package vs source pins (FAIL on mismatch)
+  - Direct package field comparison: resolved, integrity, hasInstallScript (WARN on mismatch)
+  - Runtime root extras classification: profile extras (INFO), lifecycle-risk extras (WARN), user extras (INFO), unknown (WARN)
 - **P6C7**: Updated docs (SECURITY, PACKAGE_UPDATES, DECISIONS, LOOKUP, tracking)
 
 ### P6 — Script maintainability
