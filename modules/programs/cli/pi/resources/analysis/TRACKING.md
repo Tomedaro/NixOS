@@ -132,8 +132,8 @@ New section for the ChatGPT-reviewed memory and MCP hardening work.
 ## P3 — Memory architecture documentation
 
 | # | Task | Status | Commit/Notes |
-| 3.1 | Add docs/MEMORY.md | ❌ | Document Engram + Hermes architecture |
-| 3.2 | Update INDEX, LOOKUP, CHANGE_ROUTING, DECISIONS | ❌ | Route to memory docs, remove stale decisions |
+| 3.1 | Add docs/MEMORY.md | ✅ | Created — architecture overview, coexistence rules, SDD orchestration, config, validation |
+| 3.2 | Update INDEX, LOOKUP, CHANGE_ROUTING, DECISIONS | ✅ | All routing updated; stale `pi-study avoids external memory` decision clarified |
 
 ## P4 — Activation-time sync/drift integration
 

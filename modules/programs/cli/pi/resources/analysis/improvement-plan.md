@@ -91,15 +91,15 @@ Stabilize source/runtime truth → enforce compatibility and permissions → pin
 - Remaining `pi-admin mcp-check` warning is intentional and visible
 - Revisit only if operational issues (registry unreachable, cache eviction) appear
 
-### P3 — Memory architecture documentation and routing
+### P3 — Memory architecture documentation and routing — ✅ DONE
 **3.1 Add `docs/MEMORY.md`**
-- Document Engram + Hermes architecture, coexistence policy, SDD subagent orchestration
+- Created: architecture overview, coexistence rules, SDD orchestration, config reference, validation guide, change policy
 
 **3.2 Update routing docs**
-- `docs/INDEX.md` — add memory architecture fast route
-- `docs/LOOKUP.json` — add engram/hermes/memory_policy routes
-- `docs/CHANGE_ROUTING.md` — add memory/MCP/SDD change sections
-- `docs/DECISIONS.md` — update stale memory decisions
+- `docs/INDEX.md` — added memory architecture fast route
+- `docs/LOOKUP.json` — added engram/hermes/memory_policy/sdd_memory/mem_tools routes
+- `docs/CHANGE_ROUTING.md` — added memory change section with explicit rules
+- `docs/DECISIONS.md` — added Engram/Hermes/SDD memory decisions; clarified stale `pi-study avoids external memory` entry
 
 ### P4 — Activation-time sync/drift integration
 **4.1 Activation drift warning**

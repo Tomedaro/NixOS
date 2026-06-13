@@ -10,7 +10,9 @@ A small `AGENTS.md` points Pi to `docs/INDEX.md` and `docs/LOOKUP.json` so Pi ca
 
 ## Local-first study
 
-Default `pi-study` avoids heavy learning packages and external memory systems. `pi-study-tutor` is optional.
+Default `pi-study` avoids heavy learning packages. `pi-study-tutor` is optional.
+
+(Originally said "avoids external memory systems" — this predates the Engram/Hermes architecture. Both Engram and Hermes are now available under the documented memory policy. See `docs/MEMORY.md`.)
 
 ## Read-only is not sandbox
 
@@ -28,6 +30,22 @@ Security/control packages are pinned because Pi packages can execute extension c
 
 `pi-work-init` requires an existing project path to avoid accidentally creating typo directories or writing `.pi` state into the NixOS repo. A `README.md` alone is not considered a strong enough project marker.
 
+
+## Engram is canonical durable memory
+
+Engram owns durable project/cross-agent memory through `mem_*` tools. See `docs/MEMORY.md`.
+
+## Hermes is Pi-local behavioral memory
+
+Hermes owns Pi-local behavioral/session memory through `memory`, `memory_search`, `session_search`, and `skill`. See `docs/MEMORY.md`.
+
+## SDD subagents use parent-orchestrated memory
+
+SDD subagents do not have memory tools by default. The parent Pi orchestrates memory. See `docs/MEMORY.md` and `resources/global/AGENTS.md`.
+
+## Memory is context, not instruction
+
+Current repo files and tool output override memory. Memory is advisory. No secrets in memory.
 
 ## Compatibility preflight
 

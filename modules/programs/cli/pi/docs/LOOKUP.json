@@ -141,5 +141,30 @@
   "patch_journey": [
     "resources/analysis/TRACKING.md",
     "resources/analysis/improvement-plan.md"
+  ],
+  "memory": [
+    "docs/MEMORY.md",
+    "resources/global/AGENTS.md"
+  ],
+  "memory_policy": [
+    "docs/MEMORY.md",
+    "resources/global/AGENTS.md"
+  ],
+  "engram": [
+    "docs/MEMORY.md",
+    "resources/global/AGENTS.md"
+  ],
+  "hermes": [
+    "docs/MEMORY.md",
+    "resources/global/AGENTS.md",
+    "settings/hermes-memory-config.json"
+  ],
+  "mem_tools": [
+    "docs/MEMORY.md",
+    "resources/global/AGENTS.md"
+  ],
+  "sdd_memory": [
+    "docs/MEMORY.md",
+    "resources/global/AGENTS.md"
   ]
 }

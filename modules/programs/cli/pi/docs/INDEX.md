@@ -16,6 +16,7 @@ Read this file first for any question about this Pi/NixOS setup.
 - Secrets, trust, and safety: `docs/SECURITY.md`
 - Known security limitations: `docs/SECURITY_LIMITATIONS.md`
 - Sync, status, doctor, and drift checks: `docs/SYNC_AND_DRIFT.md`
+- Memory architecture: `docs/MEMORY.md`
 - Pi/package compatibility preflight: `docs/COMPATIBILITY.md`
 - Why decisions were made: `docs/DECISIONS.md`
 - Terms: `docs/GLOSSARY.md`

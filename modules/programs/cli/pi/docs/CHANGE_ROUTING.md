@@ -117,6 +117,22 @@ Edit:
 
 `pi` inside `/home/daniil/NixOS` loads the NixOS setup prompt templates and self-maintenance skill.
 
+## I want to understand or change memory architecture
+
+Read:
+- `docs/MEMORY.md` — architecture overview
+- `resources/global/AGENTS.md` — runtime memory policy
+
+**Docs-only policy explanation** can update `docs/MEMORY.md`, `docs/INDEX.md`, `docs/LOOKUP.json`.
+
+**Runtime memory config changes** (Engram/Hermes config files, MCP settings, tool access) need explicit approval and review.
+
+**Subagent memory tool expansion** needs explicit approval and should be minimal and selective.
+
+**Deleting or resetting memory** databases or markdown/state files is forbidden unless explicitly approved in a dedicated phase.
+
+Prefer declarative Nix-managed config over runtime mutation.
+
 ## I want to install or remove a Pi extension/package
 
 Do not make durable changes with `pi install`, `pi remove`, `pi uninstall`, or `pi config`. Edit `settings/global.json` or the relevant overlay/resource tree, then run the sync commands from this document.
