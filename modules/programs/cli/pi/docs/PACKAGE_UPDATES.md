@@ -28,14 +28,22 @@ When updating any Pi extension or package pin:
    - Edit `modules/programs/cli/pi/settings/global.json`.
    - Do not use `npm update` or `npm audit fix` as the update strategy.
 
-2. **Run validation checks after editing.**
+2. **Regenerate the source global-pins lockfile if package pins changed.**
+   - Create an isolated temp directory.
+   - Write `package.json` with exact dependency versions from `settings/global.json`.
+   - Run `npm install --package-lock-only --ignore-scripts` inside the temp dir.
+   - Copy generated `package.json` and `package-lock.json` to `modules/programs/cli/pi/npm/global-pins/`.
+   - Verify root dependencies match source pins.
+   - Do not copy from runtime `~/.pi/agent/npm/package-lock.json`.
+
+3. **Run validation checks after editing.**
    - `pi-admin npm-check` — verify direct versions match pins
    - `pi-admin compat` — verify peerDependency ranges
    - `pi-admin mcp-check` — verify MCP invariants, `directTools`, lifecycle
    - `pi-source-check` — verify source integrity (170+ checks)
    - Nix build if Nix/module files changed
 
-3. **Review these aspects for every updated package.**
+4. **Review these aspects for every updated package.**
    - Direct version changes
    - peerDependency ranges
    - Lifecycle scripts (via `pi-admin npm-check`)
@@ -44,12 +52,12 @@ When updating any Pi extension or package pin:
    - Anki/read-only constraints if touching study MCP
    - Source/runtime drift after activation (via `pi-admin drift`)
 
-4. **Activate and confirm.**
+5. **Activate and confirm.**
    - `sudo nixos-rebuild switch --flake .#Default`
    - Re-run all validation checks
    - Confirm `pi-admin drift` is clean
 
-> For future lockfile/offline work: this belongs to P6C or later, not the normal package update flow.
+> For future lockfile/offline work: this belongs to P6C6 or later, not the normal package update flow.
 
 ## Durable-change rule
 

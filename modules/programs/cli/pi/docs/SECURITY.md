@@ -48,14 +48,15 @@ The Pi setup uses npm in three ways:
 | Anki MCP constraints | Study-only profile, `directTools=false`, `--read-only` flag, 30 excluded write tools |
 | mcp-nixos pinning | Flake/store pinned — no longer fetched via `npm` at runtime |
 | Lifecycle visibility | `pi-admin npm-check` reports lifecycle scripts for direct and transitive packages |
+| Source global-pins lockfile | `modules/programs/cli/pi/npm/global-pins/` — covers 18 repo-owned packages (audit/comparison only) |
 
 ### Current gaps
 
 | Gap | Impact |
 |-----|--------|
-| No source-controlled npm lockfile | Transitive dependencies are not source-reproducible |
+| Source lockfile covers only 18 global pins | Full runtime npm tree (25 root deps) not source-reproducible |
 | `ignore-scripts=false` | Lifecycle scripts run during install without gating |
-| Runtime lockfile is generated state | Not a source-of-truth checked into the repo |
+| Runtime lockfile is generated state | Not a source-of-truth for the full runtime tree |
 | No online registry metadata/signature checks by default | Package provenance is not cryptographically verified |
 
 ### Accepted monitored risks

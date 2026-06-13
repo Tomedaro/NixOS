@@ -75,6 +75,17 @@ Status legend:
 | B.4 | LOOKUP.json routing | ✅ | npm_check and npm_supply_chain keys added |
 | B.5 | Tracking updates | ✅ | P6B marked complete
 
+### P6C — Source-controlled npm lockfile / frozen install feasibility
+
+| # | Task | Status | Commit/Notes |
+| C.1 | P6C investigation — lockfile/frozen install feasibility | ✅ | Evidence packet with 11-section analysis |
+| C.2 | P6C2 — provenance of extra Pi-managed npm root packages | ✅ | 7 extras traced to study-tutor overlay + unknown origins |
+| C.3 | P6C3 — npm root ownership and lockfile strategy design | ✅ | Design A selected: 18-global-pins ownership only |
+| C.4 | P6C4 — generate candidate global-pins lockfile in temp dir | ✅ | 609 packages, 18 root deps, matches runtime exactly (esbuild minor drift expected) |
+| C.5 | Commit source global-pins lockfile under npm/global-pins/ | ✅ | package.json, package-lock.json, README.md committed |
+| C.6 | Extend pi-admin npm-check for lockfile comparison | ❌ | Pending — P6C6 |
+| C.7 | Documentation and tracking updates | ✅ | SECURITY, PACKAGE_UPDATES, DECISIONS, LOOKUP updated
+
 ## Phase 7 — Shell maintainability
 
 | # | Task | Status | Commit/Notes |

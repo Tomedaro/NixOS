@@ -105,6 +105,11 @@
     "docs/SECURITY.md",
     "scripts.nix"
   ],
+  "npm_global_pins": [
+    "npm/global-pins/README.md",
+    "npm/global-pins/package-lock.json",
+    "settings/global.json"
+  ],
   "npm_supply_chain": [
     "docs/SECURITY.md",
     "docs/COMPATIBILITY.md",

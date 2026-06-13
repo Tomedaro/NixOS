@@ -30,7 +30,6 @@ Security/control packages are pinned because Pi packages can execute extension c
 
 `pi-work-init` requires an existing project path to avoid accidentally creating typo directories or writing `.pi` state into the NixOS repo. A `README.md` alone is not considered a strong enough project marker.
 
-
 ## Engram is canonical durable memory
 
 Engram owns durable project/cross-agent memory through `mem_*` tools. See `docs/MEMORY.md`.
@@ -50,3 +49,13 @@ Current repo files and tool output override memory. Memory is advisory. No secre
 ## Compatibility preflight
 
 The Pi binary comes from Nix, while Pi packages come from npm. `pi-compat-check` exists to make that boundary visible before package pin changes become operational assumptions.
+
+## Source global-pins lockfile (P6C)
+
+The repo owns 18 global npm pins declared in `settings/global.json`. A source-controlled lockfile at `npm/global-pins/` covers only these 18 packages.
+
+Profile extras (`@majorgilles/pi-learning-tutor`, `keating`, `teach-me` from `study-tutor.overlay.json`) and user/Pi/legacy runtime extras (`context-mode`, `pi-memory`, `pi-obsidian`, `pi-studio`) are not part of the base global-pins lockfile.
+
+The source lockfile is an audit/comparison artifact only. Runtime install behavior remains Pi-managed.
+
+`npm ci`, `ignore-scripts=true`, and Nix packaging remain deferred.
