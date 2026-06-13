@@ -13,7 +13,13 @@ let
   package = import ./package.nix { inherit pkgs inputs paths; };
   scripts = import ./scripts.nix {
     inherit pkgs lib paths;
-    inherit (package) piWrapped piNpm engramPackage;
+    inherit (package)
+      piWrapped
+      piNpm
+      engramPackage
+      generatedMcpGlobal
+      generatedMcpNixos
+      ;
   };
   wrappers = import ./wrappers.nix {
     inherit

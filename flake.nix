@@ -49,6 +49,12 @@
       flake = false;
     };
 
+    # MCP tooling
+    mcp-nixos = {
+      url = "github:utensils/mcp-nixos";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Personal inputs
     yt-x = {
       url = "github:Benexl/yt-x";

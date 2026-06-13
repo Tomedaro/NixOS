@@ -5,6 +5,8 @@
   piWrapped,
   piNpm,
   engramPackage,
+  generatedMcpGlobal,
+  generatedMcpNixos,
 }:
 
 let
@@ -97,8 +99,8 @@ let
   srcStudyOverlay = ./settings/study.overlay.json;
   srcStudyTutorOverlay = ./settings/study-tutor.overlay.json;
   srcWorkOverlay = ./settings/work.overlay.json;
-  srcMcp = ./mcp/global.json;
-  srcNixosMcp = ./mcp/nixos.json;
+  srcMcp = generatedMcpGlobal;
+  srcNixosMcp = generatedMcpNixos;
   srcStudyMcp = ./mcp/study.json;
   srcWorkMcp = ./mcp/work.json;
   srcResearchMcp = ./mcp/research.json;
@@ -1540,6 +1542,8 @@ let
 
     profiles="global nixos study work research"
     mcp_dir="${paths.piSourceDir}/mcp"
+    gen_global="${srcMcp}"
+    gen_nixos="${srcNixosMcp}"
 
     echo "MCP config check"
     echo
@@ -1547,7 +1551,11 @@ let
     echo "--- Profile existence ---"
     for pf in $profiles; do
       checked=$((checked + 1))
-      src="$mcp_dir/$pf.json"
+      case "$pf" in
+        global) src="$gen_global";;
+        nixos)  src="$gen_nixos";;
+        *)      src="$mcp_dir/$pf.json";;
+      esac
       if [ -f "$src" ]; then
         ok "MCP source exists: $pf.json"
       else
@@ -1558,7 +1566,11 @@ let
     echo
     echo "--- Parse and mcpServers ---"
     for pf in $profiles; do
-      src="$mcp_dir/$pf.json"
+      case "$pf" in
+        global) src="$gen_global";;
+        nixos)  src="$gen_nixos";;
+        *)      src="$mcp_dir/$pf.json";;
+      esac
       [ -f "$src" ] || continue
 
       checked=$((checked + 1))
@@ -1619,7 +1631,10 @@ let
     echo
     echo "--- Engram invariants ---"
     for pf in global nixos; do
-      src="$mcp_dir/$pf.json"
+      case "$pf" in
+        global) src="$gen_global";;
+        nixos)  src="$gen_nixos";;
+      esac
       if [ ! -f "$src" ]; then
         fail "$pf.json missing for Engram check"
         continue
