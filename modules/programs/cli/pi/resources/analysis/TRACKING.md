@@ -49,8 +49,8 @@ Status legend:
 ## Phase 5 — MCP pinning
 
 | # | Task | Status | Commit/Notes |
-| 5.1 | MCP flake/store pin | ❌ | |
-| 5.2 | Strict mcp-check | ❌ | |
+| 5.1 | MCP flake/store pin | ✅ | mcp-nixos flake input + wrapper + generated JSON |
+| 5.2 | Static mcp-check | ✅ | pi-admin mcp-check — 40 checks, 0 failures, 1 warning for Anki npx |
 
 ## Phase 6 — Supply-chain tightening
 
@@ -125,8 +125,8 @@ New section for the ChatGPT-reviewed memory and MCP hardening work.
 ## P2 — MCP future-proofing
 
 | # | Task | Status | Commit/Notes |
-| 2.1 | `pi-admin mcp-check` | ✅ | Static MCP validation only (40 checks, 0 failures); pinning deferred to P2.2 |
-| 2.2 | Pin mcp-nixos through flake/store path | ❌ | Replace nix run github: with store path |
+| 2.1 | `pi-admin mcp-check` | ✅ | Static MCP validation only (40 checks, 0 failures); pinning handled in P2.2 |
+| 2.2 | Pin mcp-nixos through flake/store path | ✅ | Flake input + wrapper; absolute store path; directTools: true explicit; drift-check follow-up |
 | 2.3 | Anki MCP pinning decision | ❌ | Keep npx with approval or wrap in derivation |
 
 ## P3 — Memory architecture documentation

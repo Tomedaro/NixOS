@@ -72,14 +72,20 @@ Stabilize source/runtime truth → enforce compatibility and permissions → pin
 - Output profile details: policy, session dir, settings, extension status, key policies
 
 ### P2 — MCP future-proofing
-**2.1 Add `pi-admin mcp-check`**
-- Validate: directTools, lifecycle, unpinned commands (nix run github:, npx), source/runtime equality
+**2.1 Add `pi-admin mcp-check` — ✅ DONE**
+- Static validation: directTools, lifecycle, unpinned commands, profile invariants (40 checks, 0 failures)
 
-**2.2 Pin mcp-nixos through flake/store path**
-- Replace `nix run github:utensils/mcp-nixos` with store path from flake input or Nix package
+**2.2 Pin mcp-nixos through flake/store path — ✅ DONE**
+- Flake input `mcp-nixos` pinned via `flake.lock` at rev `0ef99b6a`
+- `mcpNixosWrapper` derivation in `package.nix` wraps the store binary
+- `global.json` and `nixos.json` generated via `pkgs.formats.json` with absolute `/nix/store/.../bin/mcp-nixos`
+- NixOS MCP `directTools` made explicit (`true`)
+- Drift-check uses generated store paths for comparison
+- `pi-admin mcp-check` now shows 0 warnings for mcp-nixos
 
-**2.3 Decide Anki MCP pinning strategy**
-- Either keep npx with explicit approval, or wrap in pinned derivation
+**2.3 Decide Anki MCP pinning strategy — ❌ NOT STARTED**
+- Currently `npx -y @ankimcp/anki-mcp-server@0.19.2 --read-only` with exact version but runtime fetch
+- Study-only, read-only, `directTools: false`, 30 write tools excluded — accepted exception for now
 
 ### P3 — Memory architecture documentation and routing
 **3.1 Add `docs/MEMORY.md`**
