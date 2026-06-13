@@ -59,3 +59,14 @@ Profile extras (`@majorgilles/pi-learning-tutor`, `keating`, `teach-me` from `st
 The source lockfile is an audit/comparison artifact only. Runtime install behavior remains Pi-managed.
 
 `npm ci`, `ignore-scripts=true`, and Nix packaging remain deferred.
+
+## P6D: Runtime npm extras ownership
+
+P6D classified unowned runtime npm root packages declared outside `settings/global.json`.
+
+- `context-mode@1.0.162` — stale leftover from a previous intentional pin, later reverted from source control. Has `postinstall`, Elastic-2.0 license, exposes CLI/MCP functionality. Kept as WARN in `pi-admin npm-check`. Future explicit cleanup/removal candidate.
+- `pi-memory@0.3.14` — legacy Pi memory extension superseded by Engram + Hermes architecture. Peer deps target old `@mariozechner/*` namespace. Has `postinstall`. Kept as WARN. Future explicit cleanup/removal candidate.
+- `pi-obsidian@0.2.3` — likely user-installed Obsidian extension. No lifecycle scripts, current namespace peer deps. Kept as INFO accepted runtime extra.
+- `pi-studio@0.9.32` — likely user/Pi-installed workspace UI extension. No lifecycle scripts, current namespace peer deps. Kept as INFO accepted runtime extra.
+
+No package removal or source promotion is approved by this decision. Unowned extras remain visible in `pi-admin npm-check` for audit context.

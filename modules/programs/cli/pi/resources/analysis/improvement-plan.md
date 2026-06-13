@@ -153,6 +153,15 @@ Stabilize source/runtime truth → enforce compatibility and permissions → pin
   - Runtime root extras classification: profile extras (INFO), lifecycle-risk extras (WARN), user extras (INFO), unknown (WARN)
 - **P6C7**: Updated docs (SECURITY, PACKAGE_UPDATES, DECISIONS, LOOKUP, tracking)
 
+### P6D — Runtime npm extras investigation — ✅ DONE
+- Investigated 4 unclear runtime npm root extras
+  - `context-mode`: stale leftover from reverted pin (WARN, cleanup candidate)
+  - `pi-memory`: legacy memory ext superseded by Engram/Hermes (WARN, cleanup candidate)
+  - `pi-obsidian`: user-installed Obsidian ext (INFO, accepted)
+  - `pi-studio`: user/Pi-installed workspace UI ext (INFO, accepted)
+- Documented decisions in DECISIONS.md and RUNTIME_STATE.md
+- No packages removed, no source promotion, no runtime mutation
+
 ### P6 — Script maintainability
 (Only after P0-P5 have stronger tests in place)
 

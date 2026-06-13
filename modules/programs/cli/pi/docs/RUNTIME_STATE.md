@@ -24,6 +24,17 @@ Generated or synchronized runtime files live under:
 
 Do not edit runtime files as the durable source of truth unless you are experimenting. Move durable changes back into the Nix source tree.
 
+## Runtime npm extras
+
+The runtime npm project under `~/.pi/agent/npm` can contain packages outside those declared in `settings/global.json`. These extras come from:
+
+- **Profile overlay extras** — declared in profile overlays such as `study-tutor.overlay.json` (e.g. `@majorgilles/pi-learning-tutor`, `keating`, `teach-me`).
+- **Stale packages** — packages that were pinned in source then reverted, but never pruned from the runtime npm prefix (e.g. `context-mode`).
+- **Legacy Pi extensions** — packages installed by older Pi versions that are now superseded (e.g. `pi-memory` by Engram/Hermes).
+- **User-installed extras** — packages installed manually through Pi's extension system (e.g. `pi-obsidian`, `pi-studio`).
+
+`pi-admin npm-check` classifies these extras and reports them as INFO or WARN depending on their lifecycle/provenance risk. Removal or source promotion requires explicit approval.
+
 ## Sync commands
 
 ```bash

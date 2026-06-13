@@ -86,7 +86,7 @@ Status legend:
 | C.6 | Extend pi-admin npm-check for lockfile comparison | ✅ | Source lockfile root deps vs source pins, runtime install, runtime lockfile entries, runtime extras classification |
 | C.7 | Documentation and tracking updates | ✅ | SECURITY, PACKAGE_UPDATES, DECISIONS, LOOKUP updated
 
-### P6D — Source lockfile comparison and runtime extras monitoring (part of P6C6)
+### P6D — Runtime npm extras ownership and monitoring
 
 | # | Task | Status | Commit/Notes |
 | D.1 | Source lockfile root deps match source pins | ✅ | package.json and package-lock.json checked against settings/global.json |
@@ -94,7 +94,9 @@ Status legend:
 | D.3 | Per-package runtime install check | ✅ | Version match vs source pins (reuses existing logic) |
 | D.4 | Per-package runtime lock entry check | ✅ | Version match vs source pins |
 | D.5 | Direct package field comparison | ✅ | resolved, integrity, hasInstallScript compared between source and runtime lockfiles |
-| D.6 | Runtime root extras classification | ✅ | Profile extras (info), lifecycle-risk extras (warn), user extras (info), unknown (warn)
+| D.6 | Runtime root extras classification | ✅ | Profile extras (info), lifecycle-risk extras (warn), user extras (info), unknown (warn) |
+| D.7 | Provenance and risk assessment of 4 unclear extras | ✅ | context-mode (stale/reverted, WARN), pi-memory (legacy, WARN), pi-obsidian (user, INFO), pi-studio (user, INFO) |
+| D.8 | Document runtime extras ownership decision | ✅ | DECISIONS.md, RUNTIME_STATE.md, TRACKING.md updated |
 
 ## Phase 7 — Shell maintainability
 
