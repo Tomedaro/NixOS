@@ -59,6 +59,13 @@ Status legend:
 | 6.2 | pkg lock/stamp | ❌ | |
 | 6.3 | Nix-package permission-system | ❌ | |
 
+### P6A — Read-only npm supply-chain check
+
+| # | Task | Status | Commit/Notes |
+| A.1 | `pi-admin npm-check` script | ✅ | Read-only auditor: source pins, runtime versions, lockfiles, npm config, lifecycle scripts, fetch surfaces, compat pointer |
+| A.2 | pi-admin wiring | ✅ | `pi-admin npm-check` dispatch and help |
+| A.3 | Online mode deferred | ⏸️ | Default offline; PI_NPM_CHECK_ONLINE=1 deferred to P6F
+
 ## Phase 7 — Shell maintainability
 
 | # | Task | Status | Commit/Notes |

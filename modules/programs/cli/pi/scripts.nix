@@ -1120,6 +1120,392 @@ let
     exec ${pkgs.python3}/bin/python3 "$test_file"
   '';
 
+  piNpmCheck = pkgs.writeShellScriptBin "pi-npm-check" ''
+    set -euo pipefail
+    failures=0
+    warnings=0
+    checked=0
+    fail() { echo "FAIL: $1"; failures=$((failures + 1)); }
+    warn() { echo "WARN: $1"; warnings=$((warnings + 1)); }
+    ok()   { echo "OK: $1"; }
+    info() { echo "INFO: $1"; }
+
+    npm="${pkgs.nodejs_24}/bin/npm"
+
+    get_package_specs() {
+      ${jq} -r '
+        .packages[]
+        | if type == "object" then .source else . end
+      ' "${srcGlobalSettings}" 2>/dev/null || true
+    }
+
+    parse_npm_spec() {
+      local spec="$1"
+      local rest name version
+
+      case "$spec" in
+        npm:*) ;;
+        *) return 1 ;;
+      esac
+
+      rest="''${spec#npm:}"
+
+      case "$rest" in
+        @*/*@*)
+          name="''${rest%@*}"
+          version="''${rest##*@}"
+          ;;
+        *@*)
+          name="''${rest%@*}"
+          version="''${rest##*@}"
+          case "$name" in
+            @*) return 1 ;;
+          esac
+          ;;
+        *)
+          return 1
+          ;;
+      esac
+
+      [ -n "$name" ] || return 1
+      [ -n "$version" ] || return 1
+
+      case "$name" in
+        *[[:space:]]*) return 1 ;;
+      esac
+      case "$version" in
+        *[[:space:]]*) return 1 ;;
+        *@*) return 1 ;;
+      esac
+
+      SPEC_NAME="$name"
+      SPEC_VERSION="$version"
+      return 0
+    }
+
+    classify_pkg() {
+      local name="$1"
+      case "$name" in
+        @gotgenes/pi-permission-system|pi-mcp-adapter)
+          echo "control-plane"
+          ;;
+        gentle-engram|gentle-pi|pi-hermes-memory|pi-intercom|pi-lean-ctx|pi-lens|pi-subagents|pi-web-access|pi-markdown-preview|pi-simplify|@juicesharp/*)
+          echo "context/utility"
+          ;;
+        pi-powerline-footer|pi-themes)
+          echo "UI/theme"
+          ;;
+        *)
+          echo "INFO"
+          ;;
+      esac
+    }
+
+    echo "NPM supply-chain check"
+    echo
+
+    # ── Source pins ──────────────────────────────────────────────
+    echo "--- Source pins ---"
+
+    if [ ! -f "${srcGlobalSettings}" ]; then
+      fail "settings/global.json not found at ${srcGlobalSettings}"
+    else
+      total_pins=0
+      while IFS= read -r spec; do
+        [ -z "$spec" ] && continue
+        total_pins=$((total_pins + 1))
+        checked=$((checked + 1))
+
+        if parse_npm_spec "$spec"; then
+          cat="$(classify_pkg "$SPEC_NAME")"
+          ok "pinned: $SPEC_NAME@$SPEC_VERSION ($cat)"
+        else
+          fail "unparseable package spec: $spec"
+        fi
+      done < <(get_package_specs)
+
+      checked=$((checked + 1))
+      if [ "$total_pins" -gt 0 ]; then
+        ok "$total_pins package spec(s) found"
+      else
+        warn "no package specs found in settings/global.json"
+      fi
+    fi
+
+    echo
+
+    # ── Runtime installed versions ───────────────────────────────
+    echo "--- Runtime installed versions ---"
+
+    runtime_prefix="${paths.piNpmDir}"
+
+    while IFS= read -r spec; do
+      [ -z "$spec" ] && continue
+
+      if ! parse_npm_spec "$spec"; then
+        continue
+      fi
+
+      checked=$((checked + 1))
+      pkg_json="$runtime_prefix/node_modules/$SPEC_NAME/package.json"
+
+      if [ ! -f "$pkg_json" ]; then
+        fail "package not installed: $SPEC_NAME (expected $SPEC_VERSION)"
+      else
+        actual_ver=$(${jq} -r '.version // "unknown"' "$pkg_json" 2>/dev/null || echo "unknown")
+        if [ "$actual_ver" = "$SPEC_VERSION" ]; then
+          ok "$SPEC_NAME@$actual_ver installed at pinned version"
+        else
+          fail "$SPEC_NAME expected $SPEC_VERSION but runtime has $actual_ver"
+        fi
+      fi
+    done < <(get_package_specs)
+
+    echo
+
+    # ── Lockfiles and install determinism ─────────────────────────
+    echo "--- Lockfiles and install determinism ---"
+
+    checked=$((checked + 1))
+    source_lockfiles="
+      ${paths.piSourceDir}/package-lock.json
+      ${paths.piSourceDir}/npm-shrinkwrap.json
+    "
+    source_lockfile_found=0
+    for lf in $source_lockfiles; do
+      if [ -f "$lf" ]; then
+        ok "source-controlled lockfile found: $(basename "$lf")"
+        source_lockfile_found=1
+      fi
+    done
+    if [ "$source_lockfile_found" -eq 0 ]; then
+      warn "no source-controlled npm lockfile for Pi extension install"
+    fi
+
+    checked=$((checked + 1))
+    runtime_lockfiles="
+      $runtime_prefix/package-lock.json
+      $runtime_prefix/npm-shrinkwrap.json
+    "
+    runtime_lockfile_found=0
+    for lf in $runtime_lockfiles; do
+      if [ -f "$lf" ]; then
+        ok "runtime lockfile exists: $lf"
+        runtime_lockfile_found=1
+      fi
+    done
+    if [ "$runtime_lockfile_found" -eq 0 ]; then
+      warn "no runtime lockfile found in $runtime_prefix"
+    fi
+
+    if [ "$source_lockfile_found" -eq 0 ] && [ "$runtime_lockfile_found" -eq 1 ]; then
+      warn "runtime lockfile is generated state, not source of truth"
+    fi
+
+    checked=$((checked + 1))
+    if [ -f "$runtime_prefix/package.json" ]; then
+      ok "runtime package.json exists at $runtime_prefix/package.json"
+    else
+      warn "no runtime package.json at $runtime_prefix/package.json"
+    fi
+
+    echo
+
+    # ── npm config ────────────────────────────────────────────────
+    echo "--- npm config ---"
+
+    checked=$((checked + 1))
+    npm_ver=$("$npm" --version 2>/dev/null || echo "unknown")
+    ok "npm version: $npm_ver"
+
+    for key in registry ignore-scripts audit fund package-lock save-exact; do
+      checked=$((checked + 1))
+      val=$("$npm" config get "$key" 2>/dev/null || echo "(unreadable)")
+      ok "npm config $key = $val"
+
+      case "$key" in
+        ignore-scripts)
+          if [ "$val" != "true" ]; then
+            warn "npm config ignore-scripts is '$val', expected 'true'"
+          fi
+          ;;
+        package-lock)
+          if [ "$val" != "true" ]; then
+            warn "npm config package-lock is '$val', expected 'true'"
+          fi
+          ;;
+      esac
+    done
+
+    echo
+
+    # ── Lifecycle scripts ─────────────────────────────────────────
+    echo "--- Lifecycle scripts ---"
+
+    echo "Direct packages:"
+    direct_has_lifecycle=0
+    while IFS= read -r spec; do
+      [ -z "$spec" ] && continue
+      if ! parse_npm_spec "$spec"; then
+        continue
+      fi
+
+      checked=$((checked + 1))
+      pkg_json="$runtime_prefix/node_modules/$SPEC_NAME/package.json"
+      [ ! -f "$pkg_json" ] && continue
+
+      scripts=$(${jq} -r '.scripts // {} | to_entries[] | select(.key as $k | $k | test("^(preinstall|install|postinstall|prepare|prepublish|prepack|postpack)$")) | "\(.key) = \(.value)"' "$pkg_json" 2>/dev/null || true)
+
+      if [ -n "$scripts" ]; then
+        direct_has_lifecycle=1
+        while IFS= read -r line; do
+          [ -z "$line" ] && continue
+          lifecycle_key="''${line%% = *}"
+          warn "direct lifecycle script: $SPEC_NAME@$SPEC_VERSION $line"
+          if [ "$SPEC_NAME" = "pi-lens" ] && [ "$lifecycle_key" = "postinstall" ]; then
+            info "pi-lens postinstall downloads grammars; monitor as accepted install-time network fetch"
+          fi
+        done <<< "$scripts"
+      fi
+      done < <(get_package_specs)
+
+    if [ "$direct_has_lifecycle" -eq 0 ]; then
+      checked=$((checked + 1))
+      ok "no direct lifecycle scripts found"
+    fi
+
+    echo
+    echo "Transitive packages:"
+
+    checked=$((checked + 1))
+    if [ -d "$runtime_prefix/node_modules" ]; then
+      transitive_count=0
+      while IFS= read -r pkg_json; do
+        pkg_name=$(${jq} -r '.name // ""' "$pkg_json" 2>/dev/null || true)
+        [ -z "$pkg_name" ] && continue
+
+        is_direct=0
+        while IFS= read -r spec; do
+          [ -z "$spec" ] && continue
+          if parse_npm_spec "$spec"; then
+            if [ "$SPEC_NAME" = "$pkg_name" ]; then
+              is_direct=1
+              break
+            fi
+          fi
+        done < <(get_package_specs)
+
+        [ "$is_direct" -eq 1 ] && continue
+
+        scripts=$(${jq} -r '.scripts // {} | to_entries[] | select(.key as $k | $k | test("^(preinstall|install|postinstall|prepare|prepublish|prepack|postpack)$")) | "\(.key) = \(.value)"' "$pkg_json" 2>/dev/null || true)
+
+        if [ -n "$scripts" ]; then
+          transitive_count=$((transitive_count + 1))
+          if [ "$transitive_count" -le 50 ]; then
+            while IFS= read -r line; do
+              [ -z "$line" ] && continue
+              warn "transitive lifecycle script: $pkg_name $line"
+            done <<< "$scripts"
+          fi
+        fi
+      done < <(${find} "$runtime_prefix/node_modules" -maxdepth 3 -name 'package.json' -type f 2>/dev/null || true)
+
+      if [ "$transitive_count" -gt 50 ]; then
+        info "transitive lifecycle script output truncated at 50 entries ($transitive_count total)"
+      fi
+
+      if [ "$transitive_count" -eq 0 ]; then
+        ok "no transitive lifecycle scripts found"
+      else
+        info "$transitive_count transitive package(s) with lifecycle scripts"
+      fi
+    else
+      warn "runtime node_modules not found at $runtime_prefix/node_modules"
+    fi
+
+    echo
+
+    # ── Runtime fetch surfaces ────────────────────────────────────
+    echo "--- Runtime fetch surfaces ---"
+
+    checked=$((checked + 1))
+    study_mcp="${paths.piSourceDir}/mcp/study.json"
+    if [ -f "$study_mcp" ]; then
+      npx_usage=$(${jq} -r '.. | objects | .command? // empty | select(. == "npx")' "$study_mcp" 2>/dev/null || true)
+      if [ -n "$npx_usage" ]; then
+        anki_args=$(${jq} -r '.mcpServers["anki-read-strict"].args // [] | @csv' "$study_mcp" 2>/dev/null || true)
+        warn "study Anki MCP uses npx with args: $anki_args"
+        info "Anki MCP is accepted exception: study-only, directTools=false, --read-only, excluded write tools"
+      else
+        ok "study MCP does not use npx"
+      fi
+    fi
+
+    checked=$((checked + 1))
+    nixos_mcp_src=""
+    if [ -f "${srcNixosMcp}" ]; then
+      nixos_mcp_src="${srcNixosMcp}"
+    elif [ -f "${paths.piSourceDir}/mcp/nixos.json" ]; then
+      nixos_mcp_src="${paths.piSourceDir}/mcp/nixos.json"
+    fi
+    if [ -n "$nixos_mcp_src" ]; then
+      mcp_nixos_cmd=$(${jq} -r '.mcpServers.nixos.command // empty' "$nixos_mcp_src" 2>/dev/null || true)
+      case "$mcp_nixos_cmd" in
+        /nix/store/*/bin/mcp-nixos|mcp-nixos)
+          ok "mcp-nixos is flake/store pinned, not npm runtime fetch"
+          ;;
+        *)
+          if [ -n "$mcp_nixos_cmd" ]; then
+            info "mcp-nixos command: $mcp_nixos_cmd (check if store pinned)"
+          fi
+          ;;
+      esac
+    fi
+
+    for mcp_src in "${paths.piSourceDir}/mcp/"*.json; do
+      [ -f "$mcp_src" ] || continue
+      checked=$((checked + 1))
+      base=$(basename "$mcp_src")
+      if ${grep} -qE 'npm install|npm exec|npx' "$mcp_src" 2>/dev/null; then
+        if ${grep} -q 'npx' "$mcp_src" 2>/dev/null && [ "$base" != "study.json" ]; then
+          warn "$base: contains npx (runtime npm fetch)"
+        fi
+        if ${grep} -qE 'npm install|npm exec' "$mcp_src" 2>/dev/null; then
+          warn "$base: contains npm install/exec"
+        fi
+      fi
+    done
+
+    echo
+
+    # ── Peer compatibility ────────────────────────────────────────
+    echo "--- Peer compatibility ---"
+
+    checked=$((checked + 1))
+    info "run pi-admin compat for authoritative peerDependency compatibility check"
+
+    echo
+
+    # ── Optional online mode ──────────────────────────────────────
+    echo "--- Optional online checks ---"
+    checked=$((checked + 1))
+    info "online npm metadata checks disabled; set PI_NPM_CHECK_ONLINE=1 in a future phase if implemented"
+
+    echo
+
+    # ── Summary ───────────────────────────────────────────────────
+    if [ "$failures" -eq 0 ] && [ "$warnings" -eq 0 ]; then
+      echo "NPM check completed with no warnings."
+      exit 0
+    elif [ "$failures" -eq 0 ]; then
+      echo "NPM check completed with warnings."
+      exit 0
+    else
+      echo "NPM check FAILED: $checked checks, $failures failure(s), $warnings warnings."
+      exit 1
+    fi
+  '';
+
   # ── Hermes Memory Doctor ────────────────────────────────────────
   # Detect Pi's bundled Node by reading the .pi-wrapped wrapper
   piWrappedFile = "${piWrapped}/bin/.pi-wrapped";
@@ -1745,5 +2131,6 @@ in
     piHermesDoctor
     piPolicyLint
     piMcpCheck
+    piNpmCheck
     ;
 }

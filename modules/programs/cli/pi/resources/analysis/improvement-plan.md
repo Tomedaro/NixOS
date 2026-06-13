@@ -124,6 +124,13 @@ Stabilize source/runtime truth → enforce compatibility and permissions → pin
 **5.4 Evaluate lockfile or Nix-packaged critical extensions**
 - Do NOT jump to Nix-packaging all extensions — evaluate for critical ones first
 
+### P6A — Read-only npm supply-chain check — ✅ DONE
+- `pi-admin npm-check`: read-only diagnostic command
+- Inspects: source pins, runtime versions, lockfile presence, npm config, lifecycle scripts (direct + transitive), runtime fetch surfaces (npx/MCP), peer compat pointer
+- Default offline; online mode (`PI_NPM_CHECK_ONLINE=1`) deferred to P6F
+- Exit non-zero for integrity failures; exit zero with warnings for accepted risks
+- Does not install, update, lock, or mutate any state
+
 ### P6 — Script maintainability
 (Only after P0-P5 have stronger tests in place)
 
