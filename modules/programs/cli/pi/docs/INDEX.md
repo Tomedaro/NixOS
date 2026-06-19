@@ -22,6 +22,9 @@ Read this file first for any question about this Pi/NixOS setup.
 - Terms: `docs/GLOSSARY.md`
 - Package updates: `docs/PACKAGE_UPDATES.md`
 - Patch plan and progress tracking: `resources/analysis/TRACKING.md` and `resources/analysis/improvement-plan.md`
+- Agent capability roadmap: `resources/analysis/agent-capability-roadmap.md`
+- Analyst/Worker smart-model workflow: `docs/ANALYST_WORKER.md`
+- Analyst/Worker instruction pack: `resources/analyst-worker/README.md`
 
 Machine-readable route map: `docs/LOOKUP.json`.
 

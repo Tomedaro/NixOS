@@ -168,6 +168,15 @@ New section for the ChatGPT-reviewed memory and MCP hardening work.
 | 2.2 | Pin mcp-nixos through flake/store path | ✅ | Flake input + wrapper; absolute store path; directTools: true explicit; drift-check follow-up |
 | 2.3 | Anki MCP pinning decision | ✅ | Accepted exception: study-only, npx -y, directTools: false, 30 excluded tools, --read-only. Revisit if unreliable |
 
+## P2B — Analyst/Worker orchestration
+
+| # | Task | Status | Commit/Notes |
+| AW.1 | Smoke test `pi-analyst-worker-orchestrator` | ✅ | Analyst `openai-codex/gpt-5.5`, Worker `deepseek-v4-flash`; full plan→execute→review loop passed in `/tmp/pi-aw-smoke` |
+| AW.2 | Source-managed `pi-aw` launcher | ✅ | Managed parent Pi keeps normal extensions; child package probes use temporary `pi`→`pi-raw` compatibility shim |
+| AW.3 | Upstream child-pi override | ❌ | Prefer future package option such as `PI_ANALYST_WORKER_CHILD_PI=pi-raw` instead of PATH shim |
+| AW.4 | Source-managed instruction pack | ✅ | `resources/analyst-worker/` role contracts, guardrails, policy, stop matrix, and templates; deterministic checkers/evals remain future work |
+| AW.5 | Simplification gate | ✅ | Worker/Analyst contracts require changed-files simplification before Analyst review; deterministic enforcement remains future work |
+
 ## P3 — Memory architecture documentation
 
 | # | Task | Status | Commit/Notes |
@@ -216,3 +225,4 @@ New section for the ChatGPT-reviewed memory and MCP hardening work.
 | 9.1 | Architecture diagram | ❌ | |
 | 9.2 | Threat model | ❌ | |
 | 9.3 | Runbooks | ❌ | |
+| 9.4 | Agent capability roadmap | ✅ | `resources/analysis/agent-capability-roadmap.md` — extensions, skills, prompts, orchestration gaps and TODO backlog |

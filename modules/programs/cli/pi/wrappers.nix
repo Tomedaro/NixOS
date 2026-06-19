@@ -31,6 +31,12 @@ let
   srcNixosAgents = ./resources/nixos/AGENTS.md;
   srcNixosPrompts = ./resources/nixos/prompts;
   srcNixosSkill = ./resources/nixos/skills/pi-nix-self-maintenance;
+  analystWorkerOrchestrator = pkgs.fetchFromGitHub {
+    owner = "UnicornGlade";
+    repo = "pi-analyst-worker-orchestrator";
+    rev = "0229ddc80b965e4ca11377a9730e46d0bd7701ac";
+    hash = "sha256-3V478/NqPlfZcepz+9sMPp2mFOKznJX58h9Q+02Bst4=";
+  };
 
   wrapperPrelude = profile: ''
     set -euo pipefail
@@ -292,6 +298,44 @@ let
     echo "Warning: pi-trusted is more permissive. It is still not a sandbox." >&2
     unset PI_OFFLINE || true
     exec ${piWrapped}/bin/pi "$@"
+  '';
+
+  piAw = pkgs.writeShellScriptBin "pi-aw" ''
+    set -euo pipefail
+
+    case "''${PI_PROFILE:-}" in
+      cautious|readonly|safe)
+        echo "pi-aw requires normal managed Pi extensions and is not supported in cautious/read-only mode." >&2
+        echo "Use PI_PROFILE=research|work|nixos pi-aw from a trusted workspace." >&2
+        exit 2
+        ;;
+    esac
+
+    shim_dir="$(${mktemp} -d)"
+    cleanup() { ${rm} -rf "$shim_dir"; }
+    trap cleanup EXIT
+
+    {
+      echo '#!/usr/bin/env bash'
+      echo 'exec ${piRaw}/bin/pi-raw "$@"'
+    } > "$shim_dir/pi"
+    ${chmod} +x "$shim_dir/pi"
+
+    export PATH="$shim_dir:$PATH"
+    export PI_ANALYST_WORKER_EXTENSION="${analystWorkerOrchestrator}/extensions/index.ts"
+    export PI_AW_PACK_ROOT="${./resources/analyst-worker}"
+    export PI_AW_POLICY="$PI_AW_PACK_ROOT/policy.yaml"
+    export PI_AW_ANALYST_INSTRUCTIONS="$PI_AW_PACK_ROOT/roles/analyst.md"
+    export PI_AW_WORKER_INSTRUCTIONS="$PI_AW_PACK_ROOT/roles/worker.md"
+    export PI_AW_SHARED_GUARDRAILS="$PI_AW_PACK_ROOT/shared/guardrails.md"
+    export PI_AW_STOP_MATRIX="$PI_AW_PACK_ROOT/shared/stop-matrix.md"
+    export PI_AW_TEMPLATES_DIR="$PI_AW_PACK_ROOT/templates"
+    export PI_AW_SIMPLIFY_CONVENTIONS="${./resources/global/simplify-conventions.md}"
+
+    echo "Pi Analyst/Worker mode: managed parent Pi with normal extensions; child pi probes use pi-raw compatibility shim." >&2
+    echo "Instruction pack: $PI_AW_PACK_ROOT" >&2
+    echo "Use /analyst-worker start --configure inside Pi." >&2
+    ${piSmart}/bin/pi -e "$PI_ANALYST_WORKER_EXTENSION" "$@"
   '';
 
   piSmart = pkgs.writeShellScriptBin "pi" ''
@@ -594,5 +638,6 @@ in
     piWork
     piResearch
     piTrusted
+    piAw
     ;
 }

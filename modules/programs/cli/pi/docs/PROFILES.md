@@ -24,6 +24,20 @@ run `pi-admin sync global` or launch any non-study wrapper such as `pi-nixos`.
 
 Maintenance interface for status, sync, doctor, drift, compatibility, and security notes.
 
+## `pi-aw`
+
+Opt-in Analyst/Worker workflow launcher for trusted workspaces:
+
+```bash
+pi-aw
+```
+
+It starts a managed parent Pi session with normal extensions loaded, plus the Analyst/Worker workflow extension. The expensive Analyst model plans/reviews and the cheaper Worker model executes bounded stages. Package-internal child `pi --no-extensions --no-tools` probes are redirected to `pi-raw` through a temporary compatibility shim; the parent session remains managed Pi.
+
+`pi-aw` also exports the source-managed instruction pack in `resources/analyst-worker/` through `PI_AW_*` environment variables for role guardrails, SDD/TDD policy, stop conditions, and templates.
+
+Use `/analyst-worker start --configure` inside the session. See `docs/ANALYST_WORKER.md`.
+
 ## NixOS mode
 
 Selected automatically inside `/home/daniil/NixOS`.

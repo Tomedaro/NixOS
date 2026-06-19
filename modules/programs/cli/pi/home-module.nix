@@ -58,6 +58,7 @@ in
     wrappers.piWork
     wrappers.piResearch
     wrappers.piTrusted
+    wrappers.piAw
   ];
 
   home.sessionPath = [

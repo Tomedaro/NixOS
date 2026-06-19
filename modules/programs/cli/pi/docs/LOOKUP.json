@@ -155,7 +155,32 @@
   ],
   "improvement_plan": [
     "resources/analysis/TRACKING.md",
-    "resources/analysis/improvement-plan.md"
+    "resources/analysis/improvement-plan.md",
+    "resources/analysis/agent-capability-roadmap.md"
+  ],
+  "agent_capability_roadmap": [
+    "resources/analysis/agent-capability-roadmap.md",
+    "docs/EXTENSIONS.md",
+    "docs/RESOURCES.md",
+    "docs/ANALYST_WORKER.md"
+  ],
+  "analyst_worker": [
+    "docs/ANALYST_WORKER.md",
+    "docs/PROFILES.md",
+    "docs/EXTENSIONS.md",
+    "resources/analyst-worker/README.md",
+    "resources/analyst-worker/policy.yaml",
+    "resources/analyst-worker/roles/analyst.md",
+    "resources/analyst-worker/roles/worker.md",
+    "resources/analyst-worker/shared/guardrails.md",
+    "resources/analyst-worker/shared/stop-matrix.md",
+    "resources/analyst-worker/templates/analyst-plan.md",
+    "resources/analyst-worker/templates/worker-report.md",
+    "resources/analyst-worker/templates/analyst-review.md",
+    "resources/analyst-worker/templates/tdd-evidence.md",
+    "resources/analyst-worker/templates/memory-candidate.md",
+    "resources/analysis/agent-capability-roadmap.md",
+    "wrappers.nix"
   ],
   "patch_journey": [
     "resources/analysis/TRACKING.md",
