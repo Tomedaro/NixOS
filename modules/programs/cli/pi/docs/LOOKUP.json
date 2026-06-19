@@ -135,8 +135,12 @@
     "wrappers.nix",
     "policies/safe.jsonc"
   ],
+  "extensions": [
+    "docs/EXTENSIONS.md"
+  ],
   "global_instructions": [
     "resources/global/AGENTS.md",
+    "docs/EXTENSIONS.md",
     "docs/CHANGE_ROUTING.md"
   ],
   "english_learning": [
