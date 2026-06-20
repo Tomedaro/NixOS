@@ -46,6 +46,7 @@ in
     scripts.piSourceCheck
     scripts.ankiSafeWriter
     scripts.piTestAnkiSafeWriter
+    scripts.piResourceInventory
     wrappers.piSmart
     wrappers.piRaw
     wrappers.piAdmin

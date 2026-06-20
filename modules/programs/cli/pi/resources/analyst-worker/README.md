@@ -49,15 +49,22 @@ If these conflict, stop and ask the human or the Analyst.
 - `PI_AW_STOP_MATRIX`
 - `PI_AW_TEMPLATES_DIR`
 - `PI_AW_SIMPLIFY_CONVENTIONS`
+- `PI_ANALYST_WORKER_ARTIFACT_ROOT`
+- `PI_ANALYST_WORKER_MAX_AUTONOMOUS_WORKER_STEPS`
 
-## Simplification gate
+## Runtime gates
 
-When files change, the Worker should run a changed-files-only simplification pass before returning to the Analyst. Prefer `/simplify` or `pi-simplify` when available. If slash-command execution is unavailable, use `PI_AW_SIMPLIFY_CONVENTIONS` as a manual checklist and report the method used.
+- **Simplification:** when files change, Worker runs a changed-files-only simplification pass before returning to Analyst. Prefer `/simplify` or `pi-simplify`; if slash-command execution is unavailable, use `PI_AW_SIMPLIFY_CONVENTIONS` as a manual checklist.
+- **Tool efficiency:** Worker uses `ctx_*` tools for repository reads, search, listing, and validation by default. Non-`ctx_*` exceptions must be explained in the report.
+- **Artifact visibility:** review-critical artifacts need a path, short summary, and excerpt/checksum in the Worker report. Analyst should not accept final claims that depend on unseen artifact contents.
+- **Memory hygiene:** Worker writes memory candidates, not durable memory. Parent session owns final durable memory writes.
+- **Autonomy limit:** `pi-aw` sets the Worker step limit to one so Analyst review returns control frequently.
+- **Artifact hygiene:** `pi-aw` stores run artifacts under the Pi session directory, not the repository `./tmp/`.
 
 ## First-run operator note
 
 When using `/analyst-worker start --configure`, tell the Analyst:
 
 ```text
-Use the source-managed Analyst/Worker instruction pack exposed by PI_AW_PACK_ROOT. Treat it as the operating protocol. Preserve Gentle AI discipline, SDD/TDD gates, evidence requirements, reviewer workload limits, and the changed-files simplification gate before Analyst review.
+Use the source-managed Analyst/Worker instruction pack exposed by PI_AW_PACK_ROOT. Treat it as the operating protocol. Preserve Gentle AI discipline, SDD/TDD gates, evidence requirements, reviewer workload limits, ctx-tool efficiency, artifact visibility, parent-owned memory writes, and the changed-files simplification gate before Analyst review.
 ```

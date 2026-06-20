@@ -6,6 +6,9 @@
 - Diff/stat:
 - Validation outputs:
 - Simplification pass output or skipped reason:
+- Tool-efficiency notes:
+- Review-critical artifact summaries/excerpts:
+- Memory write status:
 - SDD/TDD artifacts:
 
 ## Review decision
@@ -33,6 +36,16 @@ Choose one: `ACCEPT`, `FIX`, `REPLAN`, `ASK_HUMAN`, `REQUIRE_SDD`, `ABORT`, `DON
 - Skipped reason accepted: yes/no/not applicable
 - Follow-up needed:
 
+## Artifact visibility assessment
+
+- Critical artifacts visible enough to review: yes/no/not applicable
+- Missing excerpt or summary:
+
+## Tool-efficiency assessment
+
+- `ctx_*` used for repository context: yes/no/not applicable
+- Non-`ctx_*` exceptions justified: yes/no/not applicable
+
 ## Reviewer workload assessment
 
 - Files changed:
@@ -40,9 +53,10 @@ Choose one: `ACCEPT`, `FIX`, `REPLAN`, `ASK_HUMAN`, `REQUIRE_SDD`, `ABORT`, `DON
 - Mixed change classes: yes/no
 - Split required: yes/no
 
-## Memory candidates
+## Memory policy
 
-- None, or reference `templates/memory-candidate.md` output.
+- Worker durable memory writes: none/violation
+- Memory candidates: none, or reference `templates/memory-candidate.md` output.
 
 ## Next Worker stage
 

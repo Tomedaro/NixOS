@@ -52,6 +52,8 @@ The analyst-worker package internally launches child `pi --no-extensions --no-to
 
 To keep the parent productive while making those child probes work, `pi-aw` creates a temporary PATH shim named `pi` that redirects only child `pi` calls to `pi-raw`. The parent session remains managed Pi and still loads normal extensions.
 
+`pi-aw` stores workflow artifacts under the Pi session directory instead of the repository `./tmp`, and sets the autonomous Worker step limit to one by default so the Analyst returns control more often.
+
 ## Package pin
 
 `pi-aw` loads the extension from a Nix-pinned GitHub source at commit:
@@ -83,21 +85,25 @@ PI_AW_SHARED_GUARDRAILS
 PI_AW_STOP_MATRIX
 PI_AW_TEMPLATES_DIR
 PI_AW_SIMPLIFY_CONVENTIONS
+PI_ANALYST_WORKER_ARTIFACT_ROOT
+PI_ANALYST_WORKER_MAX_AUTONOMOUS_WORKER_STEPS
 ```
 
-The pack contains role contracts, shared guardrails, stop conditions, reviewer-budget policy, SDD/TDD expectations, changed-files simplification policy, and handoff templates.
+The pack contains role contracts, shared guardrails, stop conditions, reviewer-budget policy, SDD/TDD expectations, ctx-tool efficiency rules, artifact visibility rules, parent-owned memory policy, changed-files simplification policy, and handoff templates.
 
-Current enforcement status: the upstream orchestrator has built-in role prompts, so this pack is a source-managed operating contract and reference exposed to the session. It improves discipline and makes the workflow auditable, but deterministic stage-boundary enforcement is a future slice.
+Current enforcement status: the upstream orchestrator has built-in role prompts, so this pack is a source-managed operating contract and reference exposed to the session. Local wrapper patches also enforce the artifact root and configured autonomous-worker safety stop. Full schema-based stage-boundary enforcement remains a future slice.
 
 When starting a serious run, include this operator note:
 
 ```text
-Use the source-managed Analyst/Worker instruction pack exposed by PI_AW_PACK_ROOT. Treat it as the operating protocol. Preserve Gentle AI discipline, SDD/TDD gates, evidence requirements, reviewer workload limits, and the changed-files simplification gate before Analyst review.
+Use the source-managed Analyst/Worker instruction pack exposed by PI_AW_PACK_ROOT. Treat it as the operating protocol. Preserve Gentle AI discipline, SDD/TDD gates, evidence requirements, reviewer workload limits, ctx-tool efficiency, artifact visibility, parent-owned memory writes, and the changed-files simplification gate before Analyst review.
 ```
 
 ## Validated smoke test
 
 Date: 2026-06-19
+
+The artifact paths below are historical smoke-test paths. Current `pi-aw` runs default to `PI_ANALYST_WORKER_ARTIFACT_ROOT` under the Pi session directory.
 Workspace: `/tmp/pi-aw-smoke`
 
 Pipeline:
@@ -148,6 +154,8 @@ The short rule: Analyst plans and reviews one bounded stage; Worker executes onl
 A good Worker stage is one logical slice, usually one subsystem or 1-3 files, one validation target, and not a mixed feature/refactor/cleanup bundle unless explicitly approved.
 
 When files change, Worker should run a changed-files-only simplification pass before Analyst review. Prefer `/simplify` or `pi-simplify`; if unavailable, use `PI_AW_SIMPLIFY_CONVENTIONS` as a manual checklist and report the result.
+
+For repository work, Worker should prefer `ctx_*` tools and explain exceptions. Review-critical artifacts must be summarized or excerpted in the Worker report so the external Analyst can verify them without separate tool access.
 
 ## Integration with existing tools
 

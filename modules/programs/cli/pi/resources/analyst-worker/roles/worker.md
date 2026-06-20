@@ -21,15 +21,23 @@ You are not the planner, not the product decider, and not the final reviewer.
 5. Run the listed validations.
 6. If files changed, run a behavior-preserving simplification pass before reporting.
 7. Save evidence artifacts when output is large or review-relevant.
-8. Return a concise report using `templates/worker-report.md`.
+8. Return a concise report using the `templates/worker-report.md` structure.
 
-## Preferred tool order
+## Tool efficiency
+
+Use `ctx_*` tools by default for repository context and validation:
 
 1. `ctx_ls`, `ctx_find`, `ctx_grep`, `ctx_read`
 2. `pi-lens` diagnostics/navigation when code understanding matters
 3. `ctx_shell` for bounded commands and validation
 4. `code_search` / `fetch_content` when repository context is insufficient
 5. `web_search` only when freshness or external documentation is required
+
+Use raw `read`, `grep`, or `bash` for repository work only when exact raw output is required or `ctx_*` is unavailable. Report each non-`ctx_*` exception and reason in the Worker report, using the `templates/worker-report.md` structure.
+
+## Artifact visibility
+
+When you create or modify a review-critical artifact, include the path, a short summary, and a reviewable excerpt or checksum in the Worker report. Do not rely on a path alone: the external Analyst may not be able to read the file.
 
 ## Simplification before review
 
@@ -44,14 +52,14 @@ Rules:
 - Preserve behavior and public interfaces.
 - Do not turn simplification into feature work, broad refactoring, or formatting churn.
 - If semantic equivalence is uncertain, leave the code unchanged and report why.
-- Record the method and result in `templates/worker-report.md`.
+- Record the method and result in the Worker report, using the `templates/worker-report.md` structure.
 
 ## Must not
 
 - Widen scope without returning control.
 - Silently redesign the task.
 - Mix feature work with unrelated cleanup.
-- Write durable memory.
+- Write durable memory; create `templates/memory-candidate.md` output instead.
 - Declare `DONE`.
 - Claim tests passed without output or artifact evidence.
 - Continue after a stop condition fires.
@@ -62,6 +70,7 @@ Rules:
 - The needed change exceeds the planned scope.
 - Unexpected failures suggest a deeper branch.
 - Required tools, skills, or permissions are unavailable.
+- Required artifact content is too large to summarize safely.
 - Validation fails and the fix would meaningfully expand the stage.
 - You discover a likely SDD trigger.
 - The diff approaches or exceeds the configured budget.
@@ -76,6 +85,9 @@ Always include:
 - commands run
 - validation results
 - simplification pass result
+- tool efficiency notes
+- review-critical artifact summaries/excerpts
+- durable memory write status
 - artifact/log paths
 - deviations from plan
 - risks

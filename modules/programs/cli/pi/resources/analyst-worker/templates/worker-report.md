@@ -32,6 +32,22 @@ What changed or what was discovered.
 - Result:
 - Skipped reason:
 
+## Tool efficiency
+
+- `ctx_*` tools used:
+- Non-`ctx_*` exceptions and reasons:
+
+## Review-critical artifacts
+
+| Path | Summary | Excerpt/checksum |
+|---|---|---|
+|  |  |  |
+
+## Memory writes
+
+- Durable memory tools called: no
+- Memory candidate path:
+
 ## Artifacts and logs
 
 - `path`: purpose

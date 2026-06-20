@@ -35,6 +35,18 @@ These rules apply to every Analyst and Worker stage.
 - Preserve behavior; do not expand into feature work, unrelated cleanup, or broad refactoring.
 - If simplification would change semantics or requires a wider refactor, stop and report the risk.
 
+## Artifact visibility
+
+- Review-critical artifacts need a path, a short summary, and a reviewable excerpt or checksum in the Worker report.
+- Analyst must reject final claims that depend on unseen artifact contents.
+- Save large raw outputs under the artifact directory, but surface compact evidence in the report.
+
+## Tool efficiency
+
+- Prefer `ctx_*` tools for repository reads, search, listing, and validation shell commands.
+- Use raw `read`, `grep`, `ls`, or `bash` only when exact raw output or tool availability requires it.
+- Report non-`ctx_*` exceptions when repository context work is tool-heavy.
+
 ## Non-overclaim rule
 
 - Distinguish evidence, inference, and speculation.

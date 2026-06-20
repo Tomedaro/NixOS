@@ -58,6 +58,17 @@ simplification:
   preserve_behavior: true
   stop_on_uncertain_semantics: true
 
+tool_efficiency:
+  prefer_ctx_for_repo_reads: true
+  prefer_ctx_shell_for_validation: true
+  discourage_raw_read_grep_bash_for_repo_context: true
+  require_non_ctx_reason: true
+
+artifact_visibility:
+  worker_report_must_summarize_final_artifacts: true
+  analyst_must_reject_unseen_final_artifacts: true
+  include_short_excerpt_for_review: true
+
 artifacts:
   keep_raw_logs_transient_by_default: true
   technical_artifacts_default_language: en-US

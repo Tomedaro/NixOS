@@ -161,6 +161,16 @@ New section for the ChatGPT-reviewed memory and MCP hardening work.
 | 1.3 | `pi-admin policy-lint` | ✅ | 119 checks, 0 failures on current profiles |
 | 1.4 | `pi-admin explain-profile` | ❌ | Profile detail introspection |
 
+## P1B — Capability discovery and profile explainability
+
+| # | Task | Status | Commit/Notes |
+|---|---|---|---|
+| IC.1 | `pi-admin resource-inventory` (JSON + human table) | ✅ | `scripts.nix`: piResourceInventoryPy + piResourceInventory; `wrappers.nix`: piAdmin dispatch; `home-module.nix`: home.packages; `docs/LOOKUP.json`: routes; `resources/analysis/p1-capability-discovery-plan.md`: P1 design; `resources/analysis/agent-capability-roadmap.md`: P1 slice 1 |
+| IC.2 | Prompt/skill linting (`pi-admin lint-resources`) | ❌ | |
+| IC.3 | Generated `docs/EXTENSIONS.md` (`pi-admin generate-extension-manifest`) | ❌ | |
+| IC.4 | `pi-admin explain-profile` | ❌ | Also tracked as 1.4 above |
+| IC.5 | `pi-admin policy-test` runtime permission regression tests | ❌ | Also tracked as 1.2 above |
+
 ## P2 — MCP future-proofing
 
 | # | Task | Status | Commit/Notes |
@@ -176,6 +186,8 @@ New section for the ChatGPT-reviewed memory and MCP hardening work.
 | AW.3 | Upstream child-pi override | ❌ | Prefer future package option such as `PI_ANALYST_WORKER_CHILD_PI=pi-raw` instead of PATH shim |
 | AW.4 | Source-managed instruction pack | ✅ | `resources/analyst-worker/` role contracts, guardrails, policy, stop matrix, and templates; deterministic checkers/evals remain future work |
 | AW.5 | Simplification gate | ✅ | Worker/Analyst contracts require changed-files simplification before Analyst review; deterministic enforcement remains future work |
+| AW.6 | Runtime log lessons folded into pack | ✅ | Added ctx-tool efficiency, artifact visibility, and parent-owned memory write gates after auditing `tmp/aw_20260620_*` runs |
+| AW.7 | Runtime artifact/autonomy fixes | ✅ | Wrapper patches keep artifacts out of repo `./tmp` and make autonomous Worker limit respect configuration |
 
 ## P3 — Memory architecture documentation
 

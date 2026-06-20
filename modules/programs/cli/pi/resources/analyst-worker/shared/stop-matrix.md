@@ -11,6 +11,8 @@
 | Required validation fails | Report failure and smallest known next step |
 | Fixing validation would expand scope | Stop; do not improvise |
 | Required tool/skill/permission unavailable | Report `MISSING_TOOL` or `MISSING_PERMISSION` |
+| Review-critical artifact is too large to summarize or excerpt safely | Stop and ask Analyst how to reduce scope |
+| Durable memory write seems necessary | Write a memory candidate instead and return control |
 | Secret/credential access appears necessary | Stop and ask human through Analyst |
 | Destructive command appears necessary | Stop and ask human through Analyst |
 | Likely SDD trigger discovered | Stop and report `POSSIBLE_SDD_REQUIRED` |
@@ -27,6 +29,8 @@
 | Baseline tests fail unexpectedly | Ask whether to isolate baseline or proceed with caveat |
 | Reviewer budget cannot be protected without changing delivery strategy | Ask split/chained strategy question |
 | Memory/policy/security configuration would change | Ask explicit approval |
+| Final artifact is referenced only by path | Ask Worker for summary/excerpt before DONE |
+| Repository work avoided `ctx_*` tools without reason | Ask Worker for explanation or rerun efficiently |
 
 ## Analyst must require SDD or explicit override
 

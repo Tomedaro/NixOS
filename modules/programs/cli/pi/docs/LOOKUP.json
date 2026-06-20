@@ -156,7 +156,8 @@
   "improvement_plan": [
     "resources/analysis/TRACKING.md",
     "resources/analysis/improvement-plan.md",
-    "resources/analysis/agent-capability-roadmap.md"
+    "resources/analysis/agent-capability-roadmap.md",
+    "resources/analysis/p1-capability-discovery-plan.md"
   ],
   "agent_capability_roadmap": [
     "resources/analysis/agent-capability-roadmap.md",
@@ -210,5 +211,18 @@
   "sdd_memory": [
     "docs/MEMORY.md",
     "resources/global/AGENTS.md"
+  ],
+  "resource_inventory": [
+    "resources/analysis/p1-capability-discovery-plan.md",
+    "scripts.nix",
+    "settings/global.json",
+    "settings/study.overlay.json",
+    "settings/study-tutor.overlay.json",
+    "settings/work.overlay.json",
+    "resources/"
+  ],
+  "resource_inventory_impl": [
+    "scripts.nix",
+    "wrappers.nix"
   ]
 }

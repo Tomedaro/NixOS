@@ -2078,6 +2078,388 @@ let
         exit "$failures"
   '';
 
+  piResourceInventoryPy = pkgs.writeText "resource-inventory.py" ''
+    import json, os, re, sys, pathlib
+    from collections import Counter
+
+    # ── Profile aliases & inheritance ──
+    PROFILE_ALIASES = {"cautious": "safe", "readonly": "safe", "safe": "safe"}
+    PROFILE_INHERITANCE = {"study-tutor": "study"}
+
+    # ── Source root ──
+    source_dir = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else os.environ.get("PI_SOURCE_DIR", ""))
+    if not source_dir.is_dir():
+        print("ERROR: PI_SOURCE_DIR not set or invalid", file=sys.stderr)
+        sys.exit(3)
+
+    npm_dir = pathlib.Path(os.environ.get("HOME", "")) / ".pi" / "agent" / "npm" / "node_modules"
+
+    def safe_read_json(path):
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return None
+
+    def package_spec_source(spec):
+        if isinstance(spec, str):
+            return spec
+        if isinstance(spec, dict) and isinstance(spec.get("source"), str):
+            return spec["source"]
+        return None
+
+    def package_text(spec):
+        source = package_spec_source(spec)
+        return source[4:] if source and source.startswith("npm:") else source
+
+    def extract_package_name(spec):
+        text = package_text(spec)
+        if not text:
+            return None
+        m = re.match(r"^(@?[^@]+(?:/[^@]+)?)(?:@.*)?$", text)
+        return m.group(1) if m else text
+
+    def expected_version_from_spec(spec):
+        text = package_text(spec)
+        if text.startswith("@"):
+            idx = text.rfind("@")
+            return text[idx + 1:] if idx > 0 else None
+        parts = text.rsplit("@", 1)
+        return parts[1] if len(parts) == 2 else None
+
+    def runtime_info(name, spec):
+        installed = get_installed_version(name)
+        if not installed:
+            return None, []
+        expected = expected_version_from_spec(spec)
+        if not expected:
+            return {"installed_version": installed, "expected_version": None, "status": "unknown"}, []
+        status = "match" if installed == expected else "mismatch"
+        warnings = [] if status == "match" else [f"runtime version mismatch: expected {expected}, installed {installed}"]
+        return {"installed_version": installed, "expected_version": expected, "status": status}, warnings
+
+    def get_installed_version(name):
+        pkg_json = npm_dir / name / "package.json"
+        if pkg_json.is_file():
+            try:
+                with open(pkg_json) as f:
+                    return json.load(f).get("version")
+            except (json.JSONDecodeError, OSError):
+                pass
+        return None
+
+    def resolve_profile(profile):
+        return PROFILE_ALIASES.get(profile, profile)
+
+    def apply_inheritance(resource_profiles):
+        result = set(resource_profiles)
+        for inherited, source in PROFILE_INHERITANCE.items():
+            if source in resource_profiles:
+                result.add(inherited)
+        return sorted(result)
+
+    def parse_args(args):
+        opts = {"json": False, "warnings_only": False, "counts": False,
+                "kinds": set(), "profile": None}
+        i = 0
+        while i < len(args):
+            a = args[i]
+            if a == "--json":
+                opts["json"] = True
+            elif a == "--warnings-only":
+                opts["warnings_only"] = True
+            elif a == "--counts":
+                opts["counts"] = True
+            elif a == "--kind" and i + 1 < len(args):
+                opts["kinds"].update(k.strip() for k in args[i + 1].split(","))
+                i += 1
+            elif a == "--profile" and i + 1 < len(args):
+                opts["profile"] = args[i + 1]
+                i += 1
+            i += 1
+        return opts
+
+    def build_inventory(source_dir, opts):
+        resources = []
+        settings_dir = source_dir / "settings"
+        policies_dir = source_dir / "policies"
+        resources_dir = source_dir / "resources"
+        mcp_dir = source_dir / "mcp"
+
+        # ── Stage 0: Profiles from policies/ plus inherited virtual profiles ──
+        all_profiles = set(PROFILE_INHERITANCE.keys())
+        if policies_dir.is_dir():
+            for f in sorted(policies_dir.glob("*.jsonc")):
+                all_profiles.add(f.stem)
+        all_profiles = sorted(all_profiles)
+
+        # ── Stage 1-2: Extensions (global + overlay) ──
+        global_pkg_names = set()
+        global_settings = safe_read_json(settings_dir / "global.json")
+        if global_settings and "packages" in global_settings:
+            for spec in global_settings["packages"]:
+                source = package_spec_source(spec)
+                if source and source.startswith("npm:"):
+                    name = extract_package_name(spec)
+                    if not name:
+                        continue
+                    global_pkg_names.add(name)
+                    runtime, warnings = runtime_info(name, spec)
+                    r = {"kind": "extension", "id": name,
+                         "profiles": list(all_profiles),
+                         "path": "settings/global.json",
+                         "metadata": {"source": source, "overlay": None},
+                         "warnings": warnings}
+                    if runtime:
+                        r["runtime"] = runtime
+                    resources.append(r)
+
+        overlay_map = {"study-tutor": "study-tutor.overlay.json",
+                       "study": "study.overlay.json",
+                       "work": "work.overlay.json"}
+        for prof, overlay_file in overlay_map.items():
+            overlay = safe_read_json(settings_dir / overlay_file)
+            if overlay and "extraPackages" in overlay:
+                for spec in overlay["extraPackages"]:
+                    source = package_spec_source(spec)
+                    if source and source.startswith("npm:"):
+                        name = extract_package_name(spec)
+                        if not name or name in global_pkg_names:
+                            continue
+                        runtime, warnings = runtime_info(name, spec)
+                        r = {"kind": "extension", "id": name,
+                             "profiles": [prof],
+                             "path": f"settings/{overlay_file}",
+                             "metadata": {"source": source, "overlay": prof},
+                             "warnings": warnings}
+                        if runtime:
+                            r["runtime"] = runtime
+                        resources.append(r)
+
+        # ── Stage 3-5: Prompts, Skills, Agents, MCP ──
+        def collect_resource_dir(profile_dir, profile_name):
+            result_profiles = [profile_name] if profile_name != "global" else list(all_profiles)
+            expanded = apply_inheritance(result_profiles)
+
+            # Prompts
+            prompts_dir = profile_dir / "prompts"
+            if prompts_dir.is_dir():
+                for f in sorted(prompts_dir.glob("*.md")):
+                    resources.append({"kind": "prompt", "id": f.name,
+                                      "profiles": expanded,
+                                      "path": str(f.relative_to(source_dir)),
+                                      "metadata": {"description": None},
+                                      "warnings": []})
+
+            # Managed prompts
+            mp = profile_dir / "managed" / ".pi" / "prompts"
+            if mp.is_dir():
+                for f in sorted(mp.glob("*.md")):
+                    resources.append({"kind": "prompt", "id": f.name,
+                                      "profiles": expanded,
+                                      "path": str(f.relative_to(source_dir)),
+                                      "metadata": {"description": None, "ownership": "managed"},
+                                      "warnings": []})
+
+            # Skills
+            skills_dir = profile_dir / "skills"
+            if skills_dir.is_dir():
+                for sd in sorted(skills_dir.iterdir()):
+                    if sd.is_dir():
+                        smd = sd / "SKILL.md"
+                        if smd.is_file():
+                            resources.append({"kind": "skill", "id": sd.name,
+                                              "profiles": expanded,
+                                              "path": str(smd.relative_to(source_dir)),
+                                              "metadata": {"description": None},
+                                              "warnings": []})
+
+            # Managed skills
+            ms = profile_dir / "managed" / ".pi" / "skills"
+            if ms.is_dir():
+                for sd in sorted(ms.iterdir()):
+                    if sd.is_dir():
+                        smd = sd / "SKILL.md"
+                        if smd.is_file():
+                            resources.append({"kind": "skill", "id": sd.name,
+                                              "profiles": expanded,
+                                              "path": str(smd.relative_to(source_dir)),
+                                              "metadata": {"description": None, "ownership": "managed"},
+                                              "warnings": []})
+
+            # Agents
+            agents_md = profile_dir / "AGENTS.md"
+            if agents_md.is_file():
+                with open(agents_md) as f:
+                    lc = sum(1 for _ in f)
+                resources.append({"kind": "agents", "id": agents_md.name,
+                                  "profiles": expanded,
+                                  "path": str(agents_md.relative_to(source_dir)),
+                                  "metadata": {"line_count": lc},
+                                  "warnings": []})
+
+        # Walk resources/ directories
+        if resources_dir.is_dir():
+            known_resource_profiles = set(all_profiles) | {"global"}
+            for pd in sorted(resources_dir.iterdir()):
+                if pd.is_dir() and pd.name in known_resource_profiles:
+                    collect_resource_dir(pd, pd.name)
+
+        # ── Stage 6: MCP servers ──
+        if mcp_dir.is_dir():
+            for f in sorted(mcp_dir.glob("*.json")):
+                pname = f.stem
+                mcp_data = safe_read_json(f)
+                if not mcp_data or "mcpServers" not in mcp_data:
+                    continue
+                mcp_profiles = list(all_profiles) if pname == "global" else apply_inheritance([pname])
+                for sname, sinfo in mcp_data["mcpServers"].items():
+                    resources.append({"kind": "mcp_server", "id": sname,
+                                      "profiles": mcp_profiles,
+                                      "path": str(f.relative_to(source_dir)),
+                                      "metadata": {"direct_tools": sinfo.get("directTools"),
+                                                   "command": sinfo.get("command"),
+                                                   "lazy": sinfo.get("lazy")},
+                                      "warnings": []})
+
+        return all_profiles, resources
+
+    def main():
+        opts = parse_args(sys.argv[1:])
+
+        # Source dir: first positional arg, env var, or CWD if no resources dir found
+        candidates = [p for p in sys.argv[1:] if not p.startswith("-")]
+        obj_dir = pathlib.Path(candidates[0]) if candidates else source_dir
+        if not (obj_dir / "settings").is_dir():
+            obj_dir = pathlib.Path(os.environ.get("PI_SOURCE_DIR", ""))
+        if not (obj_dir / "settings").is_dir():
+            # Try CWD
+            cwd = pathlib.Path.cwd()
+            if (cwd / "settings").is_dir() and "cli/pi" in str(cwd):
+                obj_dir = cwd
+        if not (obj_dir / "settings").is_dir():
+            print("ERROR: cannot find Pi source directory (settings/ not found)", file=sys.stderr)
+            sys.exit(3)
+
+        all_profiles, resources = build_inventory(obj_dir, opts)
+
+        # Sort
+        kind_order = {"extension": 0, "prompt": 1, "skill": 2,
+                      "agents": 3, "mcp_server": 4}
+        resources.sort(key=lambda r: (kind_order.get(r["kind"], 99), r["id"]))
+
+        # Filter
+        if opts["kinds"]:
+            resources = [r for r in resources if r["kind"] in opts["kinds"]]
+        if opts["profile"]:
+            resolved = resolve_profile(opts["profile"])
+            resources = [r for r in resources if resolved in r["profiles"]]
+
+        warnings_list = [r for r in resources if r.get("warnings")]
+        has_warnings = len(warnings_list) > 0
+        has_errors = any(True for r in resources for w in r.get("warnings", [])
+                         if isinstance(w, str) and w.startswith("ERROR"))
+
+        output = {"version": 1, "schema_lint_level": "none",
+                  "profiles": all_profiles,
+                  "profile_aliases": PROFILE_ALIASES,
+                  "profile_inheritance": PROFILE_INHERITANCE,
+                  "resource_count": len(resources),
+                  "resources": resources}
+
+        if opts["json"]:
+            json.dump(output, sys.stdout, indent=2)
+            print()
+            sys.exit(2 if has_errors else (1 if has_warnings else 0))
+
+        if opts["warnings_only"]:
+            if not has_warnings:
+                print("No warnings. Resource inventory is clean.")
+                sys.exit(0)
+            for r in warnings_list:
+                print(f"{r['kind']}/{r['id']}: {len(r['warnings'])} warning(s)")
+                for w in r["warnings"]:
+                    print(f"  - {w}")
+            sys.exit(2 if has_errors else 1)
+
+        if opts["counts"]:
+            c = Counter(r["kind"] for r in resources)
+            for k in ["extension", "prompt", "skill", "agents", "mcp_server"]:
+                if c[k] > 0:
+                    label = "agents" if k == "agents" else f"{k}s"
+                    print(f"{label}: {c[k]}")
+            sys.exit(0)
+
+        # Human table
+        max_width = 60
+        print("Resource Inventory for Pi module")
+        print("=" * max_width)
+        print(f"Profiles: {', '.join(all_profiles)}")
+        print(f"Total resources: {len(resources)}")
+        print("Warnings: run `pi-admin resource-inventory --warnings-only` for warning-only output")
+        print()
+
+        current_kind = None
+        for r in resources:
+            if r["kind"] != current_kind:
+                current_kind = r["kind"]
+                label = current_kind.upper().replace("_", " ")
+                count = sum(1 for x in resources if x["kind"] == r["kind"])
+                print()
+                print(f"{label} ({count})")
+                print("-" * max_width)
+
+            profs = r["profiles"]
+            short_profs = ", ".join(profs[:3])
+            if len(profs) > 3:
+                short_profs += f" (+{len(profs)-3})"
+
+            if r["kind"] == "extension":
+                rt = r.get("runtime", {})
+                ver = rt.get("installed_version", "?")
+                status = rt.get("status", "")
+                label = status or "unknown"
+                print(f"  {r['id']} ({ver} {label})")
+                print(f"    Path: {r['path']}")
+                print(f"    Profiles: {short_profs}")
+            elif r["kind"] == "mcp_server":
+                lm = " (lazy)" if r["metadata"].get("lazy") else ""
+                dt = r["metadata"].get("direct_tools", "?")
+                print(f"  {r['id']}{lm}")
+                print(f"    Profiles: {short_profs}  directTools: {dt}")
+            elif r["kind"] == "agents":
+                lc = r["metadata"].get("line_count", "?")
+                print(f"  {r['id']}")
+                print(f"    Profiles: {short_profs}  Lines: {lc}")
+            else:
+                print(f"  {r['id']}")
+                print(f"    Profiles: {short_profs}")
+
+        print()
+        print(f"Run with --json for machine-readable output.")
+        sys.exit(2 if has_errors else (1 if has_warnings else 0))
+
+
+    if __name__ == "__main__":
+        main()
+  '';
+
+  piResourceInventory = pkgs.writeShellScriptBin "pi-resource-inventory" ''
+    set -euo pipefail
+    src_dir="''${PI_SOURCE_DIR:-}"
+    if [ -z "$src_dir" ]; then
+      # Detect from pi-admin context
+      src_dir="$(${realpath} -m "''${PI_SOURCE_DIR:-${paths.piSourceDir}}" 2>/dev/null || true)"
+    fi
+    if [ -z "$src_dir" ] || [ ! -d "$src_dir/settings" ]; then
+      echo "ERROR: PI_SOURCE_DIR not set or does not point to a valid Pi module root" >&2
+      echo "Usage: PI_SOURCE_DIR=/path/to/pi pi-resource-inventory [--json|--counts|--warnings-only]" >&2
+      exit 3
+    fi
+    export PI_SOURCE_DIR="$src_dir"
+    exec ${python3} ${piResourceInventoryPy} "$src_dir" "$@"
+  '';
+
   piMcpCheck = pkgs.writeShellScriptBin "pi-mcp-check" ''
     set -euo pipefail
     failures=0
@@ -2285,5 +2667,7 @@ in
     piPolicyLint
     piMcpCheck
     piNpmCheck
+    piResourceInventoryPy
+    piResourceInventory
     ;
 }

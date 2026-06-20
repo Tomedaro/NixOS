@@ -94,7 +94,7 @@ Validated role split:
 | Analyst | `openai-codex/gpt-5.5` | Expensive planning, review, stop conditions, and final decisions |
 | Worker | `deepseek/deepseek-v4-flash` | Cheaper code execution, searches, commands, validation, and concise reports |
 
-This is intentionally opt-in rather than globally loaded so normal `pi` stays cheap and stable. The instruction pack now covers role contracts, shared guardrails, SDD/TDD policy, stop conditions, memory hygiene, changed-files simplification before Analyst review, and handoff templates. Deterministic checkers/evals remain the next slice. See `docs/ANALYST_WORKER.md`.
+This is intentionally opt-in rather than globally loaded so normal `pi` stays cheap and stable. The instruction pack now covers role contracts, shared guardrails, SDD/TDD policy, stop conditions, ctx-tool efficiency, artifact visibility, parent-owned memory writes, changed-files simplification before Analyst review, and handoff templates. The wrapper also keeps artifacts out of repo `./tmp` and constrains autonomous Worker loops. Schema-based deterministic checkers/evals remain the next slice. See `docs/ANALYST_WORKER.md`.
 
 ## External research takeaways
 
