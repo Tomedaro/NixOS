@@ -1,0 +1,22 @@
+tools:
+  approvalMode: write
+  approval:
+    read: allow
+    edit: allow
+    bash: prompt
+
+modelRoles:
+  default: anthropic/claude-sonnet-4-5
+  smol: openai/gpt-4.1-mini
+  slow: anthropic/claude-opus-4-5:high
+  plan: anthropic/claude-opus-4-5
+  commit: openai/gpt-4.1-mini
+
+cycleOrder:
+  - smol
+  - default
+  - slow
+
+compaction:
+  strategy: snapcompact
+  thresholdPercent: 80

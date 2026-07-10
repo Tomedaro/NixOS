@@ -42,6 +42,7 @@ in
     ../../modules/programs/cli/${vars.fileManager}
     ../../modules/programs/cli/tmux
     ../../modules/programs/cli/pi
+    ../../modules/programs/cli/omp
     ../../modules/programs/cli/direnv
     ../../modules/programs/cli/lazygit
     ../../modules/programs/cli/cava
@@ -57,7 +58,7 @@ in
     ../../modules/programs/misc/virt-manager
     ../../modules/programs/anki
 
-    ../../modules/programs/ai
+    # ../../modules/programs/ai
   ]
   ++ lib.optional (vars.games == true) ../../modules/core/games.nix;
 
