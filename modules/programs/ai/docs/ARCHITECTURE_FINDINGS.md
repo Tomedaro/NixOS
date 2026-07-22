@@ -26,7 +26,7 @@ Nix direct mode is removed/hard-disabled. Raw legacy `TASKNOTE_MODE=direct` fall
 
 ## Current findings
 
-### HIGH-001 - Canonical runtime orchestration is unresolved
+### HIGH-001 - Canonical runtime direction is accepted but not implemented
 
 The repository contains context, routing/gating, proposal, approval, action, projection, and outcome components, but no single component owns the full event-to-outcome lifecycle.
 
@@ -37,21 +37,23 @@ Why it matters:
 - end-to-end tracing and idempotency remain fragmented;
 - adding more triggers risks parallel brains.
 
-Treatment: decide and document the canonical orchestrator before adding broad autonomous behavior.
+Decision: ADR 0008 selects a deterministic laptop-side kernel for the first task-initiation loop.
 
-### HIGH-002 - Implemented model runtime conflicts with intended API direction
+Treatment: implement that narrow lifecycle before adding broad autonomous behavior.
 
-The current planner is Ollama-specific and local-model configured. The intended user direction is API-hosted models because of hardware limits, but no provider abstraction, secret boundary, privacy-minimized context contract, cost budget, or fallback policy exists.
+### HIGH-002 - Accepted API direction is not implemented
 
-Treatment: record a provider/runtime decision before refactoring planner internals or adding API-triggered automation.
+The current planner is Ollama-specific and local-model configured. ADR 0008 accepts one API provider behind a narrow adapter for the first loop, but no provider abstraction, secret boundary, allowlisted context packet, cost budget, or API queue exists.
 
-### HIGH-003 - Proposal ownership is duplicated
+Treatment: implement the accepted boundary without deepening Ollama coupling or prematurely adding multi-provider routing.
+
+### HIGH-003 - Proposal implementation remains duplicated
 
 The older planner writes reports, questions, nudges, and `AI/proposed-tasks`; the newer Obsidian chain produces intents, proposals, decisions, reviewed proposals, and task drafts.
 
-Both preserve proposal-side authority, but their canonical relationship is unresolved.
+Both preserve proposal-side authority. ADR 0008 selects the newer Obsidian chain for future durable proposals and treats the older surface as legacy/specialist compatibility.
 
-Treatment: consolidate ownership or explicitly define one as adapter/specialist/legacy compatibility.
+Treatment: adapt or retire the older path and do not create a third proposal protocol.
 
 ### MEDIUM-001 - TaskNotes apply is partially implemented and easily misdescribed
 

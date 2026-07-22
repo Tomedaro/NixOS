@@ -45,4 +45,4 @@ These explain how the current documentation set was created. They are not curren
 
 ## Decisions
 
-ADRs live in [adr/](./adr/). Unresolved architecture questions live in [workflow/OPEN_QUESTIONS.md](../workflow/OPEN_QUESTIONS.md) and should become ADRs or durable decisions once resolved.
+ADRs live in [adr/](./adr/). The current first-loop direction is [ADR 0008 - Laptop-first task-initiation kernel](./adr/0008-laptop-task-initiation-kernel.md). Remaining non-blocking implementation selections live in [workflow/OPEN_QUESTIONS.md](../workflow/OPEN_QUESTIONS.md) and should become ADRs or durable decisions only when they materially change architecture or safety.

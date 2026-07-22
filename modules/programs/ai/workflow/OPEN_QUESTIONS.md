@@ -2,32 +2,26 @@
 
 This file tracks unresolved questions that materially affect architecture, safety, or roadmap order. It is not a task list. Promote resolved decisions to ADRs or `workflow/DECISIONS.md`.
 
-## Current open questions
+## Blocking architecture questions for the first loop
 
-### 1. What owns the canonical runtime lifecycle?
+None.
 
-Which component should receive a typed event, reduce state, choose a deterministic handler or bounded model skill, build context, validate the result, request approval, dispatch an action, and link later outcomes?
+The previous five architecture gates were resolved by `docs/adr/0008-laptop-task-initiation-kernel.md`:
 
-Current state: these responsibilities are distributed across bridges, planners, shared modules, queues, and `dev/run-obsidian-agent-loop.sh`.
+- a deterministic laptop-side kernel owns the first-loop lifecycle;
+- the first product loop addresses inability to start an already-known task;
+- Tasker is the first required interaction adapter;
+- one API provider is used first behind a narrow adapter;
+- context begins with a local allowlist;
+- the newer Obsidian proposal chain is canonical for future durable proposals;
+- real TaskNotes apply is deferred;
+- the older Ollama planner is legacy/specialist rather than the canonical kernel.
 
-### 2. What is the model-provider strategy?
+## Non-blocking implementation selections
 
-The implemented planner is Ollama-specific, while the intended user direction is API-hosted models because of hardware limits.
+These choices should be made during the corresponding roadmap milestone and recorded when selected. They do not reopen ADR 0008 unless they change its boundaries:
 
-Decision needs: provider abstraction, secrets, privacy boundary, structured outputs, retries/timeouts, cost budgets, fallback/offline behavior, and the future role of Ollama.
-
-### 3. Which proposal surface is canonical?
-
-How should the older `llm-planner`/`AI/proposed-tasks` outputs relate to the newer Obsidian intent/proposal/approval/task-draft chain?
-
-New work should not create a third parallel proposal protocol.
-
-### 4. What is the first complete product loop?
-
-Which one loop should be validated end to end before broader expansion: stuck/help-now, low-energy recovery, stale-task review, or another bounded loop?
-
-The answer determines which context, interface, outcome, and automation work is actually necessary next.
-
-### 5. Is real TaskNotes apply required for that first loop?
-
-TaskNotes dry-run validation exists, but atomic apply does not. Decide whether real apply is a near-term dependency or should remain deliberately deferred while non-commitment loops are validated.
+1. Which first API provider/model satisfies structured-output, latency, cost, and privacy requirements?
+2. Which authenticated private transport should Tasker use to reach the laptop on the target network?
+3. Which exact existing paths should store first-loop run state, queue evidence, cards, and outcomes before `PROTOCOLS.md` is updated?
+4. What trial thresholds justify retaining, redesigning, or stopping the loop after the initial evaluation period?

@@ -53,7 +53,7 @@ Intervention/action/recovery evidence
   -> intervention outcomes/statistics
 ```
 
-This topology contains many kernel components, but orchestration is distributed. There is no canonical general event router that owns every run from ingress through later outcome.
+This topology contains many kernel components, but orchestration is distributed. There is no implemented canonical general event router that owns every run from ingress through later outcome. ADR 0008 establishes the target owner for the first product loop without pretending that this runtime already exists.
 
 ## Architectural layers
 
@@ -86,7 +86,7 @@ Provider results should carry:
 
 Current policy is distributed across Nix options, environment variables, `ACTION_CAPABILITY_POLICY`, deterministic gates, lifecycle helpers, and producer-specific logic.
 
-A future canonical kernel may centralize route selection, but hard enforcement should remain in deterministic validators and action adapters rather than in prompt instructions.
+ADR 0008 selects a deterministic laptop-side kernel as the target owner of first-loop route selection. Hard enforcement remains in deterministic validators and action adapters rather than in prompt instructions.
 
 ### 5. Planner/model layer
 
@@ -152,29 +152,31 @@ Direct legacy promotion remains disabled.
 
 ## Proposal-surface transition
 
-Two proposal families coexist:
+Two proposal families coexist in the implementation:
 
 1. older `llm-planner` reports, nudges, questions, and `AI/proposed-tasks`;
 2. newer Obsidian intents, proposals, approvals, and task drafts.
 
-Both are proposal-side, but their ownership and convergence are unresolved. New features should not create a third proposal surface.
+ADR 0008 selects the newer Obsidian chain as the canonical direction for future durable proposals. The older planner surface is legacy/specialist compatibility until deliberately adapted or retired. New features must not create a third proposal protocol.
+
+The first task-initiation loop produces an ephemeral action card and outcome evidence; it does not need to create a durable proposal or TaskNote.
 
 ## Model-runtime transition
 
-The current planner is coupled to local Ollama. The intended user direction is API-hosted models because client hardware is limited.
+The current planner is coupled to local Ollama. ADR 0008 accepts API-hosted reasoning for the first product loop because laptop hardware is limited.
 
-The target should remain provider-neutral:
+The target remains provider-neutral at the application boundary while deliberately supporting only one configured provider first:
 
 ```text
 kernel/task contract
-  -> provider adapter
+  -> narrow provider adapter
   -> schema-bound model result
   -> deterministic validator
 ```
 
-Changing providers must not widen authority. Remote use additionally requires local secret ownership, context minimization, cost/latency budgets, retry policy, and offline/fallback behavior.
+Changing providers must not widen authority. Remote use requires local secret ownership, allowlisted context minimization, cost/latency/request budgets, retry policy, and stale-request expiry. Multi-provider routing, autonomous harnesses, and model-controlled vault browsing are outside the first loop.
 
-## Target kernel shape - not yet implemented
+## Accepted first-loop kernel shape - not yet implemented
 
 ```text
 validated event
@@ -191,6 +193,8 @@ validated event
   -> action/run result
   -> later outcome linkage
 ```
+
+The first implementation runs on the laptop and is triggered through Tasker. It addresses a known task that the user cannot begin; it does not select priorities or create durable commitments. Tasker and API outages are handled by bounded queues with idempotency, expiry, and supersession.
 
 The kernel should know when **not** to think. A done, snooze, start, dismiss, or fixed defer action usually requires no model call.
 
@@ -209,4 +213,4 @@ The kernel should know when **not** to think. A done, snooze, start, dismiss, or
 
 ## Current architecture questions
 
-Canonical unresolved questions are tracked in `workflow/OPEN_QUESTIONS.md`. Decisions should be recorded in ADRs or `workflow/DECISIONS.md`, not buried in implementation comments.
+ADR 0008 resolves the blocking ownership questions for the first task-initiation loop. Remaining non-blocking implementation selections are tracked in `workflow/OPEN_QUESTIONS.md`. Future changes that alter the accepted boundary should be recorded in ADRs or `workflow/DECISIONS.md`, not buried in implementation comments.

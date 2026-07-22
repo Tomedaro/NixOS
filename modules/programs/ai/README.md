@@ -51,7 +51,7 @@ Do not add new direct TaskNotes mutation. Reviewed drafts and deterministic dry-
 
 ## Current architecture transition
 
-The repository contains a strong set of distributed kernel components, but no single canonical runtime orchestrator yet. The implemented planner is Ollama-specific, while the intended user direction is API-hosted models. Treat provider strategy, proposal-surface consolidation, and canonical orchestration as explicit open decisions rather than silently refactoring around assumptions.
+The repository contains a strong set of distributed kernel components, but no implemented canonical runtime orchestrator yet. ADR 0008 now fixes the first target: a laptop-side deterministic kernel, triggered through Tasker, for helping the user begin an already-known task. It uses one API provider behind a narrow adapter, allowlisted context, bounded queues, and outcome evaluation. The current Ollama planner remains implemented legacy/specialist code rather than the canonical future kernel.
 
 ## Documentation transition
 

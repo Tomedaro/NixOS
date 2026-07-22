@@ -117,4 +117,4 @@ None in current active AI paths. Legacy promotion is disabled and Anki direct mo
 
 ## Review conclusion
 
-The archive is technically coherent enough for dependency-based planning. Remaining uncertainty is concentrated in canonical orchestration, model-provider direction, proposal consolidation, TaskNotes apply timing, and product-loop selection rather than in an obvious undiscovered direct mutation path.
+The archive is technically coherent enough for dependency-based implementation planning. ADR 0008 resolves the first-loop direction: deterministic laptop kernel, Tasker trigger, one API provider, allowlisted context, newer Obsidian durable-proposal path, and deferred TaskNotes apply. The remaining uncertainty is implementation-specific and product-evaluative rather than an undiscovered direct mutation path.

@@ -13,21 +13,25 @@ Current implementation headline:
 - deterministic TaskNotes dry-run apply validation exists;
 - the real TaskNotes writer/apply journal does not exist;
 - named action capability metadata and gates exist alongside transitional numeric authority;
-- the repository contains distributed kernel components but no canonical general orchestrator;
-- the implemented planner is Ollama-specific while API-hosted models are the intended user direction;
-- older planner proposals and newer Obsidian proposals coexist without a settled ownership decision.
+- the repository contains distributed kernel components but no implemented canonical general orchestrator;
+- ADR 0008 accepts a deterministic laptop-side kernel for the first product loop;
+- the implemented planner remains Ollama-specific while ADR 0008 selects one API provider behind a narrow adapter;
+- older planner proposals and newer Obsidian proposals coexist in code, with the newer chain selected for future durable proposals.
 
 ## Current objective
 
-Resolve the architecture questions in `workflow/OPEN_QUESTIONS.md` before broad behavior expansion.
+Implement the dependency-ordered first-loop sequence in `ROADMAP.md` under ADR 0008 without broad behavior expansion.
 
-The next design work should establish:
+The next work should establish:
 
-- canonical runtime lifecycle ownership;
-- provider-neutral model/API boundary and the future role of Ollama;
-- canonical proposal ownership;
-- the first complete product loop;
-- whether real TaskNotes apply is needed for that loop.
+- first-loop schemas and ownership;
+- restart-safe laptop kernel skeleton;
+- Tasker transport and offline queue;
+- one-provider API boundary and allowlisted context packet;
+- action-card responses and outcome linkage;
+- bounded real-use evaluation.
+
+Real TaskNotes apply, general prioritization, multi-provider routing, and autonomous harnesses are outside the first sequence.
 
 ## Constraints
 

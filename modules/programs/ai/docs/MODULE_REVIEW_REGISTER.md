@@ -472,8 +472,8 @@ The following implemented modules were not individually covered in the original 
 
 ## Register-wide current issues
 
-- canonical runtime orchestration is unresolved;
-- the implemented model planner is Ollama-specific while API use is the intended direction;
-- older and newer proposal surfaces coexist;
+- ADR 0008 selects a deterministic laptop-side kernel, but that canonical first-loop runtime is not implemented;
+- the implemented model planner remains Ollama-specific while the accepted first-loop direction uses one API provider behind a narrow adapter;
+- older and newer proposal surfaces still coexist in code, although the newer Obsidian chain is selected for future durable proposals;
 - protocol/schema inventory needs automated drift checks;
 - mechanical smoke tests are not product-usefulness evaluations.

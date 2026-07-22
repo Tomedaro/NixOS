@@ -50,3 +50,26 @@ Consequences:
 - No patch is considered done until it is applied locally and verified.
 - The LLM must not claim implementation success without local evidence.
 - Local scripts are the judge for repeatable checks.
+
+## 2026-07-22 - Use a laptop-first task-initiation kernel
+
+Status: accepted
+
+Decision:
+Implement the first complete product loop as a Tasker-triggered intervention for an already-known task that the user cannot begin. A deterministic laptop-side kernel owns lifecycle, state, queueing, context selection, validation, and outcomes. One remote API provider supplies bounded proposal-side reasoning behind a narrow adapter.
+
+Why:
+Task initiation is a narrower and more testable problem than general prioritization. Laptop-first operation fits the available hardware and current setup. Deterministic ownership preserves the repository's proposal-only, inspectable, and gated architecture.
+
+Consequences:
+- Tasker is the first required interface.
+- Remote context starts allowlisted; the model does not browse the whole vault.
+- Offline/unavailable work is queued with expiry and idempotency.
+- Durable task/note/calendar/external mutations still require approval.
+- Real TaskNotes apply is not required for this loop.
+- The newer Obsidian proposal chain is canonical for future durable proposals.
+- The current Ollama planner is not the canonical future kernel.
+- Success is judged by lower starting friction and meaningful action, not schema success alone.
+
+Canonical record:
+`docs/adr/0008-laptop-task-initiation-kernel.md`

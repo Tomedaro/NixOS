@@ -42,11 +42,11 @@ Status: completed.
 - produces deterministic idempotency inputs and validation result;
 - does not write TaskNotes.
 
-## Active architecture blockers
+## Accepted architecture direction and implementation backlog
 
-### R-0401 - Decide and document canonical runtime orchestration
+### R-0401 - Implement the accepted first-loop kernel ownership
 
-Severity: high.
+Status: decision completed by ADR 0008; implementation pending.
 
 Need:
 
@@ -58,13 +58,13 @@ Need:
 - run identity and outcome linkage;
 - restart/idempotency semantics.
 
-Do not implement a broad autonomous loop before this decision.
+Do not widen this into a broad autonomous loop.
 
-### R-0402 - Introduce a provider-neutral model boundary
+### R-0402 - Introduce the accepted one-provider API boundary
 
-Severity: high.
+Status: direction accepted by ADR 0008; implementation pending.
 
-Current problem: planner internals are Ollama-specific while intended deployment prefers APIs.
+Current problem: planner internals are Ollama-specific while the accepted first-loop deployment uses one API provider behind a narrow adapter.
 
 Need:
 
@@ -76,30 +76,27 @@ Need:
 - fallback/offline policy;
 - explicit treatment of existing Ollama planner.
 
-### R-0403 - Consolidate proposal surfaces
+### R-0403 - Adapt or retire the older proposal surface
 
-Severity: high.
+Status: direction accepted by ADR 0008; implementation pending.
 
-Decide the ownership relationship between:
+- New durable proposal work uses the Obsidian intent/proposal/approval/task-draft chain.
+- Older reports/questions/nudges and `AI/proposed-tasks` remain legacy/specialist compatibility until adapted or retired.
 
-- older reports/questions/nudges and `AI/proposed-tasks`;
-- newer Obsidian intent/proposal/approval/task-draft chain.
+Acceptance condition: no first-loop or future durable-proposal feature creates a third protocol, and the older surface has an explicit adapter or retirement path.
 
-Acceptance condition: new features have one canonical proposal contract or an explicitly documented adapter relationship.
+### R-0404 - Validate the selected first complete product loop
 
-### R-0404 - Select first complete product loop
+Status: loop selected by ADR 0008; implementation and evaluation pending.
 
-Severity: high/product.
+The selected loop helps the user begin an already-known task through a Tasker `Stuck` trigger. Implement and evaluate:
 
-Choose one bounded loop and define:
-
-- trigger;
-- required context;
+- known-task resolution;
+- allowlisted context;
 - deterministic/model decision points;
-- interaction card/controls;
-- possible actions;
-- outcome evidence;
-- burden, correction, and backoff evaluation.
+- `Start` / `Shrink` / `Blocked` / `Defer` controls;
+- bounded queues, expiry, and supersession;
+- start, engagement, friction, burden, correction, and backoff outcomes.
 
 ## Authority and protocol hardening
 
