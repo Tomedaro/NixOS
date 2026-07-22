@@ -66,10 +66,7 @@
       url = "github:Benexl/yt-x";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    bzmenu = {
-      url = "github:e-tho/bzmenu";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    bzmenu.url = "github:e-tho/bzmenu";
   };
 
   outputs =

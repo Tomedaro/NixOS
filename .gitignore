@@ -34,3 +34,8 @@ modules/programs/cli/pi/*.before-*
 # Engram database files (local state, not config)
 .engram/*.db
 .engram/*.db-*
+# Working artifacts
+consolidated-memory.md
+memory-consolidation.md
+*.zip
+tmp/

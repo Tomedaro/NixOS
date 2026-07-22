@@ -44,8 +44,15 @@ let
 
   engramPackage = pkgs.callPackage ./packages/engram.nix { };
 
+  # Build mcp-nixos against this system's nixpkgs instead of using the
+  # upstream flake package. The upstream package currently applies its
+  # fastmcp3 overlay, which forces fastmcp 3.2.4 onto nixpkgs' split
+  # fastmcp/fastmcp-slim packaging and leaves fastmcp-slim with an invalid
+  # sourceRoot.
+  mcpNixosPackage = inputs.mcp-nixos.lib.mkMcpNixos { inherit pkgs; };
+
   mcpNixosWrapper = pkgs.writeShellScriptBin "mcp-nixos" ''
-    exec ${inputs.mcp-nixos.packages.${system}.mcp-nixos}/bin/mcp-nixos "$@"
+    exec ${mcpNixosPackage}/bin/mcp-nixos "$@"
   '';
 
   mcpEngramArgs = [

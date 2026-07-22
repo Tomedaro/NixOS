@@ -39,7 +39,7 @@
             packages = with pkgs; [
               rEnv
               pandoc
-              texlive.combined.scheme-full
+              texliveFull
             ];
           };
         }
