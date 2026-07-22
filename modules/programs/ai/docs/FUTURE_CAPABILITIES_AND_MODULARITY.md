@@ -4,6 +4,10 @@ This note records forward-looking research for what modern LLMs, neural networks
 
 It is not an implementation plan by itself. It is a design horizon: what the architecture should be ready to absorb without losing clarity, safety, or user control.
 
+## Current implementation gap
+
+The implemented planner is currently Ollama-specific. The intended deployment direction is API-hosted models because of client hardware limits, but provider-neutral adapters, secrets/privacy rules, cost budgets, retries, and offline behavior are not implemented. Future capability work should therefore target task/model contracts rather than deepen coupling to one local or remote provider.
+
 ## Main conclusion
 
 The project should not be a fixed bundle of bridges.

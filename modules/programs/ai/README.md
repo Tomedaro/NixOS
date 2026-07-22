@@ -47,7 +47,11 @@ Direct TaskNotes mutation paths are removed or disabled:
 - `action-bridge promote_task_proposal` is disabled;
 - `anki-bridge taskNoteMode = "direct"` is no longer a supported Nix option, and raw `TASKNOTE_MODE=direct` falls back to `propose`.
 
-Do not add new direct TaskNotes mutation. Use reviewable drafts until a deterministic apply/promote gate exists.
+Do not add new direct TaskNotes mutation. Reviewed drafts and deterministic dry-run validation exist; the real atomic apply/promote writer does not.
+
+## Current architecture transition
+
+The repository contains a strong set of distributed kernel components, but no single canonical runtime orchestrator yet. The implemented planner is Ollama-specific, while the intended user direction is API-hosted models. Treat provider strategy, proposal-surface consolidation, and canonical orchestration as explicit open decisions rather than silently refactoring around assumptions.
 
 ## Documentation transition
 

@@ -1,5 +1,7 @@
 # Documentation restructure plan - draft
 
+
+> Historical status: completed documentation migration record. It is retained for provenance and must not be used as the active roadmap. See `CURRENT_STATE.md`, `ROADMAP.md`, and `docs/README.md` for current truth.
 This file records the accepted audit draft for `modules/programs/ai/docs/DOC_RESTRUCTURE_PLAN.md`.
 
 ## Goal

@@ -1,59 +1,109 @@
 # Roadmap
 
-This file is planned work only. Do not use it as current-state documentation.
+This file records dependency-ordered future work. It is not current-state documentation and does not assign dates.
 
-## Priority 1 - Stabilize authority and direct mutation boundaries
+The roadmap is intentionally divided into **decision gates**, **implementation milestones**, and **continuing invariants**. A precise delivery sequence is possible only after the decision gates are resolved in `workflow/OPEN_QUESTIONS.md` and promoted to ADRs or `workflow/DECISIONS.md`.
 
-1. Preserve regression coverage for `recovery.target.start` default-off behavior and explicit opt-in success.
-2. Clarify and test `action-bridge` authority defaults before lowering broad numeric authority.
-3. Follow the `SAFETY_MODEL.md` named capability default-off migration checklist before flipping any additional named capability default.
-4. Treat `recovery.target.start` as the first completed default-off example; do not select or start another default-off candidate without a separate Research and Design plan.
-5. Keep direct TaskNotes mutation disabled until deterministic apply/promote exists.
-6. Keep Anki task output proposal/off only until deterministic TaskNotes apply/promote exists.
-7. Preserve regression coverage proving default/reviewable paths cannot mutate real TaskNotes.
+## Continuing invariants
 
-## Priority 2 - Canonicalize action and TaskNotes flows
+These are not roadmap features; they must remain true during every future change:
 
-1. Keep `dialog-bridge` answer handling canonical through `AI/inbox/actions/*.json`; add dialog dismiss emission only when the desktop UI has a real dismiss signal.
-2. Completed: first-class read-only `tasknotes.read_context` is implemented, exposed through `context_hub`, and available to LLM prompt packages as compact metadata.
-3. Define deterministic TaskNotes apply/promote schema.
-4. Implement apply/promote gate with idempotency, conflict handling, and events.
+- LLM/model paths remain proposal-side.
+- Direct TaskNotes mutation remains disabled until a deterministic reviewed apply path is complete.
+- Default-off `recovery.target.start` regression coverage remains intact.
+- Dangerous authority is represented by explicit capabilities and gates, not prompt wording alone.
+- Bounded context omits unnecessary private material and preserves provenance.
+- Ambiguous replay or conflict moves to refusal/manual review rather than repeating side effects.
+- Automatic interventions remain conservative until product scenarios demonstrate acceptable burden and recovery quality.
 
-## Priority 3 - Protocol and audit hardening
+## Decision gate 0 - establish canonical ownership
 
-1. Add schema lifecycle docs and versioning.
-2. Upgrade JSONL evidence logs or document/replace them with authoritative audit semantics.
-3. Add producer identity/provenance where needed.
-4. Add service hardening and safe default review.
+Resolve and record:
 
-## Priority 4 - Product intelligence
+1. **Canonical runtime orchestrator**: which component owns event ingress, routing, context assembly, optional model invocation, validation, approval, action dispatch, and outcome linkage.
+2. **Model-provider direction**: provider-neutral API runtime, treatment of the current Ollama planner, secrets, privacy boundary, cost limits, fallback, and offline behavior.
+3. **Canonical proposal surface**: relationship between `AI/proposed-tasks`, planner reports/nudges, and the newer Obsidian proposal/approval/task-draft chain.
+4. **First complete product loop**: one end-to-end loop to validate before broad feature expansion.
+5. **TaskNotes apply timing**: whether real TaskNotes apply is required for the first product loop or can remain deferred.
 
-1. Define evidence ledger and personal model hypothesis schema.
-2. Add correction/supersession semantics.
-3. Define goal hierarchy: values/life areas, goals, projects/habits, commitments/tasks, sessions, interventions, outcomes.
-4. Expand planner metadata: why now, evidence refs, confidence, user burden, capacity assumption, linked goal, expiry, alternatives.
-5. Define attention/receptivity policy: quiet hours, low-energy mode, repeated-ignore backoff, deep-work suppression, channel switching.
+Exit condition: accepted decisions exist and contradictory ownership statements are removed from canonical docs.
 
-## Priority 5 - Product evaluation
+## Milestone 1 - canonicalize protocols and runtime truth
 
-1. Add scenario evals for stale context, wrong inference, repeated ignored nudges, low energy, active deep work, conflicting goals, daily review quality, and recovery quality.
-2. Add voice/relationship quality checks: friendly, non-punitive, non-shaming, agency-preserving.
-3. Track outcome quality beyond mechanical smoke tests.
+- Keep `CURRENT_STATE.md`, `MODULES.md`, `ARCHITECTURE.md`, `PROTOCOLS.md`, and `docs/SCHEMA_REGISTRY.md` synchronized with code.
+- Define one run/trace identity linking event, context references, model/proposal result, validation, human decision, action result, and later outcome.
+- Clarify state ownership for interactions, recovery, proposals, and current projections.
+- Decide whether JSONL remains evidence-only or is replaced/hardened for authoritative run history.
+- Complete the module-contract register for implemented kernel components.
 
-## Priority 6 - UI expansion only after protocols are boring
+Exit condition: each canonical path/schema has an owner, each side effect has a capability/gate, and one runtime flow can be traced end to end.
 
-Desktop popup UI, richer phone controls, and more autonomous behavior should wait until protocols, authority, and review gates are stable and well tested.
+## Milestone 2 - consolidate the model and proposal boundary
 
-## Extension-model follow-up
+- Introduce a provider boundary rather than embedding one model runtime throughout planning code.
+- Preserve schema-bound model outputs and deterministic validators.
+- Define privacy-minimized context packets for remote APIs.
+- Resolve the older planner versus Obsidian proposal-chain ownership.
+- Add per-run budgets for requests, tool calls, tokens, latency, and estimated cost.
 
-Before adding many new goal-achievement instruments, add a lightweight module contract registry. This is separate from `ACTION_CAPABILITY_POLICY`, which remains the runtime action capability policy for `action-bridge`:
+Exit condition: switching model/provider does not change action authority or protocol ownership, and no model output bypasses proposal validation.
 
-1. define the minimum Markdown module contract shape;
-2. treat `tasknotes.read_context` as the completed pressure test for the module contract shape;
-3. list context providers, planners, review surfaces, action adapters, memory modules, and evaluators;
-4. require each module to declare reads, writes, authority, schemas, tests, disable behavior, TaskNotes mutation status, and required action capabilities;
-5. defer JSON/YAML manifests and registry checkers until the Markdown contract proves useful.
+## Milestone 3 - complete or deliberately defer TaskNotes apply
 
-Completed pressure-test invariant: `tasknotes.read_context` has no required action capabilities, `may_mutate_tasknotes` is false, output includes provenance, freshness, limits, and safe-off/disabled behavior, context-hub exposure is compact, and prompt-facing metadata omits raw TaskNotes content plus absolute source roots/source paths. Future deterministic TaskNotes apply/promote remains separate planned work.
+Already complete:
 
-This keeps future functionality easy to add without creating a giant unbounded agent.
+- read-only TaskNotes context;
+- reviewed proposal artifacts;
+- TaskNotes-compatible drafts;
+- deterministic dry-run validation.
+
+Remaining if real apply is selected:
+
+- atomic write into an allowed TaskNotes root;
+- explicit apply request and approval identity;
+- idempotent replay behavior;
+- target conflict/manual-review handling;
+- apply result and provenance record;
+- accepted/refused/conflict/replay smoke tests.
+
+Exit condition: either the apply path is complete and tested, or its deferral is an explicit accepted product decision.
+
+## Milestone 4 - validate one useful product loop
+
+Choose one bounded loop, likely `stuck/help-now`, low-energy recovery, or stale-task review.
+
+Required evaluation dimensions:
+
+- correct routing;
+- concrete next action quality;
+- time and friction to invoke;
+- start/continuation outcome;
+- burden and annoyance;
+- wrong-inference correction;
+- safe silence/backoff;
+- recovery after dismissal or failure.
+
+Exit condition: scenario tests and real-use records demonstrate that the loop is useful enough to retain and safe enough to automate conservatively.
+
+## Milestone 5 - inspectable learning and policy adaptation
+
+- Define evidence references and hypothesis records.
+- Add correction, rejection, expiry, and supersession semantics.
+- Define the goal hierarchy and commitment semantics.
+- Implement attention/receptivity policy across producers.
+- Permit only bounded, reviewable policy proposals before automatic adaptation.
+
+Exit condition: every learned claim is inspectable, correctable, attributable to evidence, and reversible.
+
+## Milestone 6 - expand interfaces and instruments
+
+Only after earlier milestones are stable:
+
+- Tasker action cards and richer phone controls;
+- desktop command palette or popup;
+- calendar/context adapters;
+- body-doubling or distraction-control adapters;
+- additional read-only context providers;
+- richer planning and study/coaching skills.
+
+Exit condition: new interfaces are thin adapters over canonical events and capabilities rather than new parallel brains.

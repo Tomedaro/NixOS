@@ -1,26 +1,25 @@
 # AI documentation details
 
-This directory contains audit detail, design review material, ADRs, and implementation planning notes for `modules/programs/ai`.
+This directory contains current architecture assessment, schema/module inventories, product-design notes, ADRs, and historical audit records.
 
-Start with the top-level docs first:
+Start with the top-level canonical docs:
 
-- [Project philosophy](../PHILOSOPHY.md)
 - [Current state](../CURRENT_STATE.md)
-- [Modules](../MODULES.md)
 - [Safety model](../SAFETY_MODEL.md)
+- [Architecture](../ARCHITECTURE.md)
 - [Protocols](../PROTOCOLS.md)
+- [Modules](../MODULES.md)
 - [Operations](../OPERATIONS.md)
 - [Roadmap](../ROADMAP.md)
 - [Extension model](../EXTENSION_MODEL.md)
 
-## Audit records
+## Current review and inventory documents
 
+- [Architecture findings](./ARCHITECTURE_FINDINGS.md)
 - [Review inventory](./REVIEW_INVENTORY.md)
 - [Module review register](./MODULE_REVIEW_REGISTER.md)
-- [Architecture findings](./ARCHITECTURE_FINDINGS.md)
+- [Schema registry](./SCHEMA_REGISTRY.md)
 - [Refactor backlog](./REFACTOR_BACKLOG.md)
-- [Documentation restructure plan](./DOC_RESTRUCTURE_PLAN.md)
-- [Docs transition manifest](./DOCS_TRANSITION_MANIFEST.md)
 
 ## Product intelligence and design notes
 
@@ -37,6 +36,13 @@ Start with the top-level docs first:
 - [Policy and configuration lifecycle](./POLICY_AND_CONFIGURATION_LIFECYCLE.md)
 - [Future capabilities and modularity](./FUTURE_CAPABILITIES_AND_MODULARITY.md)
 
+## Historical transition records
+
+These explain how the current documentation set was created. They are not current implementation plans:
+
+- [Documentation restructure plan](./DOC_RESTRUCTURE_PLAN.md)
+- [Docs transition manifest](./DOCS_TRANSITION_MANIFEST.md)
+
 ## Decisions
 
-ADRs live in [adr/](./adr/). They record decisions that should not be lost during refactors.
+ADRs live in [adr/](./adr/). Unresolved architecture questions live in [workflow/OPEN_QUESTIONS.md](../workflow/OPEN_QUESTIONS.md) and should become ADRs or durable decisions once resolved.

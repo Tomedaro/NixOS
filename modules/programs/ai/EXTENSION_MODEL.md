@@ -254,8 +254,8 @@ A model adapter connects to an LLM, local model, embedding model, classifier, sp
 
 Examples:
 
-- local Ollama model adapter;
-- remote LLM adapter, when explicitly enabled;
+- local Ollama model adapter (current implementation);
+- remote API model adapter (intended direction, not implemented);
 - embedding adapter;
 - reranker adapter;
 - speech-to-text adapter;
@@ -349,7 +349,7 @@ Implemented contract:
 - output requirements: provenance, freshness timestamp, source limits, truncation/omission markers, and stale/disabled status;
 - tests: prove no TaskNotes writes, bounded output, provenance/freshness fields, limit handling, safe-off/disabled behavior, context-hub exposure, and prompt-facing omission of raw content and absolute source paths;
 - prompt boundary: LLM prompt metadata preserves compact status/limit/provenance signals but omits raw TaskNotes content, absolute source roots, and provider `source_paths`;
-- non-goal: deterministic TaskNotes apply/promote remains separate planned work.
+- non-goal: real deterministic TaskNotes apply mutation remains separate; dry-run apply validation is implemented.
 
 Because this provider does not dispatch live actions, its module contract should not reference `ACTION_CAPABILITY_POLICY` beyond stating that no action-bridge runtime action capability is required.
 
@@ -699,7 +699,7 @@ Before adding or enabling a new module/instrument, document:
 - observability: status files, events, or logs;
 - current limitations and known unsafe paths.
 
-A module that touches TaskNotes must remain reviewable-only unless a deterministic reviewed apply/promote gate exists.
+A module that touches TaskNotes must remain reviewable-only unless the real deterministic reviewed apply writer, journal, conflict handling, and regression tests exist. Dry-run validation does not satisfy this boundary.
 
 ## Removal and deprecation checklist
 
@@ -715,4 +715,4 @@ Before removing, disabling, or deprecating a module/instrument:
 - remove or hard-disable authority wiring before removing explanatory docs;
 - confirm generated bundles and handoff docs no longer advertise stale behavior.
 
-Historical direct mutation paths should remain removed or disabled; new durable writes should use deterministic reviewed apply/promote.
+Historical direct mutation paths should remain removed or disabled; any new durable write must use the future deterministic reviewed apply writer after validation, approval, idempotency, and conflict handling.

@@ -16,9 +16,9 @@
 
 **Authority**: Permission to perform side effects. Current numeric authority should evolve toward named capabilities.
 
-**Legacy/direct path**: Existing path that directly mutates a durable surface before the future deterministic gate exists.
+**Legacy/direct path**: Historical path that bypassed the reviewed deterministic mutation boundary. Current known TaskNotes direct paths are removed or disabled.
 
-**Apply/promote gate**: Planned deterministic mechanism for turning reviewed drafts/proposals into real TaskNotes.
+**Apply/promote gate**: The reviewed TaskNotes path. Draft normalization and deterministic dry-run validation are implemented; the real atomic TaskNotes writer, apply journal, and conflict/replay result path are not.
 
 **Evidence ledger**: Planned canonical record of observations that support hypotheses, proposals, and policy changes.
 

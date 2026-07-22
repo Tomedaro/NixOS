@@ -1,72 +1,65 @@
-# AI documentation audit handoff
+# AI documentation handoff
 
-> Superseded status: later patches disabled the previously identified direct TaskNotes mutation paths. `36f5813` removed/hard-disabled Anki direct TaskNotes mode, and `ac274a9` disabled action-bridge `promote_task_proposal`. Reviewable proposal/draft paths remain; deterministic TaskNotes apply/promote is still future work.
+Snapshot date: 2026-07-22.
 
 ## Status
 
-The AI documentation has been reorganized into canonical truth surfaces. Future work should read the new docs first and should not resurrect old TODO-style material as authority.
+The canonical documentation has been refreshed against the current archive. Direct TaskNotes mutation remains disabled; reviewed TaskNotes drafts and deterministic apply validation exist; real apply does not.
+
+The repository is a strong tested prototype of distributed kernel components, not yet one canonical runtime kernel or a product-validated daily helper.
 
 ## Start here
 
-1. `CURRENT_STATE.md` - implementation truth.
-2. `SAFETY_MODEL.md` - authority and side-effect boundaries.
-3. `PROTOCOLS.md` - queue/state/event/draft paths.
-4. `MODULES.md` - module roles and side effects.
-5. `ARCHITECTURE.md` - architecture and runtime views.
-6. `ROADMAP.md` - planned work.
-7. `docs/REFACTOR_BACKLOG.md` - implementation backlog.
-8. `docs/MODULE_REVIEW_REGISTER.md` - audit detail.
+1. `CURRENT_STATE.md` - implementation and verification truth.
+2. `SAFETY_MODEL.md` - authority, capability, and mutation boundaries.
+3. `ARCHITECTURE.md` - current topology and unresolved kernel ownership.
+4. `PROTOCOLS.md` - queue/state/outbox path orientation.
+5. `docs/SCHEMA_REGISTRY.md` - versioned contract inventory.
+6. `MODULES.md` - module ownership map.
+7. `workflow/OPEN_QUESTIONS.md` - decisions blocking a precise roadmap.
+8. `ROADMAP.md` - dependency-ordered future work.
+9. `docs/ARCHITECTURE_FINDINGS.md` - current assessment.
+10. `docs/REFACTOR_BACKLOG.md` - concrete implementation candidates.
 
-## Philosophy to preserve
+## Current non-negotiable boundary
 
-This project is a local-first adaptive AI goal-achievement companion.
+Models may read bounded context, classify, summarize, propose, draft, and explain. They do not receive implicit authority to mutate TaskNotes or execute broad live actions.
 
-It should be:
+## Current implementation headline
 
-- local-first;
-- inspectable;
-- recovery-oriented;
-- agentic but gated;
-- friendly and coach-like rather than punitive;
-- explicit about authority;
-- explicit about user control;
-- careful with durable state;
-- careful with TaskNotes as human commitments;
-- careful with LLM outputs as proposals, not execution.
+```text
+bounded context
+  -> proposal
+  -> deterministic validation
+  -> explicit review
+  -> bounded action or draft
+  -> inspectable evidence/outcome
+```
 
-TaskNotes is the durable human commitment surface.
-The AI vault is the protocol, state, queue, event, draft, and evidence layer.
-Obsidian is the review and interaction surface.
+## Important partial states
 
-## Non-negotiable boundary
+- TaskNotes apply **validation** exists; TaskNotes apply **mutation** does not.
+- Named action capabilities exist; numeric authority remains transitional.
+- Interaction/outcome modules exist; a canonical learning loop does not.
+- The older Ollama planner and newer Obsidian proposal chain coexist.
+- The intended API-model direction is not yet implemented or accepted as an ADR.
+- Thirty smoke-test files pass in the reconstructed archive environment; target-machine verification remains separate.
 
-LLM-facing paths may read, classify, summarize, propose, and draft. They must not silently create, edit, archive, delete, launch, execute, or mutate durable commitments.
+## Questions that must be decided before broad implementation
 
-## Known legacy/direct paths
+- canonical runtime orchestrator;
+- model-provider strategy and Ollama disposition;
+- canonical proposal surface;
+- first complete product loop;
+- whether real TaskNotes apply is an immediate dependency.
 
-These paths currently exist and must not be treated as the target architecture:
+See `workflow/OPEN_QUESTIONS.md`.
 
-- Superseded by ac274a9: `action-bridge promote_task_proposal` is disabled and no longer writes real TaskNotes.
-- Superseded by 36f5813: `anki-bridge taskNoteMode = "direct"` is removed/hard-disabled; raw `TASKNOTE_MODE=direct` falls back to `propose`.
-- `dialog-bridge` still has lifecycle behavior that should move behind canonical `answer_question` / `dismiss_question` actions.
+## Rules for future work
 
-## Next implementation order
-
-1. Add/verify tests around legacy/direct mutation behavior.
-2. Split or lower broad `action-bridge` authority.
-- Done by ac274a9: keep `promote_task_proposal` disabled until deterministic TaskNotes apply/promote exists.
-- Done by 36f5813: keep Anki direct TaskNotes mode removed/hard-disabled.
-5. Move `dialog-bridge` answer/dismiss handling to canonical action files.
-6. Add first-class read-only TaskNotes context.
-7. Build deterministic TaskNotes apply/promote gate.
-8. Add product scenario evals before adaptive behavior changes.
-
-## How future LLMs should proceed
-
-- Establish ground truth from code, tests, Nix options, dev scripts, and current docs.
-- Use `CURRENT_STATE.md` over old memories.
-- Record uncertainties explicitly.
-- Prefer small verifiable doc/code changes.
-- Never assume a roadmap item is implemented.
-- Never assume an LLM output may execute or mutate TaskNotes.
-- Never mutate live queues during analysis unless explicitly asked.
+- Establish truth from code, tests, Nix options, and canonical docs.
+- Do not revive historical audit plans as current instructions.
+- Keep model context minimal and provenance-aware.
+- Add no new parallel proposal or action protocol without an ownership decision.
+- Treat product usefulness and mechanical correctness as separate evaluation targets.
+- Never claim target-machine behavior without target-machine evidence.
