@@ -67,6 +67,8 @@ in
         steam
         tor-browser
         localsend
+        onlyoffice-desktopeditors
+        libreoffice-qt-fresh
 
         # Terminal tools
         fuzzel
