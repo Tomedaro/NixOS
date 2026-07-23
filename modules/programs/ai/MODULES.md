@@ -38,6 +38,9 @@ This is the high-level current module map. Detailed review evidence belongs in `
 | `recovery_proposals.py` | Builds deterministic recovery proposal/reasoning records. | Draft/propose |
 | `proposal_gate.py` | Deterministic gate for recovery proposal actions. | Validation only |
 | `task_initiation_contracts.py` | Five boundary validators plus private pure lifecycle/policy helpers for the first-loop task-initiation family. | Pure contract/policy |
+| `task_initiation_store.py` | Private XDG-local SQLite aggregate, replay-result, and Card-routing persistence. | Local private state; no public schema. |
+| `task_initiation_kernel.py` | Synchronous deterministic no-model task-initiation lifecycle and reconciliation owner. | Lifecycle/state only; no execution. |
+| `task_initiation_cli.py` | Local JSON test and diagnostic harness for the task-initiation kernel. | Explicit local input/diagnostics. |
 | `io_utils.py` | Atomic JSON/text writes and JSONL append helper. | Utility; side effect depends on caller |
 | `queue.py` | Stable queue-file discovery and unique moves. | Utility; local queue mutation |
 | `status.py`, `time_utils.py` | Shared status and time normalization. | Pure/helper |
@@ -61,7 +64,7 @@ This is the high-level current module map. Detailed review evidence belongs in `
 
 | Module | Purpose | Notes |
 | --- | --- | --- |
-| `dev/run-obsidian-agent-loop.sh` | Operator/development execution of the Obsidian proposal chain. | Not the canonical general runtime kernel. |
+| `tests/*_smoke.py` | Mechanical regression tests. | 32 smoke-test files in the current repository; product scenarios remain separate. |
 | `dev/interaction_surface.py` | Development interaction-surface helper. | UI/testing support. |
 | `dev/check-*`, `dev/audit-*`, `dev/llm/*` | Diagnostics and documentation/patch verification. | Live checks should default read-only. |
 | `tests/*_smoke.py` | Mechanical regression tests. | 31 smoke-test files in the current repository; product scenarios remain separate. |

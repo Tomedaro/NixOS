@@ -7,9 +7,8 @@ This file records what is true in the repository now. It separates implemented b
 ## Repository verification represented by this snapshot
 
 The archived repository was reviewed as source code and documentation:
-
 - all Python sources compiled successfully in the review environment;
-- all 31 `tests/*_smoke.py` files passed after recreating the repository path expected by the test helpers;
+- all 32 `tests/*_smoke.py` files passed (31 existing + 1 new kernel smoke) after recreating the repository path expected by the test helpers;
 - documentation link/drift checks passed in the reconstructed repository layout;
 - no Nix evaluation, NixOS rebuild, systemd service run, live vault mutation, Tasker interaction, Ollama inference, or remote API call was verified in that environment.
 
@@ -52,9 +51,19 @@ intent
 - Intervention event records, outcome summaries, statistics, and an outcome reporter exist.
 - Phone, dialog, session, coach, recovery, intervention, Anki, vault, and planner services/modules exist, with several automatic triggers intentionally disabled.
 
-### Development and verification
+### Task-initiation kernel skeleton
 
-- The repository contains 31 smoke-test files covering action processing, context, Obsidian contracts, proposal gates, interaction lifecycle/projection, recovery, sessions, phone/desktop behavior, TaskNotes validation, and planner output mechanics.
+- XDG-local permission-restricted SQLite (`$XDG_STATE_HOME/perseverance-ai/task-initiation/kernel.sqlite3`) with exactly three private tables (`interactions`, `messages`, `card_index`), `user_version=1`, and `journal_mode=DELETE`.
+- Synchronous `BEGIN IMMEDIATE`/`COMMIT`/`ROLLBACK` transaction control; atomic initial Stuck preparation and Shrink/Blocked follow-up Card preparation each commit as one transaction.
+- Corruption-checked immutable replay: exact Stuck and Response replay validates owning aggregate, reservation, result, and Card routes without mutation.
+- First-response-wins: `BEGIN IMMEDIATE` serializes concurrent writers; exactly one Response commits per Card.
+- Owner-only Response reconciliation: `respond` reconciles only the Card owner; explicit fixture-free `reconcile` advances all nonterminal interaction deadlines.
+- Deterministic no-model placeholder worker produces validated Context, Proposal, and Card.
+- Redacted seven-command CLI (`python -m ai_system.task_initiation_cli`): `init`, `ingest-stuck`, `show`, `list-active`, `respond`, `reconcile`, `check-db`.
+- Verified: 32/32 smoke files (including the new kernel smoke with 81 focused checks), documentation checks, patch-safety checks, diff whitespace checks all pass. No NixOS rebuild, systemd service, phone, model/provider, live vault mutation, or remote call was exercised.
+
+### Development and verification
+- The repository contains 32 smoke-test files covering action processing, context, Obsidian contracts, proposal gates, interaction lifecycle/projection, recovery, sessions, phone/desktop behavior, TaskNotes validation, planner output mechanics, and the task-initiation kernel.
 - `dev/run-obsidian-agent-loop.sh` provides an operator/development loop for exercising the Obsidian proposal chain.
 - Documentation and patch verification scripts exist under `dev/llm/`.
 
@@ -86,9 +95,9 @@ These are repository defaults, not proof of the live target-machine configuratio
 - The implementation is decomposed into narrow, testable components.
 
 ## Partial or transitional behavior
-- Milestone 1 task-initiation contracts are frozen (commit `a7bffe6`): five stable boundary validators (stuck, card, response, context, proposal), a documented provisional card_receipt (frozen in Milestone 3), a private pure aggregate reducer, and 249 smoke checks covering all lifecycle, ordering, and authority scenarios. Outcome evidence is documented but not implemented (deferred to Milestone 5). The laptop kernel, SQLite database, Tasker transport, provider integration, live queues, services, and real-use evaluation remain unimplemented.
+- Milestone 1 task-initiation contracts are frozen (commit `a7bffe6`): five stable boundary validators (stuck, card, response, context, proposal), a documented provisional card_receipt (frozen in Milestone 3), a private pure aggregate reducer, and 78 smoke checks covering all lifecycle, ordering, and authority scenarios. Outcome evidence is documented but not implemented (deferred to Milestone 5). Tasker transport/authentication, provider integration, Receipt, Outcome/evaluation, live queues/services, and real-use evidence remain unimplemented.
 
-- The system contains most kernel components but not one implemented canonical runtime orchestrator. ADR 0008 now fixes the intended first-loop ownership: a deterministic laptop-side kernel, while current routing remains distributed across services, scripts, queues, and Python modules.
+- The deterministic local kernel skeleton is implemented; the repository still lacks Tasker first-loop transport, remote provider adapter, allowlisted production context runtime, Receipt/Outcome evidence, service wiring, and real-use evaluation.
 - Named capabilities exist, but numeric action authority and several default-enabled gates remain transitional.
 - TaskNotes apply validation exists; real apply, atomic mutation, conflict recovery, and authoritative apply journaling do not.
 - Two proposal families still coexist in code. ADR 0008 selects the newer Obsidian proposal/approval/task-draft chain as the direction for future durable proposals and treats the older `llm-planner`/`AI/proposed-tasks` surface as legacy/specialist compatibility pending adaptation or retirement.
@@ -111,7 +120,7 @@ ADR 0008 accepts a narrow first product loop and target runtime:
 - real TaskNotes apply is not required for the first loop;
 - success is evaluated through start behavior, meaningful engagement, friction, and burden.
 
-This is an accepted direction, not implemented behavior. The repository still lacks the laptop kernel, Tasker first-loop transport, remote provider adapter, allowlisted context-packet runtime, and real-use evaluation.
+This is an accepted direction, not implemented behavior. The deterministic local kernel skeleton is implemented; the repository still lacks Tasker first-loop transport, remote provider adapter, allowlisted production context runtime, Receipt/Outcome evidence, service wiring, and real-use evaluation.
 
 ## Model runtime status
 

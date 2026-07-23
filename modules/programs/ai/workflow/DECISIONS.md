@@ -89,3 +89,20 @@ Consequences:
 - Milestone 3 freezes the Receipt shape only after live Tasker posting-evidence tests.
 - Milestone 5 freezes the Outcome shape only after producers exist.
 - Corrected code/docs/tests are still required before Milestone 1 completion.
+
+## 2026-07-23 - Use a three-table SQLite task-initiation kernel skeleton
+
+Status: accepted
+
+Decision:
+Milestone 2 uses a synchronous reusable Python kernel plus a thin local CLI. Laptop-local XDG state is stored in standard-library SQLite with one aggregate snapshot table, one immutable message/replay-result table, and one Card-routing table. Writers use explicit `BEGIN IMMEDIATE`; initial Stuck preparation and Shrink/Blocked follow-up Card preparation each commit atomically. Ordinary Responses reconcile only their owner; all-interaction deadline advancement is explicit.
+
+Why:
+This is the smallest dependency-free design that proves restart safety, exact replay, concurrent first-response-wins, corruption refusal, and deterministic deadlines across local processes without manufacturing durable intermediate work.
+
+Consequences:
+- Context-only, Proposal-only, queued, attached-task-only, and preparing states are not durable.
+- Exact replay validates its owning aggregate, reservation, result, and Card routes without mutation.
+- The local placeholder worker is deterministic and makes no model call.
+- Tasker transport/authentication, Receipt, model/provider work, TaskNotes mutation, Outcome/evaluation, and service wiring remain later milestones.
+- Milestone 2 is not marked complete until human review.
