@@ -13,7 +13,8 @@ fi
 
 RAW_DIFF="$(mktemp)"
 CHECK_DIFF="$(mktemp)"
-trap 'rm -f "$RAW_DIFF" "$CHECK_DIFF"' EXIT
+ADDED_DIFF="$(mktemp)"
+trap 'rm -f "$RAW_DIFF" "$CHECK_DIFF" "$ADDED_DIFF"' EXIT
 
 if [ "$MODE" = "staged" ]; then
   git diff --cached -- "$AI_DIR" > "$RAW_DIFF"
@@ -38,6 +39,13 @@ awk '
   !skip { print }
 ' "$RAW_DIFF" > "$CHECK_DIFF"
 
+# Patch checks should judge newly introduced content, not removed lines.
+# Unified-diff metadata begins with +++ and must not be scanned as content.
+awk '
+  /^\+\+\+/ { next }
+  /^\+/ { print substr($0, 2) }
+' "$CHECK_DIFF" > "$ADDED_DIFF"
+
 echo
 echo "[info] changed AI files:"
 if [ "$MODE" = "staged" ]; then
@@ -51,7 +59,7 @@ echo "[check] dangerous shell patterns"
 
 DANGEROUS_PATTERN='rm -rf|curl .*\| *sh|wget .*\| *sh|chmod -R 777|sudo |eval \$|dd if=|mkfs\.|: *\(\) *\{ *: *\| *:'
 
-if grep -nE "$DANGEROUS_PATTERN" "$CHECK_DIFF"; then
+if grep -nE "$DANGEROUS_PATTERN" "$ADDED_DIFF"; then
   echo
   echo "[fail] dangerous-looking command pattern found in AI diff"
   exit 1
@@ -72,7 +80,7 @@ BOUNDARY_PATTERNS=(
 )
 
 for pattern in "${BOUNDARY_PATTERNS[@]}"; do
-  if grep -nE "$pattern" "$CHECK_DIFF"; then
+  if grep -nE "$pattern" "$ADDED_DIFF"; then
     FOUND=1
   fi
 done

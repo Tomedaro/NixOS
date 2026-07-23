@@ -87,6 +87,7 @@ tests=(
   modules/programs/ai/tests/interventions_smoke.py
   modules/programs/ai/tests/intervention_outcomes_smoke.py
   modules/programs/ai/tests/intervention_outcomes_reporter_smoke.py
+  modules/programs/ai/tests/task_initiation_contracts_smoke.py
 )
 
 echo

@@ -20,6 +20,7 @@ Start with the top-level canonical docs:
 - [Module review register](./MODULE_REVIEW_REGISTER.md)
 - [Schema registry](./SCHEMA_REGISTRY.md)
 - [Refactor backlog](./REFACTOR_BACKLOG.md)
+- [Task-initiation contracts](./TASK_INITIATION_CONTRACTS.md)
 
 ## Product intelligence and design notes
 

@@ -1,6 +1,6 @@
 # Schema registry
 
-Snapshot date: 2026-07-22.
+Snapshot date: 2026-07-23.
 
 This registry inventories versioned protocol identifiers currently present in source. It is documentation, not generated validation code. Exact fields and constraints remain authoritative in the producing/validating modules.
 
@@ -80,10 +80,31 @@ Status legend:
 | `llm_prompt_package.v1` | current | `llm_proposal_contract` | Schema-bound input package for model invocation. |
 | `llm_proposal_validation_result.v1` | current | `llm_proposal_contract` | Model-output validation result. |
 
+
+## Task-initiation first-loop schemas
+
+Review date: 2026-07-23. Five stable boundary contracts are candidates for Milestone 1 freezing. One provisional Receipt and one deferred Outcome are documented but excluded from the frozen set. Internal records (error, idempotency, interaction, run, queue, transition) are unversioned private data structures without `schema_version` or registry entries.
+
+| Schema | Status | Primary owner(s) | Role |
+| --- | --- | --- | --- |
+| `task_initiation_stuck.v1` | candidate/external | `task_initiation_contracts` | Untrusted Stuck ingress event with inline TaskRef; zero client expiry/idempotency fields. |
+| `task_initiation_card.v1` | candidate/external | `task_initiation_contracts` | Immutable display/countdown card with kernel-generated opaque UUIDs and server expiry. |
+| `task_initiation_response.v1` | candidate/external | `task_initiation_contracts` | Minimal user action evidence; accepted before Receipt, first-response-wins. |
+| `task_initiation_context.v1` | candidate/model-boundary | `task_initiation_contracts` | Local disclosure/audit manifest with derived minimal API payload (`model_content_sha256`). |
+| `task_initiation_proposal.v1` | candidate/model-boundary | `task_initiation_contracts` | Semantic-only blocker + tiny-start output; passes deterministic direct-execution safety gate. |
+
+### Provisional (excluded from frozen set)
+
+| Schema | Status | Primary owner(s) | Role |
+| --- | --- | --- | --- |
+| `task_initiation_card_receipt.v1` | provisional/planned | `task_initiation_contracts` | Tasker notification-posted evidence; exact shape frozen in Milestone 3 after live posting-evidence test. |
+
 ## Missing future schemas
 
 No versioned contract currently exists for:
 
+- `task_initiation_outcome.v1` — deferred to Milestone 5; evidence documented, producers and shape to be finalized;
+- first-loop kernel runtime state and transaction contracts;
 - canonical general kernel run/trace;
 - provider-neutral model request/result metadata;
 - model cost/latency/usage budget record;

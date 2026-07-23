@@ -1,6 +1,6 @@
 # Current state
 
-Snapshot date: 2026-07-22.
+Snapshot date: 2026-07-23.
 
 This file records what is true in the repository now. It separates implemented behavior, partial behavior, runtime defaults, unresolved architecture, and planned work. Code and tests remain authoritative when this file drifts.
 
@@ -9,7 +9,7 @@ This file records what is true in the repository now. It separates implemented b
 The archived repository was reviewed as source code and documentation:
 
 - all Python sources compiled successfully in the review environment;
-- all 30 `tests/*_smoke.py` files passed after recreating the repository path expected by the test helpers;
+- all 31 `tests/*_smoke.py` files passed after recreating the repository path expected by the test helpers;
 - documentation link/drift checks passed in the reconstructed repository layout;
 - no Nix evaluation, NixOS rebuild, systemd service run, live vault mutation, Tasker interaction, Ollama inference, or remote API call was verified in that environment.
 
@@ -54,7 +54,7 @@ intent
 
 ### Development and verification
 
-- The repository contains 30 smoke-test files covering action processing, context, Obsidian contracts, proposal gates, interaction lifecycle/projection, recovery, sessions, phone/desktop behavior, TaskNotes validation, and planner output mechanics.
+- The repository contains 31 smoke-test files covering action processing, context, Obsidian contracts, proposal gates, interaction lifecycle/projection, recovery, sessions, phone/desktop behavior, TaskNotes validation, and planner output mechanics.
 - `dev/run-obsidian-agent-loop.sh` provides an operator/development loop for exercising the Obsidian proposal chain.
 - Documentation and patch verification scripts exist under `dev/llm/`.
 
@@ -86,6 +86,7 @@ These are repository defaults, not proof of the live target-machine configuratio
 - The implementation is decomposed into narrow, testable components.
 
 ## Partial or transitional behavior
+- A narrowed Milestone 1 task-initiation contract candidate exists in `python/ai_system/task_initiation_contracts.py` with five stable boundary validators (stuck, card, response, context, proposal), a documented provisional card_receipt (frozen in Milestone 3), and a private pure aggregate reducer. Outcome evidence is documented but not implemented (deferred to Milestone 5). The laptop kernel, SQLite database, Tasker transport, provider integration, live queues, services, and real-use evaluation remain unimplemented.
 
 - The system contains most kernel components but not one implemented canonical runtime orchestrator. ADR 0008 now fixes the intended first-loop ownership: a deterministic laptop-side kernel, while current routing remains distributed across services, scripts, queues, and Python modules.
 - Named capabilities exist, but numeric action authority and several default-enabled gates remain transitional.
@@ -110,7 +111,7 @@ ADR 0008 accepts a narrow first product loop and target runtime:
 - real TaskNotes apply is not required for the first loop;
 - success is evaluated through start behavior, meaningful engagement, friction, and burden.
 
-This is an accepted direction, not implemented behavior. The repository still lacks the laptop kernel, Tasker first-loop transport, remote provider adapter, first-loop schemas, allowlisted context packet, and real-use evaluation.
+This is an accepted direction, not implemented behavior. The repository still lacks the laptop kernel, Tasker first-loop transport, remote provider adapter, allowlisted context-packet runtime, and real-use evaluation.
 
 ## Model runtime status
 

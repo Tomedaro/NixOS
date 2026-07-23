@@ -88,6 +88,23 @@ tasknotes_apply_request
 
 A validation result is not an apply result.
 
+
+## Task-initiation first-loop paths
+
+Authoritative transactional state must remain laptop-local, outside the synchronized Obsidian vault. Human-readable and phone-facing artifacts may be projected into the vault.
+
+|Path base|Planned path|Contract/content|Writer|Reader and authority|
+|---|---|---|---|---|
+|`$XDG_STATE_HOME`|Milestone 2-selected laptop-local state|authoritative future interaction/run/context/proposal/card/queue/response/idempotency state|Milestone 2 laptop kernel|kernel and local diagnostics; temporary/structural local authority|
+|vault `AI/`|`outbox/to-phone/task-initiation/cards/<card_id>.json`|exact `task_initiation_card.v1` projection|future kernel card projection|Milestone 3 Tasker adapter; display/response only|
+|vault `AI/`|`outbox/to-phone/task-initiation/current-card.json`|exact current card; absent before any card|future kernel card projection|Tasker adapter; projection, never authority|
+|vault `AI/`|`events/task-initiation/YYYY-MM-DD.jsonl`|event.v1 transition evidence only; not a task_initiation-specific schema|future kernel|diagnostics/reporter; evidence-only, never authority|
+
+These paths are planned. No directory, database, service, or artifact is created by Milestone 1. The laptop-local state path is resolved relative to `XDG_STATE_HOME` (normally `~/.local/state`), not the vault.
+Receipt transport and delivery path are Milestone 3 provisional.
+
+Do not reuse `AI/inbox/actions`, `AI/inbox/from-phone/events`, `current-nudge.json`, or `interaction-state.json` for authoritative first-loop state.
+
 ## Action queue rules
 
 - Action files are explicit JSON objects with stable identity/idempotency data where possible.

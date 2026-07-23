@@ -73,3 +73,19 @@ Consequences:
 
 Canonical record:
 `docs/adr/0008-laptop-task-initiation-kernel.md`
+
+## 2026-07-23 - Narrow task-initiation contracts to five boundary candidates
+
+Status: accepted
+
+Decision:
+Narrow the Milestone 1 candidate from 13 schemas to five stable boundary contracts: stuck, card, response, context, and proposal. A provisional card_receipt is documented but excluded from the frozen set (final shape validated in Milestone 3). Outcome is explicitly deferred to Milestone 5. Internal persistence structures (interaction, run, queue, idempotency, error, transition) are unversioned private records. The public contracts use opaque UUIDv4 correlation rather than deterministic ti-* identifiers. Server expiry and first-response-wins are authoritative.
+
+Why:
+Only the five message-boundary schemas are genuine interoperability contracts that need frozen identity before transport implementation. Internal records can remain private to the kernel's SQLite store. The narrow set preserves ADR 0008's known-task, laptop-kernel, proposal-only, TaskNotes-safe boundary while removing unnecessary public schema surface.
+
+Consequences:
+- Milestone 1 exit requires these five validators and private reducer to pass pure scenarios.
+- Milestone 3 freezes the Receipt shape only after live Tasker posting-evidence tests.
+- Milestone 5 freezes the Outcome shape only after producers exist.
+- Corrected code/docs/tests are still required before Milestone 1 completion.

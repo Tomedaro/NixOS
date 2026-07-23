@@ -17,7 +17,7 @@ This is the high-level current module map. Detailed review evidence belongs in `
 | `recovery-trigger` | Builds/gates recovery nudges from state. | Medium | Implemented but disabled by default. |
 | `intervention-outcomes` | Periodically summarizes intervention outcomes. | Low/medium | Timer enabled by default; not a complete product evaluator. |
 | `anki-bridge` | Reads Anki status and produces recovery/task proposals. | Observe + propose | Direct TaskNotes mode is removed/hard-disabled. |
-| `llm-planner` | Older report, question, nudge, and proposed-task planner. | Proposal/local state | Ollama-specific; enabled for manual use but timer disabled. Ownership relative to the newer Obsidian proposal chain is unresolved. |
+| `llm-planner` | Older report, question, nudge, and proposed-task planner. | Proposal/local state | Ollama-specific; enabled for manual use but timer disabled. Legacy/specialist; not the canonical first-loop kernel or durable-proposal path. |
 | `ollama` | Local model runtime module. | Runtime/service | Current implemented model backend; remote API provider support does not exist yet. |
 | `phone-webview` | Phone card asset and installer. | Optional local mutation | Presentation/integration surface rather than kernel logic. |
 | `activitywatch`, `browser-bridge`, `hypr-agent`, `notifications`, `screenpipe`, `compat` | Optional, stub, compatibility, or future integrations. | Varies | Must not become parallel orchestration layers. |
@@ -37,6 +37,7 @@ This is the high-level current module map. Detailed review evidence belongs in `
 | `recovery_targets.py` | Recovery target registry/lookup. | Pure configuration helper |
 | `recovery_proposals.py` | Builds deterministic recovery proposal/reasoning records. | Draft/propose |
 | `proposal_gate.py` | Deterministic gate for recovery proposal actions. | Validation only |
+| `task_initiation_contracts.py` | Five boundary validators plus private pure lifecycle/policy helpers for the first-loop task-initiation family. | Pure contract/policy |
 | `io_utils.py` | Atomic JSON/text writes and JSONL append helper. | Utility; side effect depends on caller |
 | `queue.py` | Stable queue-file discovery and unique moves. | Utility; local queue mutation |
 | `status.py`, `time_utils.py` | Shared status and time normalization. | Pure/helper |
@@ -63,7 +64,7 @@ This is the high-level current module map. Detailed review evidence belongs in `
 | `dev/run-obsidian-agent-loop.sh` | Operator/development execution of the Obsidian proposal chain. | Not the canonical general runtime kernel. |
 | `dev/interaction_surface.py` | Development interaction-surface helper. | UI/testing support. |
 | `dev/check-*`, `dev/audit-*`, `dev/llm/*` | Diagnostics and documentation/patch verification. | Live checks should default read-only. |
-| `tests/*_smoke.py` | Mechanical regression tests. | 30 smoke-test files in the current repository; product scenarios remain separate. |
+| `tests/*_smoke.py` | Mechanical regression tests. | 31 smoke-test files in the current repository; product scenarios remain separate. |
 | Nix `default.nix` files | Service wiring, options, environment gates, and effective defaults. | Configuration authority. |
 
 ## Current orchestration status

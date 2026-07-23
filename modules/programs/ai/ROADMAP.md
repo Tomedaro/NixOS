@@ -42,24 +42,31 @@ Accepted boundaries:
 - real TaskNotes apply is deferred and not on the first-loop critical path;
 - the older Ollama planner is legacy/specialist rather than the canonical kernel.
 
-## Milestone 1 - freeze the first-loop contracts
+## Milestone 1 - freeze boundary contracts, defer internal records
 
-Define versioned schemas and ownership for:
+Status: implementation candidate under review. Validators and smoke tests exist, but the contract set is not frozen until external message schemas are separated from kernel-internal records and the corrected invariants are accepted.
 
-- `task_initiation.stuck` ingress event;
-- known-task reference and fallback task description;
-- interaction/run identity and idempotency key;
-- current interaction state and expiry;
-- model context packet;
-- blocker/next-action proposal;
-- Tasker action card;
-- user responses: `start`, `shrink`, `blocked`, `defer`, `dismiss`;
-- outcome and evaluation record;
-- queued, expired, superseded, refused, and failed states.
+Define five stable boundary contract candidates:
 
-Define task resolution as explicit task ID, then active session task, then short user description. Define which existing protocol paths are reused and which new paths are necessary before writing runtime code.
+- `task_initiation_stuck.v1` — Tasker ingress event with inline TaskRef, zero client expiry/idempotency;
+- `task_initiation_card.v1` — immutable display/countdown authorization with kernel-issued IDs and server expiry;
+- `task_initiation_response.v1` — minimal user action evidence; accepted before Receipt, first-response-wins;
+- `task_initiation_context.v1` — local disclosure/audit manifest with a derived minimal API payload;
+- `task_initiation_proposal.v1` — semantic-only blocker and tiny-start output.
 
-Exit condition: every input, state transition, model output, button response, and outcome has one schema, owner, expiry rule, and authority level.
+Document as provisional (not in frozen set):
+
+- `task_initiation_card_receipt.v1` — Tasker notification-posted evidence; exact shape validated by live test in Milestone 3.
+
+Document as deferred (not implemented):
+
+- Outcome evidence, metrics, and identifiers — designed and frozen only in Milestone 5 when all evidence producers exist.
+
+Keep one private unversioned InteractionAggregate with pure reducer functions covering server expiry, idempotency, first-response-wins, Response-before-Receipt ordering, delivery-evidence branches, revision limits, and terminal immutability. Keep all orchestration/persistence records (error, idempotency, interaction, run, queue, revision, transition) as private data without schema_version.
+
+Define task resolution as explicit task ID, then active session task, then short user description (no fallback from invalid explicit reference to description). Define which existing protocol paths are reused and which new paths are necessary before writing runtime code.
+
+Exit condition: five boundary contracts have exact owners, authority rules, and validators; task resolution, private lifecycle, idempotency, expiry, Response-before-Receipt ordering, and TaskNotes safety are executable as pure tests; Receipt and Outcome are explicitly assigned forward to Milestones 3 and 5.
 
 ## Milestone 2 - establish the laptop kernel skeleton
 
@@ -89,7 +96,9 @@ Implement one Tasker entry point and one response surface:
 - bounded retry with stable event IDs;
 - notification card rendering with `Start`, `Shrink`, `Blocked`, and `Defer`.
 
-Exit condition: phone-to-laptop delivery, offline queueing, replay protection, expiry, cancellation, and button callbacks pass live tests on the target devices.
+Finalize the provisional `task_initiation_card_receipt.v1` shape after a live test verifies whether Tasker can reliably emit and replay `posted_at_epoch`, and whether Receipt needs device/notification-instance identity. Validate that the bounded Tasker countdown has no prohibited side effects (no TaskNotes write, no action.v1 emission, no session/recovery mutation, no app/URI launch).
+
+Exit condition: phone-to-laptop delivery, offline queueing, replay protection, expiry, cancellation, and button callbacks pass live tests on the target devices; Receipt shape is frozen or posting-anchored metrics are explicitly abandoned; bounded countdown is proven safe.
 
 ## Milestone 4 - add bounded context and one API model worker
 
@@ -120,9 +129,11 @@ Connect proposals to Tasker action cards and record:
 - dismissals, wrong-task reports, latency, retries, expiry, and annoyance feedback;
 - occasional subjective “made starting easier” feedback.
 
+Design and freeze `task_initiation_outcome.v1` only after the evidence producers listed above are implemented and live-tested: user action evidence, system terminal status/reason, delivery evidence, observation evidence, and feedback evidence. Define the four latency formulas using available timestamps; return unknown when ordering is contradictory or a required timestamp is absent.
+
 Repeated dismissal must not produce identical escalating prompts. A changed task must stale the old card.
 
-Exit condition: one run can be traced from Tasker trigger through context/model evidence to card, response, and later outcome.
+Exit condition: one run can be traced from Tasker trigger through context/model evidence to card, response, and later outcome; Outcome schema is frozen after evidence producers, precedence, finalization, and retention policy are proven.
 
 ## Milestone 6 - run a bounded real-use trial
 
