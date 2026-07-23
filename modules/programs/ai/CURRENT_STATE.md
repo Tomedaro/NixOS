@@ -86,7 +86,7 @@ These are repository defaults, not proof of the live target-machine configuratio
 - The implementation is decomposed into narrow, testable components.
 
 ## Partial or transitional behavior
-- A narrowed Milestone 1 task-initiation contract candidate exists in `python/ai_system/task_initiation_contracts.py` with five stable boundary validators (stuck, card, response, context, proposal), a documented provisional card_receipt (frozen in Milestone 3), and a private pure aggregate reducer. Outcome evidence is documented but not implemented (deferred to Milestone 5). The laptop kernel, SQLite database, Tasker transport, provider integration, live queues, services, and real-use evaluation remain unimplemented.
+- Milestone 1 task-initiation contracts are frozen (commit `a7bffe6`): five stable boundary validators (stuck, card, response, context, proposal), a documented provisional card_receipt (frozen in Milestone 3), a private pure aggregate reducer, and 249 smoke checks covering all lifecycle, ordering, and authority scenarios. Outcome evidence is documented but not implemented (deferred to Milestone 5). The laptop kernel, SQLite database, Tasker transport, provider integration, live queues, services, and real-use evaluation remain unimplemented.
 
 - The system contains most kernel components but not one implemented canonical runtime orchestrator. ADR 0008 now fixes the intended first-loop ownership: a deterministic laptop-side kernel, while current routing remains distributed across services, scripts, queues, and Python modules.
 - Named capabilities exist, but numeric action authority and several default-enabled gates remain transitional.

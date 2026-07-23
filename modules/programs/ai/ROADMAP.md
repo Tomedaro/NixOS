@@ -42,9 +42,11 @@ Accepted boundaries:
 - real TaskNotes apply is deferred and not on the first-loop critical path;
 - the older Ollama planner is legacy/specialist rather than the canonical kernel.
 
-## Milestone 1 - freeze boundary contracts, defer internal records
+## Milestone 1 - freeze boundary contracts, defer internal records  [COMPLETE]
 
-Status: implementation candidate under review. Validators and smoke tests exist, but the contract set is not frozen until external message schemas are separated from kernel-internal records and the corrected invariants are accepted.
+Status: complete (commit `a7bffe6`). Five stable boundary contract validators, one private aggregate reducer, and pure smoke tests covering all lifecycle and ordering scenarios. Receipt remains provisional (Milestone 3); Outcome remains deferred (Milestone 5).
+
+Verification: 249 focused checks, 31/31 smoke files passing, documentation checks clean, patch-safety checks clean.
 
 Define five stable boundary contract candidates:
 
