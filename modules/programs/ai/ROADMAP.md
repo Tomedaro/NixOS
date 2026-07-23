@@ -72,21 +72,20 @@ Exit condition: five boundary contracts have exact owners, authority rules, and 
 
 ## Milestone 2 - establish the laptop kernel skeleton
 
-Implement the smallest deterministic runtime capable of:
+Implement the smallest deterministic local runtime capable of:
 
-- authenticated event ingress;
-- schema validation and deduplication;
-- SQLite-backed interaction/run state;
-- expiry and supersession;
-- deterministic route selection;
-- explicit no-model handlers for button responses;
-- structured logs linking event, run, card, response, and outcome;
-- restart-safe processing without duplicate consequences.
+- synthetic/local `Stuck` schema validation and deduplication;
+- SQLite-backed private aggregate, replay-result, and Card-routing state;
+- accepted known-task resolution precedence;
+- deterministic no-model Context, Proposal, and Card preparation;
+- first-response-wins with atomic Shrink/Blocked follow-up Cards;
+- explicit expiry/deadline reconciliation;
+- restart-safe replay without duplicate consequences;
+- a minimal local CLI for tests and diagnostics.
 
 Do not add general autonomous tool loops, multi-agent orchestration, or durable-workflow frameworks.
 
-Exit condition: a synthetic `Stuck` event can travel through a restart-safe deterministic lifecycle without calling a model.
-
+Exit condition: a synthetic `Stuck` event reaches a deterministic Card and Response lifecycle through restart, replay, concurrency, corruption, and deadline tests without transport or a model.
 ## Milestone 3 - add the Tasker transport and queue
 
 Implement one Tasker entry point and one response surface:
