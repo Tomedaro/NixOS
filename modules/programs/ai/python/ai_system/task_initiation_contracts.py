@@ -145,11 +145,20 @@ _TASK_REF_RE = re.compile(r"^Tasks(/[\w ._@+%!-]+)+\.md$")
 # roots.  The negative look-behind avoids matching the path portion of an
 # ordinary URL (``https://``) while rejecting even single-component rooted
 # paths such as ``/secret`` as well as ``/nix/store/...`` and Windows paths.
+# Detect rooted local locations without maintaining an incomplete list of Unix
+# roots.  The negative look-behind avoids matching the path portion of an
+# ordinary URL (``https://``) while rejecting even single-component rooted
+# paths such as ``/secret`` as well as ``/nix/store/...`` and Windows paths.
+# Also catches UNC paths (``\\server\share\file``), Windows drive paths using
+# either ``\`` or ``/``, tilde-prefixed paths, and rooted ``file:`` URIs
+# (``file:///path`` and ``file://host/path``).
 _ABSOLUTE_PATH_RE = re.compile(
     r"(?<![:/\w])/(?:[^\s,;)\]\"']+)"
-    r"|(?<![\w])[A-Za-z]:\\[^\s,;)\]\"']+"
-    r"|\bfile:///(?:[^\s,;)\]\"']+)"
+    r"|(?<![\w])[A-Za-z]:(?:\\|/)(?:[^\s,;)\]\"']+)"
+    r"|\\\\[A-Za-z]"
+    r"|\bfile://(?:/[^\s,;)\]\"']+|host/[^\s,;)\]\"']+)"
     r"|(?<![\w])~/(?:[^\s,;)\]\"']+)"
+    r"|(?<![\w])~(?![-\w])"
 )
 
 
@@ -158,7 +167,39 @@ def _sha256(data: bytes) -> str:
 
 
 def _canonical_json(data: Mapping[str, Any]) -> bytes:
-    return json.dumps(data, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return json.dumps(data, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
+
+
+def _strict_json_loads(raw: str | bytes) -> Any:
+    """Decode JSON rejecting duplicate keys, NaN/Infinity, non-finite floats.
+
+    Raises ``ValueError`` (not TaskInitiationContractError) so persistence,
+    resolution, and CLI callers can map the same pure failure to their own
+    error class.
+    """
+    if isinstance(raw, bytes):
+        raw = raw.decode("utf-8")
+
+    def _object_pairs_hook(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        seen: set[str] = set()
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in seen:
+                raise ValueError(f"duplicate object key: {key!r}")
+            seen.add(key)
+            result[key] = value
+        return result
+
+    def _parse_constant(constant: str) -> Any:
+        raise ValueError(f"non-finite JSON constant rejected: {constant}")
+
+    def _parse_float(raw_float: str) -> float:
+        v = float(raw_float)
+        if v != v or v in (float("inf"), float("-inf")):
+            raise ValueError(f"non-finite float rejected: {raw_float}")
+        return v
+
+    return json.loads(raw, object_pairs_hook=_object_pairs_hook, parse_constant=_parse_constant, parse_float=_parse_float)
 
 
 def _payload_sha256(data: Mapping[str, Any]) -> str:
@@ -479,59 +520,64 @@ def validate_response(
         "action",
         "detail",
         "occurred_at_epoch",
-    }))
-    _require_literal(v.get("schema_version"), "schema_version", SCHEMA_RESPONSE)
-    occurred = _require_epoch(v.get("occurred_at_epoch"), "occurred_at_epoch")
+    }), prefix="response")
+    schema = _require_literal(v.get("schema_version"), "response.schema_version", SCHEMA_RESPONSE)
+    response_id = _require_uuid4(v.get("response_id"), "response.response_id")
+    card_id = _require_str(v.get("card_id"), "response.card_id")
+    action = _require_enum(v.get("action"), "response.action", RESPONSE_ACTIONS)
+    detail = _require_optional_normalized(v.get("detail"), "response.detail", 500)
+    if action in {"shrink", "blocked"}:
+        if not detail:
+            raise TaskInitiationContractError("invalid_schema", "response.detail")
+    elif detail is not None:
+        raise TaskInitiationContractError("invalid_schema", "response.detail")
+    occurred = _require_epoch(v.get("occurred_at_epoch"), "response.occurred_at_epoch")
     if now_epoch is not None:
         skew = max_future_skew_seconds or _MAX_FUTURE_CLOCK_SKEW_SECONDS
         _check_future_timestamp(
-            occurred,
-            received_at_epoch=now_epoch,
-            max_future_skew_seconds=skew,
-            field="occurred_at_epoch",
+            occurred, received_at_epoch=now_epoch,
+            max_future_skew_seconds=skew, field="response.occurred_at_epoch",
         )
-    action = _require_enum(v.get("action"), "action", RESPONSE_ACTIONS)
-    if action in {"shrink", "blocked"}:
-        detail = _require_optional_normalized(v.get("detail"), "detail", 500)
-    else:
-        if v.get("detail") is not None:
-            raise TaskInitiationContractError("invalid_schema", "detail")
-        detail = None
     return {
-        "schema_version": SCHEMA_RESPONSE,
-        "response_id": _require_uuid4(v.get("response_id"), "response_id"),
-        "card_id": _require_uuid4(v.get("card_id"), "card_id"),
+        "schema_version": schema,
+        "response_id": response_id,
+        "card_id": card_id,
         "action": action,
         "detail": detail,
         "occurred_at_epoch": occurred,
     }
 
 
-def _context_policy(policy: Mapping[str, Any] | None) -> dict[str, int]:
-    return {
-        key: _policy_int(policy, key, default)
-        for key, default in _DEFAULT_CONTEXT_POLICY.items()
-    }
 
 
 def _enforce_max_items(items: list[Any], limit: int, field: str) -> None:
     if len(items) > limit:
         raise TaskInitiationContractError("policy_rejected", field)
 
+def _context_policy(policy: Mapping[str, Any] | None) -> dict[str, int]:
+    return {
+        "max_recent_interactions": _policy_int(policy, "max_recent_interactions", 10),
+        "max_helper_material": _policy_int(policy, "max_helper_material", 5),
+        "max_helper_excerpt_chars": _policy_int(policy, "max_helper_excerpt_chars", 2000),
+        "max_provenance": _policy_int(policy, "max_provenance", 10),
+        "max_omissions": _policy_int(policy, "max_omissions", 20),
+    }
 
 def _validate_disclosed_facts(
     raw: Mapping[str, Any], *, policy: Mapping[str, Any] | None = None
 ) -> dict[str, Any]:
     limits = _context_policy(policy)
+    if not isinstance(raw, dict):
+        raise TaskInitiationContractError("invalid_schema", "disclosed_facts")
+    required_keys = frozenset({
+        "task", "followup", "project_summary", "session_capsule",
+        "recent_interactions", "helper_material",
+    })
+    for key in required_keys:
+        if key not in raw:
+            raise TaskInitiationContractError("invalid_schema", f"disclosed_facts.{key}")
     value = dict(raw)
-    _check_unknown_fields(value, frozenset({
-        "task",
-        "followup",
-        "project_summary",
-        "session_capsule",
-        "recent_interactions",
-        "helper_material",
-    }), prefix="disclosed_facts")
+    _check_unknown_fields(value, required_keys, prefix="disclosed_facts")
 
     task_raw = _require_dict(value.get("task"), "disclosed_facts.task")
     _check_unknown_fields(task_raw, frozenset({"label"}), prefix="disclosed_facts.task")
@@ -606,9 +652,9 @@ def _validate_disclosed_facts(
             ),
         }
 
-    recent_raw = _require_list(
-        value.get("recent_interactions", []), "disclosed_facts.recent_interactions"
-    )
+    recent_raw = value.get("recent_interactions")
+    if not isinstance(recent_raw, list):
+        raise TaskInitiationContractError("invalid_schema", "disclosed_facts.recent_interactions")
     _enforce_max_items(
         recent_raw,
         limits["max_recent_interactions"],
@@ -643,9 +689,9 @@ def _validate_disclosed_facts(
             ),
         })
 
-    helper_raw = _require_list(
-        value.get("helper_material", []), "disclosed_facts.helper_material"
-    )
+    helper_raw = value.get("helper_material")
+    if not isinstance(helper_raw, list):
+        raise TaskInitiationContractError("invalid_schema", "disclosed_facts.helper_material")
     _enforce_max_items(
         helper_raw, limits["max_helper_material"], "disclosed_facts.helper_material"
     )

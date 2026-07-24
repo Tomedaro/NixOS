@@ -87,17 +87,17 @@ Review date: 2026-07-23. Five stable boundary contracts are candidates for Miles
 
 | Schema | Status | Primary owner(s) | Role |
 | --- | --- | --- | --- |
-| `task_initiation_stuck.v1` | candidate/external | `task_initiation_contracts` | Untrusted Stuck ingress event with inline TaskRef; zero client expiry/idempotency fields. |
-| `task_initiation_card.v1` | candidate/external | `task_initiation_contracts` | Immutable display/countdown card with kernel-generated opaque UUIDs and server expiry. |
-| `task_initiation_response.v1` | candidate/external | `task_initiation_contracts` | Minimal user action evidence; accepted before Receipt, first-response-wins. |
-| `task_initiation_context.v1` | candidate/model-boundary | `task_initiation_contracts` | Local disclosure/audit manifest with derived minimal API payload (`model_content_sha256`). |
-| `task_initiation_proposal.v1` | candidate/model-boundary | `task_initiation_contracts` | Semantic-only blocker + tiny-start output; passes deterministic direct-execution safety gate. |
+| `task_initiation_stuck.v1` | current | `task_initiation_contracts` | Untrusted Stuck ingress event with inline TaskRef; zero client expiry/idempotency fields. |
+| `task_initiation_card.v1` | current | `task_initiation_contracts` | Immutable display/countdown card with kernel-generated opaque UUIDs and server expiry. |
+| `task_initiation_response.v1` | current | `task_initiation_contracts` | Minimal user action evidence; accepted before Receipt, first-response-wins. |
+| `task_initiation_context.v1` | current | `task_initiation_contracts` | Local disclosure/audit manifest with derived minimal API payload (`model_content_sha256`). |
+| `task_initiation_proposal.v1` | current | `task_initiation_contracts` | Semantic-only blocker + tiny-start output; passes deterministic direct-execution safety gate. |
 
 ### Provisional (excluded from frozen set)
 
 | Schema | Status | Primary owner(s) | Role |
 | --- | --- | --- | --- |
-| `task_initiation_card_receipt.v1` | provisional/planned | `task_initiation_contracts` | Tasker notification-posted evidence; exact shape frozen in Milestone 3 after live posting-evidence test. |
+| `task_initiation_card_receipt.v1` | planned | `task_initiation_contracts` | Tasker notification-posted evidence; exact shape frozen in Milestone 3 after live posting-evidence test. |
 
 ## Missing future schemas
 

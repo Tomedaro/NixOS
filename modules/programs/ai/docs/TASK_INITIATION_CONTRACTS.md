@@ -183,7 +183,7 @@ The deterministic proposal gate applies `contains_direct_execution` from `obsidi
 
 Same precedence as before: explicit TaskRef → active session (`status == "active"`) → description → refuse. An invalid/missing explicit reference never falls through. The resolved task is fingerprinted as lowercase SHA-256 of canonical UTF-8 data with NUL separators.
 
-The fingerprint is recomputed before context construction, Card publication, and Response acceptance. A mismatch atomically supersedes the interaction (`task_changed`).
+The fingerprint is recomputed when recording Context, before Card publication, and before Response acceptance. A mismatch atomically supersedes the interaction (`task_changed`).
 
 ## Private aggregate and lifecycle
 

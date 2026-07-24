@@ -10,13 +10,16 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import math
 import re as _re
 import sqlite3 as sqlite3_module
+import stat
 import time as time_mod
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Callable, Mapping
 
 from ai_system import task_initiation_contracts as c
 from ai_system.task_initiation_store import (
@@ -28,9 +31,11 @@ from ai_system.task_initiation_store import (
     TaskInitiationStore,
     _agg_from_db,
     _agg_to_db,
-    _canonical_json,
     _convert_evidence_issues,
-    _payload_sha256,
+    _expected_response_result,
+    _expected_stuck_result,
+    _interaction_policy_from_json,
+    reconstruct_expected_aggregate_v1,
 )
 
 # ---------------------------------------------------------------------------
@@ -39,10 +44,83 @@ IdFactory = Callable[[], uuid.UUID]
 
 
 @dataclass(frozen=True)
+class InteractionPolicy:
+    """Immutable per-interaction lifecycle policy snapshot.
+
+    Created from KernelPolicy at Stuck acceptance and persisted atomically
+    with the interaction.  Governs all subsequent lifecycle decisions for
+    that interaction regardless of later runtime policy changes.
+    """
+    policy_version: str = "task_initiation_interaction_policy.v1"
+    stuck_ttl_seconds: int = 7200
+    max_future_skew_seconds: int = 300
+    max_card_revisions: int = 3
+    tiny_start_minutes_cap: int = 10
+    start_countdown_seconds_cap: int = 600
+    observation_seconds: int = 600
+    context_ttl_seconds: int = 300
+    card_ttl_seconds: int = 900
+
+    def __post_init__(self) -> None:
+        if self.policy_version != "task_initiation_interaction_policy.v1":
+            raise ValueError(f"unsupported interaction policy version: {self.policy_version}")
+        for name, value, min_val in [
+            ("stuck_ttl_seconds", self.stuck_ttl_seconds, 1),
+            ("max_future_skew_seconds", self.max_future_skew_seconds, 0),
+            ("max_card_revisions", self.max_card_revisions, 1),
+            ("tiny_start_minutes_cap", self.tiny_start_minutes_cap, 1),
+            ("start_countdown_seconds_cap", self.start_countdown_seconds_cap, 1),
+            ("observation_seconds", self.observation_seconds, 1),
+            ("context_ttl_seconds", self.context_ttl_seconds, 1),
+            ("card_ttl_seconds", self.card_ttl_seconds, 1),
+        ]:
+            if isinstance(value, bool) or not isinstance(value, int) or value < min_val:
+                raise ValueError(f"InteractionPolicy.{name} must be int >= {min_val}, got {value!r}")
+
+    def to_canonical_json(self) -> str:
+        import json as _json
+        return _json.dumps({
+            "policy_version": self.policy_version,
+            "stuck_ttl_seconds": self.stuck_ttl_seconds,
+            "max_future_skew_seconds": self.max_future_skew_seconds,
+            "max_card_revisions": self.max_card_revisions,
+            "tiny_start_minutes_cap": self.tiny_start_minutes_cap,
+            "start_countdown_seconds_cap": self.start_countdown_seconds_cap,
+            "observation_seconds": self.observation_seconds,
+            "context_ttl_seconds": self.context_ttl_seconds,
+            "card_ttl_seconds": self.card_ttl_seconds,
+        }, sort_keys=True, separators=(",", ":"))
+
+    @classmethod
+    def from_kernel_policy(cls, kp: "KernelPolicy") -> "InteractionPolicy":
+        return cls(
+            max_card_revisions=kp.max_card_revisions,
+            max_future_skew_seconds=kp.max_future_skew_seconds,
+            start_countdown_seconds_cap=kp.start_countdown_seconds_cap,
+            observation_seconds=kp.observation_seconds,
+            context_ttl_seconds=kp.context_ttl_seconds,
+            card_ttl_seconds=kp.card_ttl_seconds,
+            stuck_ttl_seconds=kp.stuck_ttl_seconds,
+            tiny_start_minutes_cap=kp.tiny_start_minutes_cap,
+        )
+    def reducer_policy(self) -> dict[str, int]:
+        return {
+            "max_card_revisions": self.max_card_revisions,
+            "start_countdown_seconds_cap": self.start_countdown_seconds_cap,
+            "observation_seconds": self.observation_seconds,
+            "context_ttl_seconds": self.context_ttl_seconds,
+            "card_ttl_seconds": self.card_ttl_seconds,
+            "stuck_ttl_seconds": self.stuck_ttl_seconds,
+            "max_future_skew_seconds": self.max_future_skew_seconds,
+            "tiny_start_minutes_cap": self.tiny_start_minutes_cap,
+        }
+
+@dataclass(frozen=True)
 class KernelPolicy:
     stuck_ttl_seconds: int = 7200
     max_future_skew_seconds: int = 300
     max_card_revisions: int = 3
+    tiny_start_minutes_cap: int = 10
     start_countdown_seconds_cap: int = 600
     observation_seconds: int = 600
     context_ttl_seconds: int = 300
@@ -50,6 +128,23 @@ class KernelPolicy:
     max_resolution_tasks: int = 32
     max_input_bytes: int = 65536
     max_resolution_bytes: int = 16384
+
+    def __post_init__(self) -> None:
+        for name, value, min_val in [
+            ("stuck_ttl_seconds", self.stuck_ttl_seconds, 1),
+            ("max_future_skew_seconds", self.max_future_skew_seconds, 0),
+            ("max_card_revisions", self.max_card_revisions, 1),
+            ("tiny_start_minutes_cap", self.tiny_start_minutes_cap, 1),
+            ("start_countdown_seconds_cap", self.start_countdown_seconds_cap, 1),
+            ("observation_seconds", self.observation_seconds, 1),
+            ("context_ttl_seconds", self.context_ttl_seconds, 1),
+            ("card_ttl_seconds", self.card_ttl_seconds, 1),
+            ("max_resolution_tasks", self.max_resolution_tasks, 1),
+            ("max_input_bytes", self.max_input_bytes, 1),
+            ("max_resolution_bytes", self.max_resolution_bytes, 1),
+        ]:
+            if isinstance(value, bool) or not isinstance(value, int) or value < min_val:
+                raise ValueError(f"KernelPolicy.{name} must be int >= {min_val}, got {value!r}")
 
     def reducer_policy(self) -> dict[str, int]:
         return {
@@ -60,13 +155,8 @@ class KernelPolicy:
             "card_ttl_seconds": self.card_ttl_seconds,
             "stuck_ttl_seconds": self.stuck_ttl_seconds,
             "max_future_skew_seconds": self.max_future_skew_seconds,
+            "tiny_start_minutes_cap": self.tiny_start_minutes_cap,
         }
-
-
-@dataclass(frozen=True)
-class ResolutionInput:
-    tasks: Mapping[str, Mapping[str, str]]
-    active_session: Mapping[str, str] | None
 
 
 @dataclass(frozen=True)
@@ -75,18 +165,15 @@ class OperationResult:
     replay: bool
 
 
+@dataclass(frozen=True)
+class ResolutionInput:
+    tasks: Mapping[str, Mapping[str, str]]
+    active_session: Mapping[str, str] | None
+
 # ---------------------------------------------------------------------------
 # Resolution fixture helpers
 # ---------------------------------------------------------------------------
-
-_TASK_REF_RE = _re.compile(r"^Tasks(/[\w ._@+%!-]+)+\.md$")
 _SHA256_RE = _re.compile(r"^[0-9a-f]{64}$")
-
-
-def _validate_task_ref(ref: str) -> str:
-    if not isinstance(ref, str) or not _TASK_REF_RE.match(ref):
-        raise KernelRefusalError(f"invalid task_ref: {ref!r}")
-    return ref
 
 
 def _validate_revision(rev: str) -> str:
@@ -100,50 +187,66 @@ def _normalize_text(value: str, max_len: int = 500) -> str:
         raise KernelRefusalError("contains_nul")
     text = " ".join(value.split()).strip()
     if len(text) > max_len:
-        text = text[:max_len]
+        raise KernelRefusalError("resolution_input: value too long")
     return text
 
 
-def load_resolution_input(path: Path, *, max_bytes: int = 16384) -> ResolutionInput:
-    if not path.is_file():
-        raise KernelRefusalError("resolution_input: not a regular file")
+def load_resolution_input(path: Path, *, policy: KernelPolicy) -> ResolutionInput:
+    # Open with O_NOFOLLOW (when available) to reject symlinks at the OS level.
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
     try:
-        raw = path.read_bytes()
-    except OSError as exc:
-        raise KernelRefusalError(f"resolution_input: cannot read: {exc}")
-    if len(raw) > max_bytes:
-        raise KernelRefusalError(f"resolution_input: {len(raw)} bytes exceeds {max_bytes} limit")
+        fd = os.open(str(path), flags)
+    except OSError:
+        raise KernelRefusalError("resolution_input: cannot access file")
     try:
-        data = json.loads(raw.decode("utf-8"))
-    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
-        raise KernelRefusalError(f"resolution_input: invalid JSON: {exc}")
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode):
+            raise KernelRefusalError("resolution_input: not a regular file")
+        if st.st_size > policy.max_resolution_bytes:
+            raise KernelRefusalError("resolution_input: file exceeds size limit")
+        limit = policy.max_resolution_bytes + 1
+        raw = os.read(fd, limit)
+        if len(raw) > policy.max_resolution_bytes:
+            raise KernelRefusalError("resolution_input: exceeds size limit")
+    finally:
+        os.close(fd)
+    try:
+        data = c._strict_json_loads(raw.decode("utf-8"))
+    except ValueError as exc:
+        raise KernelRefusalError("resolution_input: invalid JSON") from exc
     if not isinstance(data, dict):
         raise KernelRefusalError("resolution_input: must be a JSON object")
     for key in data:
         if key not in {"tasks", "active_session"}:
-            raise KernelRefusalError(f"resolution_input: unknown key: {key}")
+            raise KernelRefusalError("resolution_input: unknown key")
     tasks: dict[str, dict[str, str]] = {}
     raw_tasks = data.get("tasks")
     if raw_tasks is not None:
         if not isinstance(raw_tasks, dict):
             raise KernelRefusalError("resolution_input.tasks: must be an object")
-        if len(raw_tasks) > 32:
-            raise KernelRefusalError(f"resolution_input.tasks: {len(raw_tasks)} entries exceeds 32 limit")
+        if len(raw_tasks) > policy.max_resolution_tasks:
+            raise KernelRefusalError("resolution_input.tasks: too many entries")
         for key, value in raw_tasks.items():
-            key_str = str(key)
-            _validate_task_ref(key_str)
+            if not isinstance(key, str):
+                raise KernelRefusalError("resolution_input: invalid task_ref")
+            try:
+                c._validate_inline_task_ref({"source": "tasknotes", "ref": key})
+            except c.TaskInitiationContractError:
+                raise KernelRefusalError("resolution_input: invalid task_ref")
             if not isinstance(value, dict):
-                raise KernelRefusalError(f"resolution_input.tasks.{key_str}: must be an object")
+                raise KernelRefusalError("resolution_input.tasks: must be an object")
             for tk in value:
                 if tk not in {"label", "revision"}:
-                    raise KernelRefusalError(f"resolution_input.tasks.{key_str}: unknown key: {tk}")
+                    raise KernelRefusalError("resolution_input.tasks: unknown key")
             label = value.get("label")
             rev = value.get("revision")
             if not isinstance(label, str):
-                raise KernelRefusalError(f"resolution_input.tasks.{key_str}.label: must be a string")
+                raise KernelRefusalError("resolution_input.tasks.label: must be a string")
             if not isinstance(rev, str):
-                raise KernelRefusalError(f"resolution_input.tasks.{key_str}.revision: must be a string")
-            tasks[key_str] = {"label": _normalize_text(label), "revision": _validate_revision(rev)}
+                raise KernelRefusalError("resolution_input.tasks.revision: must be a string")
+            tasks[key] = {"label": _normalize_text(label), "revision": _validate_revision(rev)}
     active_session: dict[str, str] | None = None
     raw_session = data.get("active_session")
     if raw_session is not None:
@@ -151,12 +254,12 @@ def load_resolution_input(path: Path, *, max_bytes: int = 16384) -> ResolutionIn
             raise KernelRefusalError("resolution_input.active_session: must be an object")
         for sk in raw_session:
             if sk not in {"status", "session_id", "task"}:
-                raise KernelRefusalError(f"resolution_input.active_session: unknown key: {sk}")
+                raise KernelRefusalError("resolution_input.active_session: unknown key")
         status = raw_session.get("status")
         session_id = raw_session.get("session_id")
         task_label = raw_session.get("task")
         if status != "active":
-            raise KernelRefusalError(f"resolution_input.active_session.status: expected 'active', got {status!r}")
+            raise KernelRefusalError("resolution_input.active_session.status: invalid")
         if not isinstance(session_id, str) or not session_id.strip():
             raise KernelRefusalError("resolution_input.active_session.session_id: must be nonempty")
         if not isinstance(task_label, str) or not task_label.strip():
@@ -204,7 +307,7 @@ def build_placeholder_preparation(
         "privacy_class": "sensitive_personal",
         "disclosed_facts": {
             "task": {"label": label},
-            "followup": None,
+            "followup": followup,
             "project_summary": None,
             "session_capsule": None,
             "recent_interactions": [],
@@ -212,7 +315,7 @@ def build_placeholder_preparation(
         },
         "provenance": [{
             "category": "task",
-            "source_ref_sha256": hashlib.sha256(b"placeholder_worker.v1").hexdigest(),
+            "source_ref_sha256": task_fingerprint,
             "observed_at_epoch": now_epoch,
             "fresh_until_epoch": context_expiry,
         }],
@@ -223,7 +326,7 @@ def build_placeholder_preparation(
     }
 
     model_payload = c.api_payload_from_context(context)
-    context["model_content_sha256"] = hashlib.sha256(_canonical_json(model_payload)).hexdigest()
+    context["model_content_sha256"] = hashlib.sha256(c._canonical_json(model_payload)).hexdigest()
     context = c.validate_context(context)
 
     # Proposal
@@ -278,15 +381,80 @@ def build_placeholder_preparation(
 # Kernel
 # ---------------------------------------------------------------------------
 
-
 def wall_clock_epoch() -> int:
     return int(time_mod.time())
+
+
+_INTERACTION_POLICY_VERSION = "task_initiation_interaction_policy.v1"
+
+
+def _interaction_policy_to_json(policy: KernelPolicy) -> str:
+    """Produce canonical JSON snapshot of lifecycle policy fields via InteractionPolicy."""
+    ip = InteractionPolicy.from_kernel_policy(policy)
+    return ip.to_canonical_json()
+
+
+def _interaction_policy_from_json(raw: str) -> InteractionPolicy:
+    """Decode and validate a persisted interaction policy snapshot.
+
+    Returns a typed InteractionPolicy.  Raises KernelCorruptionError on
+    malformed JSON, wrong version, missing/extra keys, or invalid values.
+    """
+    try:
+        data = c._strict_json_loads(raw)
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise KernelCorruptionError(f"interaction policy: invalid JSON: {exc}")
+    if not isinstance(data, dict):
+        raise KernelCorruptionError("interaction policy: not a JSON object")
+    if data.get("policy_version") != InteractionPolicy.policy_version:
+        raise KernelCorruptionError("interaction policy: unsupported version")
+    expected_keys = frozenset({
+        "policy_version", "stuck_ttl_seconds", "max_future_skew_seconds",
+        "max_card_revisions", "tiny_start_minutes_cap",
+        "start_countdown_seconds_cap", "observation_seconds",
+        "context_ttl_seconds", "card_ttl_seconds",
+    })
+    if set(data.keys()) != expected_keys:
+        raise KernelCorruptionError("interaction policy: key mismatch")
+    for key in data:
+        if key == "policy_version":
+            continue
+        if isinstance(data[key], bool) or not isinstance(data[key], int):
+            raise KernelCorruptionError(f"interaction policy.{key}: must be int, got {type(data[key]).__name__}")
+    for key, min_val in [
+        ("stuck_ttl_seconds", 1), ("max_future_skew_seconds", 0),
+        ("max_card_revisions", 1), ("tiny_start_minutes_cap", 1),
+        ("start_countdown_seconds_cap", 1), ("observation_seconds", 1),
+        ("context_ttl_seconds", 1), ("card_ttl_seconds", 1),
+    ]:
+        if data[key] < min_val:
+            raise KernelCorruptionError(f"interaction policy.{key}: must be >= {min_val}, got {data[key]}")
+    result = InteractionPolicy(
+        stuck_ttl_seconds=data["stuck_ttl_seconds"],
+        max_future_skew_seconds=data["max_future_skew_seconds"],
+        max_card_revisions=data["max_card_revisions"],
+        tiny_start_minutes_cap=data["tiny_start_minutes_cap"],
+        start_countdown_seconds_cap=data["start_countdown_seconds_cap"],
+        observation_seconds=data["observation_seconds"],
+        context_ttl_seconds=data["context_ttl_seconds"],
+        card_ttl_seconds=data["card_ttl_seconds"],
+    )
+    # Require canonical encoding round-trip
+    if raw != result.to_canonical_json():
+        raise KernelCorruptionError("interaction policy: not canonical")
+    return result
+
+
 
 
 class TaskInitiationKernel:
     def __init__(self, state_dir: Path, *, policy: KernelPolicy = KernelPolicy(),
                  clock: Clock = wall_clock_epoch, id_factory: IdFactory = uuid.uuid4,
                  busy_timeout_seconds: float = 5.0) -> None:
+        if isinstance(busy_timeout_seconds, bool) or not isinstance(busy_timeout_seconds, (int, float)):
+            raise ValueError(f"busy_timeout_seconds must be a number, got {busy_timeout_seconds!r}")
+        if not math.isfinite(busy_timeout_seconds) or busy_timeout_seconds < 0:
+            raise ValueError(f"busy_timeout_seconds must be finite and nonnegative, got {busy_timeout_seconds!r}")
         self._policy = policy
         self._clock = clock
         self._id_factory = id_factory
@@ -302,7 +470,7 @@ class TaskInitiationKernel:
 
     def ingest_stuck(self, stuck: Mapping[str, Any], *, resolution: ResolutionInput | None = None) -> OperationResult:
         validated = c.validate_stuck_event(stuck)
-        pj = _canonical_json(validated)
+        pj = c._canonical_json(validated)
         ph = hashlib.sha256(pj).hexdigest()
         pjs = pj.decode("utf-8")
         event_id = validated["event_id"]
@@ -332,14 +500,37 @@ class TaskInitiationKernel:
                 state = c._record_context_prepared(state, ctx, resolved, now_epoch=now, policy=rp)
                 state = c._record_proposal_validated(state, prop, now_epoch=now, policy=rp)
                 state = c._record_card_published(state, cd, now_epoch=now, resolved_task=resolved, policy=rp)
-                result: dict[str, Any] = {"kind": "stuck", "status": "card_published", "event_id": event_id, "interaction_id": iid, "card": cd}
                 aj = _agg_to_db(state)
                 dl = cd.get("expires_at_epoch")
-                conn.execute("INSERT INTO interactions (event_id,interaction_id,aggregate_json,state_version,phase,terminal_status,next_deadline_epoch,last_observed_at_epoch,created_at_epoch,updated_at_epoch) VALUES (?,?,?,?,?,?,?,?,?,?)",
-                             (event_id, iid, aj, state["state_version"], state["phase"], state.get("terminal_status"), dl, now, now, now))
-                conn.execute("INSERT INTO messages (kind,message_id,payload_sha256,payload_json,event_id,result_json,recorded_at_epoch) VALUES (?,?,?,?,?,?,?)",
-                             ("stuck", event_id, ph, pjs, event_id, json.dumps(result, sort_keys=True), now))
+                policy_json = _interaction_policy_to_json(self._policy)
+                conn.execute("INSERT INTO interactions (event_id,interaction_id,aggregate_json,state_version,phase,terminal_status,next_deadline_epoch,last_observed_at_epoch,created_at_epoch,updated_at_epoch,interaction_policy_json) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                             (event_id, iid, aj, state["state_version"], state["phase"], state.get("terminal_status"), dl, now, now, now, policy_json))
                 conn.execute("INSERT INTO card_index (card_id,event_id,revision) VALUES (?,?,?)", (cd_id, event_id, 1))
+                result = _expected_stuck_result(event_id, iid, state, conn)
+                result_json = c._canonical_json(result).decode("utf-8")
+                conn.execute("INSERT INTO messages (kind,message_id,payload_sha256,payload_json,event_id,result_json,recorded_at_epoch) VALUES (?,?,?,?,?,?,?)",
+                             ("stuck", event_id, ph, pjs, event_id, result_json, now))
+                # --- write-before-commit gate: validate and reconstruct ---
+                self._load_validated_interaction(conn, event_id)
+                interaction_pol = InteractionPolicy.from_kernel_policy(self._policy)
+                sr = conn.execute(
+                    "SELECT * FROM messages WHERE kind='stuck' AND event_id=?", (event_id,)
+                ).fetchone()
+                if sr is None:
+                    raise KernelCorruptionError(f"ingest_stuck: no Stuck row for {event_id}")
+                reconstructed = reconstruct_expected_aggregate_v1(
+                    stuck_row=sr,
+                    resolved_task=resolved,
+                    revisions=state["revisions"],
+                    response_messages={},
+                    superseding_msg=None,
+                    terminal_at_epoch=None,
+                    interaction_policy=interaction_pol,
+                )
+                if _agg_to_db(reconstructed) != _agg_to_db(state):
+                    raise KernelCorruptionError(
+                        "ingest_stuck: reducer reconstruction mismatch"
+                    )
                 return OperationResult(result=result, replay=False)
         except c.TaskInitiationContractError as exc:
             raise KernelRefusalError(str(exc)) from exc
@@ -354,85 +545,156 @@ class TaskInitiationKernel:
 
     def respond(self, response: Mapping[str, Any], *, resolution: ResolutionInput | None = None) -> OperationResult:
         validated = c.validate_response(response)
-        pj = _canonical_json(validated)
-        ph = hashlib.sha256(pj).hexdigest()
+        pj = c._canonical_json(validated)
+        ph = c._payload_sha256(validated)
         pjs = pj.decode("utf-8")
         rid = validated["response_id"]
         cid_card = validated["card_id"]
         try:
             with self._store.immediate_transaction() as conn:
-                ex = conn.execute("SELECT * FROM messages WHERE kind='response' AND message_id=?", (rid,)).fetchone()
+                # --- exact replay ---
+                ex = conn.execute(
+                    "SELECT * FROM messages WHERE kind='response' AND message_id=?", (rid,)
+                ).fetchone()
                 if ex is not None:
                     if ex["payload_sha256"] == ph:
-                        return OperationResult(result=self._store.validate_replay_bundle(conn, ex), replay=True)
+                        return OperationResult(
+                            result=self._store.validate_replay_bundle(conn, ex), replay=True
+                        )
                     raise KernelRefusalError(f"idempotency_conflict: {rid}")
-                now = self._clock()
-                cr = conn.execute("SELECT * FROM card_index WHERE card_id=?", (cid_card,)).fetchone()
+                # --- route Card -> interaction ---
+                cr = conn.execute(
+                    "SELECT * FROM card_index WHERE card_id=?", (cid_card,)
+                ).fetchone()
                 if cr is None:
                     raise KernelRefusalError(f"unknown card_id: {cid_card}")
                 event_id = cr["event_id"]
-                ir = conn.execute("SELECT * FROM interactions WHERE event_id=?", (event_id,)).fetchone()
-                if ir is None:
-                    raise KernelCorruptionError(f"card_index {cid_card} references missing interaction {event_id}")
-                aggregate = _agg_from_db(ir["aggregate_json"], source=f"interaction {event_id}")
-                from ai_system.task_initiation_store import _validate_aggregate_structure, _validate_revision_contiguity
-                _validate_aggregate_structure(aggregate, row_event_id=event_id)
-                _validate_revision_contiguity(aggregate)
-                eff = max(now, ir["last_observed_at_epoch"])
-                state = c._advance_time(aggregate, now_epoch=eff, policy=self._policy.reducer_policy())
+                card_revision = cr["revision"]
+                # --- load and validate owner ---
+                int_row, aggregate = self._load_validated_interaction(conn, event_id)
+                persisted_policy_ip = self._load_interaction_policy(conn, event_id)
+                persisted_policy = persisted_policy_ip.reducer_policy()
+                now = self._clock()
+                eff = max(now, int_row["last_observed_at_epoch"])
+                state = c._advance_time(aggregate, now_epoch=eff, policy=persisted_policy)
+                post_commit_refusal: KernelRefusalError | None = None
+                # --- deadline check ---
                 if state.get("terminal_status") is not None:
                     if state["state_version"] != aggregate["state_version"]:
+                        # Deadline advancement just made it terminal
                         self._persist_state(conn, state, event_id, eff)
-                    raise KernelRefusalError(f"interaction {event_id} is terminal: {state.get('terminal_status')}")
-                sr = conn.execute("SELECT payload_json FROM messages WHERE kind='stuck' AND event_id=?", (event_id,)).fetchone()
-                if sr is None:
-                    raise KernelCorruptionError(f"interaction {event_id}: no Stuck message")
-                stuck_payload = json.loads(sr["payload_json"])
-                lookup = _build_resolution_lookup(resolution)
-                session = _get_resolution_session(resolution)
-                resolved = c.resolve_task(stuck_payload, session=session, lookup=lookup)
-                rp = self._policy.reducer_policy()
-                state = c._apply_response(state, validated, received_at_epoch=eff, resolved_task=resolved, policy=rp)
-                # Handle Shrink/Blocked preparation
-                if state["phase"] == "preparing":
-                    action = validated["action"]
-                    nrev = (state.get("current_revision") or 0) + 1
-                    iid = state.get("interaction_id")
-                    fp = state.get("task_fingerprint")
-                    nctx = str(self._id_factory())
-                    ncd = str(self._id_factory())
-                    ctx2, prop2, cd2 = build_placeholder_preparation(
-                        resolved_task=resolved, interaction_id=iid, revision=nrev,
-                        task_fingerprint=fp, now_epoch=eff, context_id=nctx, card_id=ncd,
-                        followup={"action": action}, policy=self._policy,
-                    )
-                    state = c._record_context_prepared(state, ctx2, resolved, now_epoch=eff, policy=rp)
-                    state = c._record_proposal_validated(state, prop2, now_epoch=eff, policy=rp)
-                    state = c._record_card_published(state, cd2, now_epoch=eff, resolved_task=resolved, policy=rp)
-                    # Find response revision
-                    frev = None
-                    for rv in state.get("revisions", []):
-                        if rv.get("response") and rv["response"].get("response_id") == rid:
-                            frev = rv["revision"]; break
-                    if frev is None:
-                        frev = max(len(state.get("revisions", [])) - 1, 1)
-                    result: dict[str, Any] = {
-                        "kind": "response", "status": "accepted", "response_id": rid,
-                        "card_id": cid_card, "interaction_id": iid, "revision": frev,
-                        "action": action, "next_card": cd2, "phase": "awaiting_response",
-                        "terminal_status": None, "resolution_reason": None, "observation_due_at_epoch": None,
-                    }
+                        self._load_validated_interaction(conn, event_id)
+                        post_commit_refusal = KernelRefusalError(
+                            f"interaction {event_id} became terminal: {state.get('terminal_status')}"
+                        )
+                    else:
+                        # Already terminal before deadline check
+                        raise KernelRefusalError(
+                            f"interaction {event_id} is terminal: {state.get('terminal_status')}"
+                        )
+                else:
+                    sr = conn.execute(
+                        "SELECT * FROM messages WHERE kind='stuck' AND event_id=?", (event_id,)
+                    ).fetchone()
+                    if sr is None:
+                        raise KernelCorruptionError(f"interaction {event_id}: no Stuck message")
+                    stuck_payload = c._strict_json_loads(sr["payload_json"])
+                    if not isinstance(stuck_payload, dict):
+                        raise KernelCorruptionError(f"interaction {event_id}: Stuck payload is not a dict")
+                    # --- resolve and apply ---
+                    lookup = _build_resolution_lookup(resolution)
+                    session = _get_resolution_session(resolution)
+                    resolved = c.resolve_task(stuck_payload, session=session, lookup=lookup)
+                    state = c._apply_response(state, validated, received_at_epoch=eff, resolved_task=resolved, policy=persisted_policy)
+                    iid = state["interaction_id"]
+                    # --- build result ---
+                    next_card: dict[str, Any] | None = None
+                    if state["phase"] == "preparing":
+                        # Find targeted revision for followup
+                        targeted_revision: dict[str, Any] | None = None
+                        for rv in aggregate.get("revisions", []):
+                            if rv["revision"] == card_revision:
+                                targeted_revision = rv
+                                break
+                        nrev = (state.get("current_revision") or 0) + 1
+                        fp = state.get("task_fingerprint")
+                        nctx = str(self._id_factory())
+                        ncd = str(self._id_factory())
+                        followup: dict[str, Any] = {
+                            "action": validated["action"],
+                            "detail": validated["detail"],
+                            "prior_tiny_start": (
+                                targeted_revision["card"]["tiny_start"]["instruction"]
+                                if targeted_revision is not None
+                                else ""
+                            ),
+                        }
+                        ctx2, prop2, cd2 = build_placeholder_preparation(
+                            resolved_task=resolved, interaction_id=iid, revision=nrev,
+                            task_fingerprint=fp, now_epoch=eff, context_id=nctx, card_id=ncd,
+                            followup=followup, policy=KernelPolicy(**persisted_policy),
+                        )
+                        state = c._record_context_prepared(state, ctx2, resolved, now_epoch=eff, policy=persisted_policy)
+                        state = c._record_proposal_validated(state, prop2, now_epoch=eff, policy=persisted_policy)
+                        state = c._record_card_published(state, cd2, now_epoch=eff, resolved_task=resolved, policy=persisted_policy)
+                        next_card = cd2
+                    # --- persist state and next card before building result ---
                     self._persist_state(conn, state, event_id, eff)
-                    conn.execute("INSERT INTO messages (kind,message_id,payload_sha256,payload_json,event_id,result_json,recorded_at_epoch) VALUES (?,?,?,?,?,?,?)",
-                                 ("response", rid, ph, pjs, event_id, json.dumps(result, sort_keys=True), eff))
-                    conn.execute("INSERT INTO card_index (card_id,event_id,revision) VALUES (?,?,?)", (ncd, event_id, nrev))
+                    if next_card is not None:
+                        conn.execute(
+                            "INSERT INTO card_index (card_id,event_id,revision) VALUES (?,?,?)",
+                            (next_card["card_id"], event_id, next_card["revision"]),
+                        )
+                    result = _expected_response_result(rid, state, conn, payload=validated)
+                    result_json = c._canonical_json(result).decode("utf-8")
+                    conn.execute(
+                        "INSERT INTO messages (kind,message_id,payload_sha256,payload_json,event_id,result_json,recorded_at_epoch) VALUES (?,?,?,?,?,?,?)",
+                        ("response", rid, ph, pjs, event_id, result_json, eff),
+                    )
+                    # --- post-commit validation ---
+                    self._load_validated_interaction(conn, event_id)
+                    # --- reducer reconstruction gate ---
+                    all_resp_rows = conn.execute(
+                        "SELECT * FROM messages WHERE kind='response' AND event_id=?",
+                        (event_id,),
+                    ).fetchall()
+                    resp_msg_map: dict[str, Any] = {}
+                    superseding: Any = None
+                    for rrow in all_resp_rows:
+                        rpay = c._strict_json_loads(rrow["payload_json"])
+                        if isinstance(rpay, dict):
+                            resp_msg_map[rpay.get("response_id", rrow["message_id"])] = rrow
+                    for rrow in all_resp_rows:
+                        rpay = c._strict_json_loads(rrow["payload_json"])
+                        if isinstance(rpay, dict):
+                            rid_key = rpay.get("response_id")
+                            in_rev = any(
+                                (rev.get("response") or {}).get("response_id") == rid_key
+                                for rev in state.get("revisions", [])
+                            )
+                            if not in_rev:
+                                superseding = rrow
+                    rec_policy = persisted_policy_ip
+                    # Use original resolved_task from aggregate for reconstruction,
+                    # not the current resolution (which may differ for task_changed).
+                    rec_agg = reconstruct_expected_aggregate_v1(
+                        stuck_row=sr,
+                        resolved_task=aggregate.get("resolved_task", resolved),
+                        revisions=state["revisions"],
+                        response_messages=resp_msg_map,
+                        superseding_msg=superseding,
+                        terminal_at_epoch=state.get("terminal_at_epoch"),
+                        interaction_policy=rec_policy,
+                    )
+                    if _agg_to_db(rec_agg) != _agg_to_db(state):
+                        raise KernelCorruptionError(
+                            "respond: reducer reconstruction mismatch"
+                        )
                     return OperationResult(result=result, replay=False)
-                # Non-preparing
-                result = self._static_result(state, validated, event_id, cid_card)
-                self._persist_state(conn, state, event_id, eff)
-                conn.execute("INSERT INTO messages (kind,message_id,payload_sha256,payload_json,event_id,result_json,recorded_at_epoch) VALUES (?,?,?,?,?,?,?)",
-                             ("response", rid, ph, pjs, event_id, json.dumps(result, sort_keys=True), eff))
-                return OperationResult(result=result, replay=False)
+                # If we reach here with a post_commit_refusal, let the with block exit normally
+                # so it commits, then raise after
+            if post_commit_refusal is not None:
+                raise post_commit_refusal
         except c.TaskInitiationContractError as exc:
             raise KernelRefusalError(str(exc)) from exc
         except (KernelBusyError, KernelCorruptionError, KernelStorageError):
@@ -442,65 +704,91 @@ class TaskInitiationKernel:
                 raise KernelBusyError()
             raise KernelStorageError(str(exc))
 
-    def _static_result(self, state: dict[str, Any], validated: dict[str, Any], event_id: str, cid_card: str) -> dict[str, Any]:
-        rid = validated["response_id"]
-        action = validated["action"]
-        iid = state.get("interaction_id")
-        revision = None
-        for rv in state.get("revisions", []):
-            if rv.get("card_id") == cid_card:
-                revision = rv["revision"]; break
-        base: dict[str, Any] = {"kind": "response", "response_id": rid, "card_id": cid_card, "interaction_id": iid, "revision": revision}
-        if state.get("terminal_status") == "superseded":
-            base.update(status="superseded", requested_action=action, next_card=None, phase=state["phase"],
-                        terminal_status="superseded", resolution_reason="task_changed", observation_due_at_epoch=None)
-            return base
-        base.update(status="accepted", action=action, phase=state["phase"],
-                     terminal_status=state.get("terminal_status"), resolution_reason=state.get("resolution_reason"),
-                     observation_due_at_epoch=state.get("observation_due_at_epoch"), next_card=None)
-        return base
 
-    def _persist_state(self, conn: Any, state: dict[str, Any], event_id: str, eff: int) -> None:
-        dl = TaskInitiationStore._compute_next_deadline(state)
+    def _load_validated_interaction(
+        self, conn: sqlite3.Connection, event_id: str
+    ) -> tuple[sqlite3.Row, dict[str, Any]]:
+        """Load and fully validate an interaction row and its aggregate."""
+        int_row = conn.execute(
+            "SELECT * FROM interactions WHERE event_id = ?", (event_id,)
+        ).fetchone()
+        if int_row is None:
+            raise KernelNotFoundError(f"interaction {event_id} not found")
+        aggregate = _agg_from_db(int_row["aggregate_json"], source=f"interaction {event_id}")
+        self._store._validate_interaction_row(conn, event_id)
+        return int_row, aggregate
+
+    def _load_interaction_policy(
+        self, conn: sqlite3.Connection, event_id: str
+    ) -> InteractionPolicy:
+        """Load and validate the persisted interaction policy snapshot."""
+        row = conn.execute(
+            "SELECT interaction_policy_json FROM interactions WHERE event_id = ?",
+            (event_id,),
+        ).fetchone()
+        if row is None:
+            raise KernelCorruptionError(f"interaction {event_id}: not found")
+        return _interaction_policy_from_json(row["interaction_policy_json"])
+
+    def _persist_state(
+        self,
+        conn: sqlite3.Connection,
+        state: Mapping[str, Any],
+        event_id: str,
+        last_observed: int,
+    ) -> None:
+        """Update the persisted interaction row from new state."""
         aj = _agg_to_db(state)
-        conn.execute("UPDATE interactions SET aggregate_json=?,state_version=?,phase=?,terminal_status=?,next_deadline_epoch=?,last_observed_at_epoch=?,updated_at_epoch=? WHERE event_id=?",
-                     (aj, state["state_version"], state["phase"], state.get("terminal_status"), dl, eff, eff, event_id))
+        dl = self._store._compute_next_deadline(state)
+        conn.execute(
+            "UPDATE interactions SET aggregate_json=?, state_version=?, phase=?, "
+            "terminal_status=?, next_deadline_epoch=?, last_observed_at_epoch=?, "
+            "updated_at_epoch=? WHERE event_id=?",
+            (aj, state["state_version"], state["phase"], state.get("terminal_status"),
+             dl, last_observed, last_observed, event_id),
+        )
 
     # --- show ---
 
     def show(self, event_id: str, *, include_sensitive: bool = False) -> dict[str, Any]:
         with self._store.read_connection() as conn:
-            row = conn.execute("SELECT * FROM interactions WHERE event_id=?", (event_id,)).fetchone()
-            if row is None:
-                raise KernelNotFoundError(f"interaction {event_id} not found")
+            now = self._clock()
+            int_row, aggregate = self._load_validated_interaction(conn, event_id)
             result: dict[str, Any] = {
-                "event_id": event_id, "interaction_id": None, "phase": row["phase"],
-                "terminal_status": row["terminal_status"], "state_version": row["state_version"],
-                "created_at_epoch": row["created_at_epoch"], "updated_at_epoch": row["updated_at_epoch"],
-                "needs_reconciliation": self._needs_reconciliation(row),
+                "event_id": event_id, "interaction_id": aggregate.get("interaction_id"),
+                "phase": int_row["phase"],
+                "terminal_status": int_row["terminal_status"],
+                "state_version": int_row["state_version"],
+                "created_at_epoch": int_row["created_at_epoch"],
+                "updated_at_epoch": int_row["updated_at_epoch"],
+                "needs_reconciliation": self._needs_reconciliation(int_row, now_epoch=now),
             }
-            agg = _agg_from_db(row["aggregate_json"], source=f"interaction {event_id}")
-            result["interaction_id"] = agg.get("interaction_id")
             if include_sensitive:
-                result["aggregate"] = _convert_evidence_issues(agg)
+                result["aggregate"] = _convert_evidence_issues(aggregate)
             return result
 
     # --- list_active ---
 
     def list_active(self, *, include_sensitive: bool = False) -> list[dict[str, Any]]:
         with self._store.read_connection() as conn:
-            rows = conn.execute("SELECT * FROM interactions WHERE terminal_status IS NULL ORDER BY event_id").fetchall()
+            now = self._clock()
+            rows = conn.execute(
+                "SELECT * FROM interactions WHERE terminal_status IS NULL ORDER BY event_id"
+            ).fetchall()
             results: list[dict[str, Any]] = []
             for row in rows:
+                _, aggregate = self._load_validated_interaction(conn, row["event_id"])
                 item: dict[str, Any] = {
-                    "event_id": row["event_id"], "interaction_id": None, "phase": row["phase"],
-                    "state_version": row["state_version"], "created_at_epoch": row["created_at_epoch"],
-                    "updated_at_epoch": row["updated_at_epoch"], "needs_reconciliation": self._needs_reconciliation(row),
+                    "event_id": row["event_id"],
+                    "interaction_id": aggregate.get("interaction_id"),
+                    "phase": row["phase"],
+                    "state_version": row["state_version"],
+                    "created_at_epoch": row["created_at_epoch"],
+                    "updated_at_epoch": row["updated_at_epoch"],
+                    "needs_reconciliation": self._needs_reconciliation(row, now_epoch=now),
                 }
-                agg = _agg_from_db(row["aggregate_json"], source=f"interaction {row['event_id']}")
-                item["interaction_id"] = agg.get("interaction_id")
                 if include_sensitive:
-                    item["aggregate"] = _convert_evidence_issues(agg)
+                    item["aggregate"] = _convert_evidence_issues(aggregate)
                 results.append(item)
             return results
 
@@ -510,22 +798,38 @@ class TaskInitiationKernel:
         try:
             with self._store.immediate_transaction() as conn:
                 now = self._clock()
-                rows = conn.execute("SELECT * FROM interactions WHERE terminal_status IS NULL ORDER BY event_id").fetchall()
-                changed = 0; expired = 0; completed = 0
-                from ai_system.task_initiation_store import _validate_aggregate_structure, _validate_revision_contiguity
+                rows = conn.execute(
+                    "SELECT * FROM interactions WHERE terminal_status IS NULL ORDER BY event_id"
+                ).fetchall()
+                # Pass 1: validate all owners, abort on any corruption
+                owners: list[tuple[sqlite3.Row, dict[str, Any]]] = []
                 for row in rows:
-                    agg = _agg_from_db(row["aggregate_json"], source=f"interaction {row['event_id']}")
-                    _validate_aggregate_structure(agg, row_event_id=row["event_id"])
-                    _validate_revision_contiguity(agg)
+                    _, aggregate = self._load_validated_interaction(conn, row["event_id"])
+                    owners.append((row, aggregate))
+                # Pass 2: advance and persist
+                changed = 0; expired = 0; completed = 0
+                for row, aggregate in owners:
                     eff = max(now, row["last_observed_at_epoch"])
-                    ns = c._advance_time(agg, now_epoch=eff, policy=self._policy.reducer_policy())
-                    if ns["state_version"] != agg["state_version"]:
+                    persisted_policy = self._load_interaction_policy(conn, row["event_id"])
+                    ns = c._advance_time(aggregate, now_epoch=eff, policy=persisted_policy)
+                    if ns["state_version"] != aggregate["state_version"]:
                         changed += 1
                         nt = ns.get("terminal_status")
-                        if nt == "expired": expired += 1
-                        elif nt == "completed": completed += 1
+                        if nt == "expired":
+                            expired += 1
+                        elif nt == "completed":
+                            completed += 1
                         self._persist_state(conn, ns, row["event_id"], eff)
-                return {"ok": True, "reconciled": changed, "expired": expired, "completed": completed, "checked_at_epoch": now}
+                        # Validate after persist
+                        self._load_validated_interaction(conn, row["event_id"])
+                    elif eff > row["last_observed_at_epoch"]:
+                        # No reducer change, but high-water must advance
+                        conn.execute(
+                            "UPDATE interactions SET last_observed_at_epoch=?, updated_at_epoch=? WHERE event_id=?",
+                            (eff, eff, row["event_id"]),
+                        )
+                return {"ok": True, "reconciled": changed, "expired": expired,
+                        "completed": completed, "checked_at_epoch": now}
         except (KernelBusyError, KernelCorruptionError, KernelStorageError):
             raise
         except sqlite3_module.OperationalError as exc:
@@ -534,9 +838,9 @@ class TaskInitiationKernel:
             raise KernelStorageError(str(exc))
 
     @staticmethod
-    def _needs_reconciliation(row: sqlite3_module.Row) -> bool:
+    def _needs_reconciliation(row: sqlite3_module.Row, *, now_epoch: int) -> bool:
         if row["terminal_status"] is not None:
             return False
         if row["next_deadline_epoch"] is None:
             return False
-        return int(time_mod.time()) >= row["next_deadline_epoch"]
+        return max(now_epoch, row["last_observed_at_epoch"]) >= row["next_deadline_epoch"]

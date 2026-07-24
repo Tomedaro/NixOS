@@ -33,4 +33,4 @@ These choices should be made during the corresponding roadmap milestone and reco
 
 ## Clock synchronization
 
-Milestone 1 expects Tasker and laptop clocks to remain synchronized within the configured skew allowance (currently 300 seconds). Unreliable device clocks are a known risk; live validation is deferred to Milestone 3. If clock drift exceeds the allowance in practice, the skew tolerance or synchronization mechanism must be chosen before Milestone 3 exit.
+Milestone 3 Tasker integration must demonstrate that Tasker and laptop clocks remain synchronized within the configured skew allowance (currently 300 seconds). Unreliable device clocks are a known risk; live validation is deferred to Milestone 3. If clock drift exceeds the allowance in practice, the skew tolerance or synchronization mechanism must be chosen before Milestone 3 exit.

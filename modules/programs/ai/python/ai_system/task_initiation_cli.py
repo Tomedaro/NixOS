@@ -8,11 +8,13 @@ dependencies through the kernel constructor or the in-file --cli-driver.
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import sys
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, BinaryIO, Mapping, Sequence
 
+from ai_system import task_initiation_contracts as c
 from ai_system.task_initiation_kernel import (
     KernelPolicy,
     OperationResult,
@@ -89,17 +91,20 @@ def _redact(obj: Any) -> Any:
     if isinstance(obj, list):
         return [_redact(item) for item in obj]
     return obj
-
-
 def _redact_absolute_paths(obj: Any) -> Any:
     """Remove absolute paths from output."""
-    if isinstance(obj, str) and obj.startswith("/"):
+    if isinstance(obj, str) and c._ABSOLUTE_PATH_RE.search(obj):
         return "[redacted path]"
     if isinstance(obj, dict):
         return {k: _redact_absolute_paths(v) for k, v in obj.items()}
     if isinstance(obj, list):
-        return [_redact_absolute_paths(item) for item in obj]
+        return [_redact_absolute_paths(v) for v in obj]
     return obj
+
+
+def _redact_paths_in_text(message: str) -> str:
+    """Replace absolute paths in error messages with [redacted path]."""
+    return c._ABSOLUTE_PATH_RE.sub("[redacted path]", message)
 
 
 def _redact_result(data: Any) -> Any:
@@ -115,26 +120,14 @@ def _redact_result(data: Any) -> Any:
 
 
 def _read_input(args: argparse.Namespace) -> bytes:
-    """Read main input from file or stdin, capped at max_input_bytes."""
+    """Read main input from file or stdin, bounded at MAX_INPUT_BYTES."""
     if args.input == "-":
-        data = sys.stdin.buffer.read()
-    else:
-        try:
-            data = Path(args.input).read_bytes()
-        except OSError as exc:
-            raise SystemExit(_error(2, f"cannot read input: {exc}"))
-
-    if len(data) > MAX_INPUT_BYTES:
-        raise SystemExit(_error(2, f"input exceeds {MAX_INPUT_BYTES} bytes"))
-
-    return data
-
-
-def _parse_json(data: bytes, label: str) -> Any:
+        return _bounded_read(sys.stdin.buffer, MAX_INPUT_BYTES, label="stdin")
     try:
-        return json.loads(data.decode("utf-8"))
-    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
-        raise SystemExit(_error(2, f"{label}: invalid JSON: {exc}"))
+        with open(args.input, "rb") as fh:
+            return _bounded_read(fh, MAX_INPUT_BYTES, label="input")
+    except OSError:
+        raise SystemExit(_error(2, "cannot read input"))
 
 
 def _load_resolution(args: argparse.Namespace) -> ResolutionInput | None:
@@ -142,18 +135,26 @@ def _load_resolution(args: argparse.Namespace) -> ResolutionInput | None:
         return None
     try:
         return load_resolution_input(
-            Path(args.resolution_input), max_bytes=MAX_RESOLUTION_BYTES
+            Path(args.resolution_input), policy=KernelPolicy(),
         )
     except (KernelRefusalError, KernelStorageError) as exc:
         raise SystemExit(_error(2, str(exc)))
 
 
-def _error(code: int, message: str) -> int:
-    obj = {"ok": False, "error": str(message)}
-    json.dump(obj, sys.stderr, sort_keys=True)
-    sys.stderr.write("\n")
-    sys.stderr.flush()
-    return code
+
+def _bounded_read(stream: BinaryIO, limit: int, *, label: str) -> bytes:
+    """Read at most limit + 1 bytes from stream; reject if oversized."""
+    data = stream.read(limit + 1)
+    if len(data) > limit:
+        raise SystemExit(_error(2, f"{label}: input exceeds {limit} byte limit"))
+    return data
+
+
+def _parse_json(data: bytes, label: str) -> Any:
+    try:
+        return c._strict_json_loads(data.decode("utf-8"))
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise SystemExit(_error(2, f"{label}: invalid JSON"))
 
 
 def _success(data: Any, args: argparse.Namespace) -> int:
@@ -161,14 +162,18 @@ def _success(data: Any, args: argparse.Namespace) -> int:
         data = _redact_result(data)
     json.dump(data, sys.stdout, sort_keys=True)
     sys.stdout.write("\n")
-    sys.stdout.flush()
     return 0
 
+
+def _error(code: int, message: str) -> int:
+    obj = {"ok": False, "error": _redact_paths_in_text(str(message))}
+    json.dump(obj, sys.stderr, sort_keys=True)
+    sys.stderr.write("\n")
+    return code
 
 # ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
-
 
 def _cmd_init(kernel: TaskInitiationKernel, args: argparse.Namespace) -> int:
     result = kernel.initialize()
@@ -182,51 +187,20 @@ def _cmd_ingest_stuck(
     stuck = _parse_json(data, "stuck")
     if not isinstance(stuck, dict):
         return _error(2, "stuck input must be a JSON object")
-
     resolution = _load_resolution(args)
-
-    try:
-        op = kernel.ingest_stuck(stuck, resolution=resolution)
-    except (KernelRefusalError, KernelNotFoundError) as exc:
-        return _error(4, str(exc))
-    except KernelCorruptionError as exc:
-        return _error(5, str(exc))
-    except KernelBusyError:
-        return _error(6, "database is locked")
-    except KernelStorageError as exc:
-        return _error(7, str(exc))
-
-    output = {
-        "ok": True,
-        "replay": op.replay,
-        "result": op.result,
-    }
-    return _success(output, args)
+    op = kernel.ingest_stuck(stuck, resolution=resolution)
+    return _success({"ok": True, "replay": op.replay, "result": op.result}, args)
 
 
 def _cmd_show(kernel: TaskInitiationKernel, args: argparse.Namespace) -> int:
-    try:
-        result = kernel.show(args.event_id, include_sensitive=args.include_sensitive)
-    except KernelNotFoundError as exc:
-        return _error(3, str(exc))
-    except KernelCorruptionError as exc:
-        return _error(5, str(exc))
-    except KernelStorageError as exc:
-        return _error(7, str(exc))
-
+    result = kernel.show(args.event_id, include_sensitive=args.include_sensitive)
     return _success(result, args)
 
 
 def _cmd_list_active(
     kernel: TaskInitiationKernel, args: argparse.Namespace
 ) -> int:
-    try:
-        results = kernel.list_active(include_sensitive=args.include_sensitive)
-    except KernelCorruptionError as exc:
-        return _error(5, str(exc))
-    except KernelStorageError as exc:
-        return _error(7, str(exc))
-
+    results = kernel.list_active(include_sensitive=args.include_sensitive)
     return _success(results, args)
 
 
@@ -235,49 +209,18 @@ def _cmd_respond(kernel: TaskInitiationKernel, args: argparse.Namespace) -> int:
     response = _parse_json(data, "response")
     if not isinstance(response, dict):
         return _error(2, "response input must be a JSON object")
-
     resolution = _load_resolution(args)
-
-    try:
-        op = kernel.respond(response, resolution=resolution)
-    except (KernelRefusalError, KernelNotFoundError) as exc:
-        return _error(4, str(exc))
-    except KernelCorruptionError as exc:
-        return _error(5, str(exc))
-    except KernelBusyError:
-        return _error(6, "database is locked")
-    except KernelStorageError as exc:
-        return _error(7, str(exc))
-
-    output = {
-        "ok": True,
-        "replay": op.replay,
-        "result": op.result,
-    }
-    return _success(output, args)
+    op = kernel.respond(response, resolution=resolution)
+    return _success({"ok": True, "replay": op.replay, "result": op.result}, args)
 
 
 def _cmd_reconcile(kernel: TaskInitiationKernel, args: argparse.Namespace) -> int:
-    try:
-        result = kernel.reconcile()
-    except KernelCorruptionError as exc:
-        return _error(5, str(exc))
-    except KernelBusyError:
-        return _error(6, "database is locked")
-    except KernelStorageError as exc:
-        return _error(7, str(exc))
-
+    result = kernel.reconcile()
     return _success(result, args)
 
 
 def _cmd_check_db(kernel: TaskInitiationKernel, args: argparse.Namespace) -> int:
-    try:
-        result = kernel.check_database()
-    except KernelCorruptionError as exc:
-        return _error(5, str(exc))
-    except KernelStorageError as exc:
-        return _error(7, str(exc))
-
+    result = kernel.check_database()
     return _success(result, args)
 
 
@@ -286,8 +229,15 @@ def _cmd_check_db(kernel: TaskInitiationKernel, args: argparse.Namespace) -> int
 # ---------------------------------------------------------------------------
 
 
+class _JsonArgumentParser(argparse.ArgumentParser):
+    """ArgumentParser whose error() raises SystemExit with JSON on stderr."""
+
+    def error(self, message: str) -> None:
+        raise SystemExit(_error(2, message))
+
+
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
+    parser = _JsonArgumentParser(
         prog="python -m ai_system.task_initiation_cli",
         description="Local task-initiation kernel test and diagnostic harness.",
     )
@@ -366,8 +316,25 @@ _COMMAND_MAP = {
 def execute(args: argparse.Namespace, kernel: TaskInitiationKernel) -> int:
     handler = _COMMAND_MAP.get(args.command)
     if handler is None:
-        return _error(2, f"unknown command: {args.command}")
-    return handler(kernel, args)
+        return _error(2, "unknown command")
+    try:
+        return handler(kernel, args)
+    except SystemExit:
+        raise
+    except c.TaskInitiationContractError as exc:
+        return _error(2, f"invalid: {exc}")
+    except KernelNotFoundError as exc:
+        return _error(3, str(exc))
+    except KernelRefusalError as exc:
+        return _error(4, str(exc))
+    except KernelCorruptionError as exc:
+        return _error(5, "database corruption")
+    except KernelBusyError:
+        return _error(6, "database locked")
+    except KernelStorageError as exc:
+        return _error(7, "storage error")
+    except Exception as exc:
+        return _error(1, str(exc))
 
 
 def main(argv: Sequence[str] | None = None) -> int:

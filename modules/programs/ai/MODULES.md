@@ -67,7 +67,6 @@ This is the high-level current module map. Detailed review evidence belongs in `
 | `tests/*_smoke.py` | Mechanical regression tests. | 32 smoke-test files in the current repository; product scenarios remain separate. |
 | `dev/interaction_surface.py` | Development interaction-surface helper. | UI/testing support. |
 | `dev/check-*`, `dev/audit-*`, `dev/llm/*` | Diagnostics and documentation/patch verification. | Live checks should default read-only. |
-| `tests/*_smoke.py` | Mechanical regression tests. | 31 smoke-test files in the current repository; product scenarios remain separate. |
 | Nix `default.nix` files | Service wiring, options, environment gates, and effective defaults. | Configuration authority. |
 
 ## Current orchestration status
