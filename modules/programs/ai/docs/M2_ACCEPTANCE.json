@@ -1,0 +1,360 @@
+{
+  "milestone": "M2",
+  "title": "Task Initiation Kernel Acceptance Criteria",
+  "version": "1.0.0",
+  "generated": "2026-07-24",
+  "acceptance_criteria": [
+    {
+      "id": "A01",
+      "category": "functional_lifecycle",
+      "description": "Stuck event ingestion: kernel ingests a valid stuck event with resolution and produces a Card with awaiting_response phase, correct aggregate state, and stored Stuck message.",
+      "mandatory_checks": [
+        "ingest_stuck returns status card_published",
+        "interaction is in awaiting_response phase",
+        "aggregate has one revision with Card",
+        "messages table has one stuck row",
+        "card_index has one entry",
+        "check_database returns status ok",
+        "replay of same Stuck returns identical result",
+        "replay of Stuck with different payload raises KernelRefusalError"
+      ]
+    },
+    {
+      "id": "A02",
+      "category": "functional_lifecycle",
+      "description": "Start response: responding 'start' to a valid Card transitions interaction to observing phase with an observation deadline and accepted response record.",
+      "mandatory_checks": [
+        "respond returns status accepted",
+        "phase transitions to observing",
+        "observation_due_at_epoch is set",
+        "accepted_responses includes the response",
+        "messages has a response row",
+        "check_database passes after response",
+        "replay of same response returns identical result",
+        "second response with different id but same card raises KernelRefusalError"
+      ]
+    },
+    {
+      "id": "A03",
+      "category": "functional_lifecycle",
+      "description": "Shrink response: responding 'shrink' to a valid Card transitions interaction back to preparing with a follow-up Card at next revision.",
+      "mandatory_checks": [
+        "respond returns status accepted",
+        "phase transitions to preparing",
+        "current_revision increments",
+        "next Card is prepared and published",
+        "card_index has new entry for next revision",
+        "revisions array has both revisions",
+        "check_database passes"
+      ]
+    },
+    {
+      "id": "A04",
+      "category": "functional_lifecycle",
+      "description": "Blocked response: responding 'blocked' to a valid Card transitions interaction back to preparing with a blocked follow-up Card.",
+      "mandatory_checks": [
+        "respond returns status accepted",
+        "phase transitions to preparing",
+        "next Card has blocked followup context",
+        "card_index has new entry for next revision",
+        "check_database passes"
+      ]
+    },
+    {
+      "id": "A05",
+      "category": "functional_lifecycle",
+      "description": "Defer response: responding 'defer' to a valid Card completes the interaction with terminal_status completed.",
+      "mandatory_checks": [
+        "respond returns status accepted",
+        "terminal_status is completed",
+        "phase is terminal",
+        "no next Card is prepared",
+        "check_database passes",
+        "replay of same defer returns identical result"
+      ]
+    },
+    {
+      "id": "A06",
+      "category": "functional_lifecycle",
+      "description": "Dismiss response: responding 'dismiss' to a valid Card completes the interaction with terminal_status completed.",
+      "mandatory_checks": [
+        "respond returns status accepted",
+        "terminal_status is completed",
+        "phase is terminal",
+        "check_database passes"
+      ]
+    },
+    {
+      "id": "A07",
+      "category": "functional_lifecycle",
+      "description": "Card expiry: when the Card's expires_at_epoch is reached, the kernel refuses new responses and transitions the interaction to expired/card_not_posted_before_expiry.",
+      "mandatory_checks": [
+        "respond after Card expiry raises KernelRefusalError",
+        "terminal_status is expired",
+        "no response message is inserted",
+        "reopened database still shows expired state"
+      ]
+    },
+    {
+      "id": "A08",
+      "category": "functional_lifecycle",
+      "description": "Observation completion: when observation_due_at_epoch is reached while in observing phase, reconcile advances to completed.",
+      "mandatory_checks": [
+        "reconcile transitions observing to terminal completed",
+        "terminal_status is completed",
+        "check_database passes after reconcile"
+      ]
+    },
+    {
+      "id": "A09",
+      "category": "functional_lifecycle",
+      "description": "Revision ceiling: after max_card_revisions shrink/blocked responses, the next shrink/blocked response completes the interaction with completed/shrink_limit_reached or completed/blocked_unresolved.",
+      "mandatory_checks": [
+        "max_card_revisions-1 shrink responses succeed",
+        "final shrink response returns terminal_status completed/shrink_limit_reached",
+        "phase is terminal",
+        "check_database passes"
+      ]
+    },
+    {
+      "id": "A10",
+      "category": "functional_lifecycle",
+      "description": "Idempotent Stuck replay: re-ingesting an identical Stuck event returns the original result with replay flag true.",
+      "mandatory_checks": [
+        "first ingest returns replay=False",
+        "second ingest with identical payload returns replay=True",
+        "result is identical to first",
+        "no duplicate rows in any table"
+      ]
+    },
+    {
+      "id": "A11",
+      "category": "functional_lifecycle",
+      "description": "Idempotent Response replay: re-responding with an identical Response returns the original result with replay flag true.",
+      "mandatory_checks": [
+        "first respond returns replay=False",
+        "second respond with identical payload returns replay=True",
+        "result is identical to first",
+        "no duplicate response message"
+      ]
+    },
+    {
+      "id": "A12",
+      "category": "functional_lifecycle",
+      "description": "Task change supersession: when a response arrives with a different task revision than the one used for the original Stuck, the response is superseded.",
+      "mandatory_checks": [
+        "response with different task revision returns status superseded",
+        "terminal_status is superseded",
+        "terminal_status_reason is task_changed",
+        "check_database passes",
+        "replay returns same superseded result"
+      ]
+    },
+    {
+      "id": "A13",
+      "category": "functional_lifecycle",
+      "description": "check_database integrity: check_database returns status ok with correct counts when database is valid.",
+      "mandatory_checks": [
+        "check_database returns status ok",
+        "interaction_count matches ingested events",
+        "message_count matches persisted messages",
+        "version is 1"
+      ]
+    },
+    {
+      "id": "A14",
+      "category": "functional_lifecycle",
+      "description": "show: show returns expected fields for an interaction, sensitive data only when include_sensitive=True.",
+      "mandatory_checks": [
+        "show without include_sensitive returns phase/terminal_status/state_version",
+        "show without include_sensitive omits aggregate",
+        "show with include_sensitive includes aggregate",
+        "needs_reconciliation is reported correctly"
+      ]
+    },
+    {
+      "id": "A15",
+      "category": "functional_lifecycle",
+      "description": "list_active: list_active returns only non-terminal interactions with correct fields.",
+      "mandatory_checks": [
+        "list_active includes active (non-terminal) interactions",
+        "list_active excludes terminal interactions",
+        "each entry has event_id, interaction_id, phase, state_version, needs_reconciliation"
+      ]
+    },
+    {
+      "id": "A16",
+      "category": "functional_lifecycle",
+      "description": "reconcile: reconcile advances all overdue non-terminal interactions, returning counts of changed/expired/completed.",
+      "mandatory_checks": [
+        "reconcile returns ok true",
+        "reconciled count matches changed interactions",
+        "expired interactions are counted",
+        "completed interactions are counted",
+        "idempotent reconcile returns reconciled 0"
+      ]
+    },
+    {
+      "id": "A17",
+      "category": "functional_lifecycle",
+      "description": "Restart resilience: closing and reopening the database preserves all persisted state including aggregate, messages, and Card index.",
+      "mandatory_checks": [
+        "reopened kernel check_database returns ok",
+        "show returns the same phase and terminal_status",
+        "ingested Stuck is still present",
+        "responses are still present",
+        "Card index entries are intact"
+      ]
+    },
+    {
+      "id": "B01",
+      "category": "persistence_integrity",
+      "description": "Schema structural validation: initialize and check_database verify exact three-table structure, column sets, indices, and foreign keys.",
+      "mandatory_checks": [
+        "three tables: interactions, messages, card_index",
+        "user_version is 1",
+        "journal_mode is delete",
+        "interactions PK is event_id",
+        "messages PK is (kind, message_id)",
+        "card_index PK is card_id",
+        "exact FK: messages.event_id -> interactions.event_id, card_index.event_id -> interactions.event_id",
+        "interactions_active_deadline_idx exists",
+        "missing table raises KernelCorruptionError",
+        "version mismatch raises KernelCorruptionError"
+      ]
+    },
+    {
+      "id": "B02",
+      "category": "persistence_integrity",
+      "description": "Permission enforcement: store rejects directories not 0700, DB files not 0600, and files owned by a different uid.",
+      "mandatory_checks": [
+        "initialize creates state dir at 0700",
+        "initialize creates DB at 0600",
+        "pre-existing 0755 dir raises KernelStorageError",
+        "pre-existing 0644 DB raises KernelStorageError",
+        "relative path raises KernelStorageError"
+      ]
+    },
+    {
+      "id": "B03",
+      "category": "persistence_integrity",
+      "description": "Canonical encoding: all new writes use compact canonical JSON; non-canonical stored JSON is rejected by check_database.",
+      "mandatory_checks": [
+        "new aggregate_json is compact canonical",
+        "new result_json is compact canonical",
+        "non-canonical aggregate (indented) raises KernelCorruptionError on check_database",
+        "non-canonical result raises KernelCorruptionError on check_database"
+      ]
+    },
+    {
+      "id": "B04",
+      "category": "persistence_integrity",
+      "description": "Strict JSON decoding: NaN, Infinity, -Infinity, and duplicate object keys are rejected at decode time.",
+      "mandatory_checks": [
+        "NaN in aggregate_json raises KernelCorruptionError",
+        "Infinity in result_json raises KernelCorruptionError",
+        "duplicate keys in payload_json raises KernelCorruptionError",
+        "valid JSON with different whitespace is still accepted by strict reader"
+      ]
+    },
+    {
+      "id": "B05",
+      "category": "persistence_integrity",
+      "description": "Reducer reconstruction gate: check_database reconstructs the expected aggregate from stored messages and verifies it matches the stored aggregate.",
+      "mandatory_checks": [
+        "reconstruct_expected_aggregate_v1 is called during check_database",
+        "reconstructed aggregate matches stored aggregate for valid interactions",
+        "mismatch raises KernelCorruptionError"
+      ]
+    },
+    {
+      "id": "B06",
+      "category": "persistence_integrity",
+      "description": "Cross-row consistency: all rows for an interaction share the same event_id, interaction_id matches between SQL and aggregate, message reservations correspond to actual messages.",
+      "mandatory_checks": [
+        "aggregate event_id matches interactions.event_id",
+        "aggregate interaction_id matches interactions.interaction_id",
+        "message_reservations keys match actual messages",
+        "reservation hashes match payload hashes",
+        "mismatch raises KernelCorruptionError"
+      ]
+    },
+    {
+      "id": "B07",
+      "category": "persistence_integrity",
+      "description": "Corrupt aggregate: malformed, missing-keys, or invalid-typed aggregate_json raises KernelCorruptionError.",
+      "mandatory_checks": [
+        "aggregate with missing required key raises KernelCorruptionError",
+        "aggregate with extra unknown key raises KernelCorruptionError",
+        "aggregate with invalid phase raises KernelCorruptionError",
+        "aggregate with wrong type for revision raises KernelCorruptionError"
+      ]
+    },
+    {
+      "id": "B08",
+      "category": "persistence_integrity",
+      "description": "Corrupt message payload: payload_json that fails validation or has mismatched hash raises KernelCorruptionError.",
+      "mandatory_checks": [
+        "stuck payload with missing event_id raises KernelCorruptionError",
+        "response payload with invalid schema_version raises KernelCorruptionError",
+        "payload_sha256 mismatch raises KernelCorruptionError",
+        "payload not canonical raises KernelCorruptionError"
+      ]
+    },
+    {
+      "id": "B09",
+      "category": "persistence_integrity",
+      "description": "Corrupt Card index: Card index rows that don't match the aggregate's revisions raise KernelCorruptionError.",
+      "mandatory_checks": [
+        "card_index missing for a published Card raises KernelCorruptionError",
+        "card_index with wrong event_id raises KernelCorruptionError",
+        "card_index with wrong revision number raises KernelCorruptionError"
+      ]
+    },
+    {
+      "id": "B10",
+      "category": "persistence_integrity",
+      "description": "Replay bundle validation: validate_replay_bundle verifies exact result shape and cross-row consistency for Stuck and Response messages.",
+      "mandatory_checks": [
+        "stuck replay verifies exact key set and IDs",
+        "start response replay verifies phase and observation deadline",
+        "shrink response replay verifies next_card contents",
+        "superseded response replay verifies requested_action and status",
+        "corrupt replay result raises KernelCorruptionError"
+      ]
+    },
+    {
+      "id": "B11",
+      "category": "persistence_integrity",
+      "description": "Atomicity: partial writes during ingest_stuck or respond roll back completely on failure.",
+      "mandatory_checks": [
+        "ingest_stuck failure leaves no rows in any table",
+        "respond failure leaves all tables unchanged from pre-response state",
+        "concurrent writers correctly serialize"
+      ]
+    },
+    {
+      "id": "B12",
+      "category": "persistence_integrity",
+      "description": "WAL rejection: store rejects WAL journal mode and normalizes to delete on initialize.",
+      "mandatory_checks": [
+        "WAL-mode DB raises KernelStorageError on write",
+        "initialize restores delete journal mode"
+      ]
+    }
+  ],
+  "deferred": [
+    {
+      "id": "C01",
+      "category": "deferred",
+      "description": "Receipt validation: Receipt objects are provisional, not part of the frozen five-schema set. Acceptance criteria for Receipt delivery evidence and confirmation are deferred to Milestone 3.",
+      "mandatory_checks": []
+    },
+    {
+      "id": "C02",
+      "category": "deferred",
+      "description": "Milestone 3 Tasker integration: Tasker and laptop clock synchronization with the 300-second allowance is deferred to Milestone 3.",
+      "mandatory_checks": []
+    }
+  ]
+}
