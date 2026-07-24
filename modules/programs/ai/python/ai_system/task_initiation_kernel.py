@@ -35,6 +35,8 @@ from ai_system.task_initiation_store import (
     _expected_response_result,
     _expected_stuck_result,
     _interaction_policy_from_json,
+    _translate_sqlite_error,
+    InteractionPolicy,
     reconstruct_expected_aggregate_v1,
 )
 
@@ -43,77 +45,6 @@ Clock = Callable[[], int]
 IdFactory = Callable[[], uuid.UUID]
 
 
-@dataclass(frozen=True)
-class InteractionPolicy:
-    """Immutable per-interaction lifecycle policy snapshot.
-
-    Created from KernelPolicy at Stuck acceptance and persisted atomically
-    with the interaction.  Governs all subsequent lifecycle decisions for
-    that interaction regardless of later runtime policy changes.
-    """
-    policy_version: str = "task_initiation_interaction_policy.v1"
-    stuck_ttl_seconds: int = 7200
-    max_future_skew_seconds: int = 300
-    max_card_revisions: int = 3
-    tiny_start_minutes_cap: int = 10
-    start_countdown_seconds_cap: int = 600
-    observation_seconds: int = 600
-    context_ttl_seconds: int = 300
-    card_ttl_seconds: int = 900
-
-    def __post_init__(self) -> None:
-        if self.policy_version != "task_initiation_interaction_policy.v1":
-            raise ValueError(f"unsupported interaction policy version: {self.policy_version}")
-        for name, value, min_val in [
-            ("stuck_ttl_seconds", self.stuck_ttl_seconds, 1),
-            ("max_future_skew_seconds", self.max_future_skew_seconds, 0),
-            ("max_card_revisions", self.max_card_revisions, 1),
-            ("tiny_start_minutes_cap", self.tiny_start_minutes_cap, 1),
-            ("start_countdown_seconds_cap", self.start_countdown_seconds_cap, 1),
-            ("observation_seconds", self.observation_seconds, 1),
-            ("context_ttl_seconds", self.context_ttl_seconds, 1),
-            ("card_ttl_seconds", self.card_ttl_seconds, 1),
-        ]:
-            if isinstance(value, bool) or not isinstance(value, int) or value < min_val:
-                raise ValueError(f"InteractionPolicy.{name} must be int >= {min_val}, got {value!r}")
-
-    def to_canonical_json(self) -> str:
-        import json as _json
-        return _json.dumps({
-            "policy_version": self.policy_version,
-            "stuck_ttl_seconds": self.stuck_ttl_seconds,
-            "max_future_skew_seconds": self.max_future_skew_seconds,
-            "max_card_revisions": self.max_card_revisions,
-            "tiny_start_minutes_cap": self.tiny_start_minutes_cap,
-            "start_countdown_seconds_cap": self.start_countdown_seconds_cap,
-            "observation_seconds": self.observation_seconds,
-            "context_ttl_seconds": self.context_ttl_seconds,
-            "card_ttl_seconds": self.card_ttl_seconds,
-        }, sort_keys=True, separators=(",", ":"))
-
-    @classmethod
-    def from_kernel_policy(cls, kp: "KernelPolicy") -> "InteractionPolicy":
-        return cls(
-            max_card_revisions=kp.max_card_revisions,
-            max_future_skew_seconds=kp.max_future_skew_seconds,
-            start_countdown_seconds_cap=kp.start_countdown_seconds_cap,
-            observation_seconds=kp.observation_seconds,
-            context_ttl_seconds=kp.context_ttl_seconds,
-            card_ttl_seconds=kp.card_ttl_seconds,
-            stuck_ttl_seconds=kp.stuck_ttl_seconds,
-            tiny_start_minutes_cap=kp.tiny_start_minutes_cap,
-        )
-    def reducer_policy(self) -> dict[str, int]:
-        return {
-            "max_card_revisions": self.max_card_revisions,
-            "start_countdown_seconds_cap": self.start_countdown_seconds_cap,
-            "observation_seconds": self.observation_seconds,
-            "context_ttl_seconds": self.context_ttl_seconds,
-            "card_ttl_seconds": self.card_ttl_seconds,
-            "stuck_ttl_seconds": self.stuck_ttl_seconds,
-            "max_future_skew_seconds": self.max_future_skew_seconds,
-            "tiny_start_minutes_cap": self.tiny_start_minutes_cap,
-        }
 
 @dataclass(frozen=True)
 class KernelPolicy:
@@ -385,64 +316,21 @@ def wall_clock_epoch() -> int:
     return int(time_mod.time())
 
 
-_INTERACTION_POLICY_VERSION = "task_initiation_interaction_policy.v1"
 
 
 def _interaction_policy_to_json(policy: KernelPolicy) -> str:
     """Produce canonical JSON snapshot of lifecycle policy fields via InteractionPolicy."""
-    ip = InteractionPolicy.from_kernel_policy(policy)
-    return ip.to_canonical_json()
-
-
-def _interaction_policy_from_json(raw: str) -> InteractionPolicy:
-    """Decode and validate a persisted interaction policy snapshot.
-
-    Returns a typed InteractionPolicy.  Raises KernelCorruptionError on
-    malformed JSON, wrong version, missing/extra keys, or invalid values.
-    """
-    try:
-        data = c._strict_json_loads(raw)
-    except (json.JSONDecodeError, ValueError) as exc:
-        raise KernelCorruptionError(f"interaction policy: invalid JSON: {exc}")
-    if not isinstance(data, dict):
-        raise KernelCorruptionError("interaction policy: not a JSON object")
-    if data.get("policy_version") != InteractionPolicy.policy_version:
-        raise KernelCorruptionError("interaction policy: unsupported version")
-    expected_keys = frozenset({
-        "policy_version", "stuck_ttl_seconds", "max_future_skew_seconds",
-        "max_card_revisions", "tiny_start_minutes_cap",
-        "start_countdown_seconds_cap", "observation_seconds",
-        "context_ttl_seconds", "card_ttl_seconds",
-    })
-    if set(data.keys()) != expected_keys:
-        raise KernelCorruptionError("interaction policy: key mismatch")
-    for key in data:
-        if key == "policy_version":
-            continue
-        if isinstance(data[key], bool) or not isinstance(data[key], int):
-            raise KernelCorruptionError(f"interaction policy.{key}: must be int, got {type(data[key]).__name__}")
-    for key, min_val in [
-        ("stuck_ttl_seconds", 1), ("max_future_skew_seconds", 0),
-        ("max_card_revisions", 1), ("tiny_start_minutes_cap", 1),
-        ("start_countdown_seconds_cap", 1), ("observation_seconds", 1),
-        ("context_ttl_seconds", 1), ("card_ttl_seconds", 1),
-    ]:
-        if data[key] < min_val:
-            raise KernelCorruptionError(f"interaction policy.{key}: must be >= {min_val}, got {data[key]}")
-    result = InteractionPolicy(
-        stuck_ttl_seconds=data["stuck_ttl_seconds"],
-        max_future_skew_seconds=data["max_future_skew_seconds"],
-        max_card_revisions=data["max_card_revisions"],
-        tiny_start_minutes_cap=data["tiny_start_minutes_cap"],
-        start_countdown_seconds_cap=data["start_countdown_seconds_cap"],
-        observation_seconds=data["observation_seconds"],
-        context_ttl_seconds=data["context_ttl_seconds"],
-        card_ttl_seconds=data["card_ttl_seconds"],
+    ip = InteractionPolicy(
+        stuck_ttl_seconds=policy.stuck_ttl_seconds,
+        max_future_skew_seconds=policy.max_future_skew_seconds,
+        max_card_revisions=policy.max_card_revisions,
+        tiny_start_minutes_cap=policy.tiny_start_minutes_cap,
+        start_countdown_seconds_cap=policy.start_countdown_seconds_cap,
+        observation_seconds=policy.observation_seconds,
+        context_ttl_seconds=policy.context_ttl_seconds,
+        card_ttl_seconds=policy.card_ttl_seconds,
     )
-    # Require canonical encoding round-trip
-    if raw != result.to_canonical_json():
-        raise KernelCorruptionError("interaction policy: not canonical")
-    return result
+    return ip.to_canonical_json()
 
 
 
@@ -512,7 +400,16 @@ class TaskInitiationKernel:
                              ("stuck", event_id, ph, pjs, event_id, result_json, now))
                 # --- write-before-commit gate: validate and reconstruct ---
                 self._load_validated_interaction(conn, event_id)
-                interaction_pol = InteractionPolicy.from_kernel_policy(self._policy)
+                interaction_pol = InteractionPolicy(
+                    stuck_ttl_seconds=self._policy.stuck_ttl_seconds,
+                    max_future_skew_seconds=self._policy.max_future_skew_seconds,
+                    max_card_revisions=self._policy.max_card_revisions,
+                    tiny_start_minutes_cap=self._policy.tiny_start_minutes_cap,
+                    start_countdown_seconds_cap=self._policy.start_countdown_seconds_cap,
+                    observation_seconds=self._policy.observation_seconds,
+                    context_ttl_seconds=self._policy.context_ttl_seconds,
+                    card_ttl_seconds=self._policy.card_ttl_seconds,
+                )
                 sr = conn.execute(
                     "SELECT * FROM messages WHERE kind='stuck' AND event_id=?", (event_id,)
                 ).fetchone()
@@ -536,10 +433,8 @@ class TaskInitiationKernel:
             raise KernelRefusalError(str(exc)) from exc
         except (KernelBusyError, KernelCorruptionError, KernelStorageError):
             raise
-        except sqlite3_module.OperationalError as exc:
-            if "database is locked" in str(exc).lower():
-                raise KernelBusyError()
-            raise KernelStorageError(str(exc))
+        except sqlite3_module.Error as exc:
+            raise _translate_sqlite_error(exc)
 
     # --- respond ---
 
@@ -699,12 +594,8 @@ class TaskInitiationKernel:
             raise KernelRefusalError(str(exc)) from exc
         except (KernelBusyError, KernelCorruptionError, KernelStorageError):
             raise
-        except sqlite3_module.OperationalError as exc:
-            if "database is locked" in str(exc).lower():
-                raise KernelBusyError()
-            raise KernelStorageError(str(exc))
-
-
+        except sqlite3_module.Error as exc:
+            raise _translate_sqlite_error(exc)
     def _load_validated_interaction(
         self, conn: sqlite3.Connection, event_id: str
     ) -> tuple[sqlite3.Row, dict[str, Any]]:
@@ -822,6 +713,49 @@ class TaskInitiationKernel:
                         self._persist_state(conn, ns, row["event_id"], eff)
                         # Validate after persist
                         self._load_validated_interaction(conn, row["event_id"])
+                        # P1: reconstruct expected aggregate for changed owners
+                        event_id = row["event_id"]
+                        stuck_row = conn.execute(
+                            "SELECT * FROM messages WHERE kind='stuck' AND event_id=?",
+                            (event_id,),
+                        ).fetchone()
+                        if stuck_row is not None:
+                            resp_rows = conn.execute(
+                                "SELECT * FROM messages WHERE kind='response' AND event_id=? ORDER BY message_id",
+                                (event_id,),
+                            ).fetchall()
+                            resp_msg_map: dict[str, sqlite3.Row] = {}
+                            superseding: sqlite3.Row | None = None
+                            accepted_ids: set[str] = set()
+                            for rev in ns.get("revisions", []):
+                                rev_resp = rev.get("response")
+                                if rev_resp is not None and isinstance(rev_resp, dict):
+                                    accepted_ids.add(rev_resp.get("response_id", ""))
+                            for rr in resp_rows:
+                                rid = rr["message_id"]
+                                try:
+                                    rpay = c._strict_json_loads(rr["payload_json"])
+                                except (json.JSONDecodeError, ValueError):
+                                    raise KernelCorruptionError(f"reconcile: invalid response payload for {rid}")
+                                if isinstance(rpay, dict):
+                                    actual_rid = rpay.get("response_id", rid)
+                                    if actual_rid in accepted_ids:
+                                        resp_msg_map[actual_rid] = rr
+                                    else:
+                                        superseding = rr
+                            rec_agg = reconstruct_expected_aggregate_v1(
+                                stuck_row=stuck_row,
+                                resolved_task=ns.get("resolved_task", aggregate.get("resolved_task", {})),
+                                revisions=ns.get("revisions", []),
+                                response_messages=resp_msg_map,
+                                superseding_msg=superseding,
+                                terminal_at_epoch=ns.get("terminal_at_epoch"),
+                                interaction_policy=persisted_policy,
+                            )
+                            if _agg_to_db(rec_agg) != _agg_to_db(ns):
+                                raise KernelCorruptionError(
+                                    f"reconcile: reducer reconstruction mismatch for {event_id}"
+                                )
                     elif eff > row["last_observed_at_epoch"]:
                         # No reducer change, but high-water must advance
                         conn.execute(
@@ -832,10 +766,8 @@ class TaskInitiationKernel:
                         "completed": completed, "checked_at_epoch": now}
         except (KernelBusyError, KernelCorruptionError, KernelStorageError):
             raise
-        except sqlite3_module.OperationalError as exc:
-            if "database is locked" in str(exc).lower():
-                raise KernelBusyError()
-            raise KernelStorageError(str(exc))
+        except sqlite3_module.Error as exc:
+            raise _translate_sqlite_error(exc)
 
     @staticmethod
     def _needs_reconciliation(row: sqlite3_module.Row, *, now_epoch: int) -> bool:
