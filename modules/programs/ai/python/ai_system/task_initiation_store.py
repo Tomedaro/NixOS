@@ -22,50 +22,17 @@ from contextlib import contextmanager
 from typing import Any, Iterator, Mapping
 
 from ai_system import task_initiation_contracts as c
+from ai_system import task_initiation_private as p
 
 # ---------------------------------------------------------------------------
-# Error classes
+# Error classes (re-exported from task_initiation_private)
 # ---------------------------------------------------------------------------
 
-
-class KernelNotFoundError(Exception):
-    """Requested resource (interaction, Card, etc.) is absent."""
-
-    def __init__(self, detail: str) -> None:
-        super().__init__(detail)
-        self.detail = detail
-
-
-class KernelRefusalError(Exception):
-    """Deterministic non-persisted refusal (expired, conflict, invalid)."""
-
-    def __init__(self, reason: str) -> None:
-        super().__init__(reason)
-        self.reason = reason
-
-
-class KernelCorruptionError(Exception):
-    """Persistence is malformed, incompatible, or cross-row inconsistent."""
-
-    def __init__(self, detail: str) -> None:
-        super().__init__(detail)
-        self.detail = detail
-
-
-class KernelBusyError(Exception):
-    """Database locked after the configured timeout."""
-
-    pass
-
-
-class KernelStorageError(Exception):
-    """Permission, I/O, or commit failure."""
-
-    def __init__(self, detail: str) -> None:
-        super().__init__(detail)
-        self.detail = detail
-
-
+KernelNotFoundError = p.KernelNotFoundError
+KernelRefusalError = p.KernelRefusalError
+KernelCorruptionError = p.KernelCorruptionError
+KernelBusyError = p.KernelBusyError
+KernelStorageError = p.KernelStorageError
 
 def _translate_sqlite_error(exc: sqlite3.Error) -> Exception:
     """Map sqlite3 errors to kernel exceptions using error codes where available.
@@ -142,54 +109,17 @@ _EXPECTED_ACTIVE_DEADLINE_COLS = [
     (2, "event_id", "TEXT", 0, None, 0, 0),
 ]
 
-# Version-1 aggregate exact key set (matches _new_interaction keys)
-_AGGREGATE_KEYS_V1 = frozenset({
-    "interaction_id", "event_id", "phase", "terminal_status",
-    "resolution_reason", "resolved_task", "task_fingerprint",
-    "current_revision", "revisions", "accepted_responses",
-    "request_occurred_at_epoch", "request_received_at_epoch",
-    "request_expires_at_epoch", "has_published_card",
-    "actionable_surface_proven_by_epoch",
-    "first_response_at_epoch", "first_response_received_at_epoch",
-    "start_at_epoch", "start_received_at_epoch",
-    "observation_due_at_epoch", "terminal_at_epoch",
-    "evidence_issues", "state_version", "latest_error",
-    "message_reservations",
-})
-
+# Private key set constants (re-exported from task_initiation_private)
+_AGGREGATE_KEYS_V1 = p._AGGREGATE_KEYS_V1
+_REVISION_KEYS_V1 = p._REVISION_KEYS_V1
+_RESPONSE_PRIVATE_KEYS_V1 = p._RESPONSE_PRIVATE_KEYS_V1
+_ACCEPTED_RESPONSE_KEYS_V1 = p._ACCEPTED_RESPONSE_KEYS_V1
+_RESOLVED_TASK_VARIANTS = p._RESOLVED_TASK_VARIANTS
+_VALID_RESOLUTION_REASONS = p._VALID_RESOLUTION_REASONS
 
 _VALID_PHASES = frozenset({"awaiting_response", "observing", "queued", "preparing", "terminal"})
 _VALID_TERMINAL_STATUSES = frozenset({
     "completed", "expired", "superseded", "refused", "failed",
-})
-
-# Milestone 2 exact nested private key sets
-_REVISION_KEYS_V1 = frozenset({
-    "revision", "context_id", "card_id", "proposal_sha256",
-    "response_payload_sha256", "card_issued_at_epoch", "card_expires_at_epoch",
-    "context", "proposal", "card", "response",
-    "card_posted_at_epoch", "delivery_evidence", "delivery_occurred_at_epoch",
-    "evidence_issues", "receipt", "receipt_payload_sha256", "task_fingerprint",
-})
-_RESPONSE_PRIVATE_KEYS_V1 = frozenset({
-    "response_id", "card_id", "action", "detail", "occurred_at_epoch",
-    "received_at_epoch", "schema_version", "occurred_at_epoch_usable",
-})
-_ACCEPTED_RESPONSE_KEYS_V1 = frozenset({
-    "response_id", "card_id", "revision", "user_action", "detail",
-})
-_RESOLVED_TASK_VARIANTS = {
-    "explicit_task_ref": frozenset({"source", "label", "task_ref", "source_revision"}),
-    "active_session": frozenset({"source", "label", "session_id"}),
-    "fallback_description": frozenset({"source", "label"}),
-}
-
-# Valid resolution_reason values
-_VALID_RESOLUTION_REASONS = frozenset({
-    "deferred", "dismissed", "shrink_limit_reached", "blocked_unresolved",
-    "task_changed", "card_expired_without_response", "delivery_ambiguous",
-    "card_not_posted_before_expiry", "observation_completed",
-    "start_observation_elapsed", "request_expired",
 })
 
 _SCHEMA_DDL_STATEMENTS = [
@@ -252,8 +182,7 @@ def _is_sha256(value: Any) -> bool:
     return isinstance(value, str) and len(value) == 64 and bool(_SHA256_RE.match(value))
 
 
-def _sha256(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
+_sha256 = p._sha256
 
 
 def _decode_aggregate_json(raw: str, *, source: str) -> dict[str, Any]:
@@ -391,127 +320,11 @@ def _agg_to_db(aggregate: Mapping[str, Any]) -> str:
     return canonical_bytes.decode("utf-8")
 
 
-class InteractionPolicy:
-    """Immutable per-interaction lifecycle policy snapshot.
+InteractionPolicy = p.InteractionPolicy
 
-    Created from KernelPolicy at Stuck acceptance and persisted atomically
-    with the interaction.  Governs all subsequent lifecycle decisions for
-    that interaction regardless of later runtime policy changes.
-    """
-
-    def __init__(
-        self,
-        *,
-        policy_version: str = "task_initiation_interaction_policy.v1",
-        stuck_ttl_seconds: int = 7200,
-        max_future_skew_seconds: int = 300,
-        max_card_revisions: int = 3,
-        tiny_start_minutes_cap: int = 10,
-        start_countdown_seconds_cap: int = 600,
-        observation_seconds: int = 600,
-        context_ttl_seconds: int = 300,
-        card_ttl_seconds: int = 900,
-    ) -> None:
-        if policy_version != "task_initiation_interaction_policy.v1":
-            raise ValueError(f"unsupported interaction policy version: {policy_version}")
-        for name, value, min_val in [
-            ("stuck_ttl_seconds", stuck_ttl_seconds, 1),
-            ("max_future_skew_seconds", max_future_skew_seconds, 0),
-            ("max_card_revisions", max_card_revisions, 1),
-            ("tiny_start_minutes_cap", tiny_start_minutes_cap, 1),
-            ("start_countdown_seconds_cap", start_countdown_seconds_cap, 1),
-            ("observation_seconds", observation_seconds, 1),
-            ("context_ttl_seconds", context_ttl_seconds, 1),
-            ("card_ttl_seconds", card_ttl_seconds, 1),
-        ]:
-            if isinstance(value, bool) or not isinstance(value, int) or value < min_val:
-                raise ValueError(f"InteractionPolicy.{name} must be int >= {min_val}, got {value!r}")
-        self.policy_version = policy_version
-        self.stuck_ttl_seconds = stuck_ttl_seconds
-        self.max_future_skew_seconds = max_future_skew_seconds
-        self.max_card_revisions = max_card_revisions
-        self.tiny_start_minutes_cap = tiny_start_minutes_cap
-        self.start_countdown_seconds_cap = start_countdown_seconds_cap
-        self.observation_seconds = observation_seconds
-        self.context_ttl_seconds = context_ttl_seconds
-        self.card_ttl_seconds = card_ttl_seconds
-
-    def to_canonical_json(self) -> str:
-        import json as _json
-        return _json.dumps({
-            "policy_version": self.policy_version,
-            "stuck_ttl_seconds": self.stuck_ttl_seconds,
-            "max_future_skew_seconds": self.max_future_skew_seconds,
-            "max_card_revisions": self.max_card_revisions,
-            "tiny_start_minutes_cap": self.tiny_start_minutes_cap,
-            "start_countdown_seconds_cap": self.start_countdown_seconds_cap,
-            "observation_seconds": self.observation_seconds,
-            "context_ttl_seconds": self.context_ttl_seconds,
-            "card_ttl_seconds": self.card_ttl_seconds,
-        }, sort_keys=True, separators=(",", ":"))
-
-    def reducer_policy(self) -> dict[str, int]:
-        return {
-            "max_card_revisions": self.max_card_revisions,
-            "start_countdown_seconds_cap": self.start_countdown_seconds_cap,
-            "observation_seconds": self.observation_seconds,
-            "context_ttl_seconds": self.context_ttl_seconds,
-            "card_ttl_seconds": self.card_ttl_seconds,
-            "stuck_ttl_seconds": self.stuck_ttl_seconds,
-            "max_future_skew_seconds": self.max_future_skew_seconds,
-            "tiny_start_minutes_cap": self.tiny_start_minutes_cap,
-        }
-
-
-def _interaction_policy_from_json(raw: str) -> InteractionPolicy:
-    """Decode and validate a persisted interaction policy snapshot.
-
-    Returns a typed InteractionPolicy.  Raises KernelCorruptionError on
-    malformed JSON, wrong version, missing/extra keys, or invalid values.
-    """
-    try:
-        data = c._strict_json_loads(raw)
-    except (json.JSONDecodeError, ValueError) as exc:
-        raise KernelCorruptionError(f"interaction policy: invalid JSON: {exc}")
-    if not isinstance(data, dict):
-        raise KernelCorruptionError("interaction policy: not a JSON object")
-    if data.get("policy_version") != "task_initiation_interaction_policy.v1":
-        raise KernelCorruptionError("interaction policy: unsupported version")
-    expected_keys = frozenset({
-        "policy_version", "stuck_ttl_seconds", "max_future_skew_seconds",
-        "max_card_revisions", "tiny_start_minutes_cap",
-        "start_countdown_seconds_cap", "observation_seconds",
-        "context_ttl_seconds", "card_ttl_seconds",
-    })
-    if set(data.keys()) != expected_keys:
-        raise KernelCorruptionError("interaction policy: key mismatch")
-    for key in data:
-        if key == "policy_version":
-            continue
-        if isinstance(data[key], bool) or not isinstance(data[key], int):
-            raise KernelCorruptionError(f"interaction policy.{key}: must be int, got {type(data[key]).__name__}")
-    for key, min_val in [
-        ("stuck_ttl_seconds", 1), ("max_future_skew_seconds", 0),
-        ("max_card_revisions", 1), ("tiny_start_minutes_cap", 1),
-        ("start_countdown_seconds_cap", 1), ("observation_seconds", 1),
-        ("context_ttl_seconds", 1), ("card_ttl_seconds", 1),
-    ]:
-        if data[key] < min_val:
-            raise KernelCorruptionError(f"interaction policy.{key}: must be >= {min_val}, got {data[key]}")
-    result = InteractionPolicy(
-        stuck_ttl_seconds=data["stuck_ttl_seconds"],
-        max_future_skew_seconds=data["max_future_skew_seconds"],
-        max_card_revisions=data["max_card_revisions"],
-        tiny_start_minutes_cap=data["tiny_start_minutes_cap"],
-        start_countdown_seconds_cap=data["start_countdown_seconds_cap"],
-        observation_seconds=data["observation_seconds"],
-        context_ttl_seconds=data["context_ttl_seconds"],
-        card_ttl_seconds=data["card_ttl_seconds"],
-    )
-    # Require canonical encoding round-trip
-    if raw != result.to_canonical_json():
-        raise KernelCorruptionError("interaction policy: not canonical")
-    return result
+_interaction_policy_from_json = p._interaction_policy_from_json
+_interaction_policy_to_json = p._interaction_policy_to_json
+ValidatedBundle = p.ValidatedBundle
 
 def _validate_aggregate_structure(
     aggregate: dict[str, Any], *, row_event_id: str | None = None
@@ -2444,6 +2257,57 @@ class TaskInitiationStore:
                 raise KernelCorruptionError(
                     f"{source}: result_json not canonical"
                 )
+    def load_and_validate_bundle(
+        self, conn: sqlite3.Connection, event_id: str, *, message_row: sqlite3.Row | None = None
+    ) -> ValidatedBundle:
+        """Load and fully validate an interaction bundle.
+
+        Decodes the aggregate, validates structure, contiguity, revision
+        keys, response evidence, message correspondence, and terminal
+        coherence.  If *message_row* is provided, also validates the
+        replay-consistent result and returns it in the bundle.
+
+        Raises KernelNotFoundError if the interaction is absent;
+        KernelCorruptionError on any validation failure.
+        """
+        int_row = conn.execute(
+            "SELECT * FROM interactions WHERE event_id = ?", (event_id,)
+        ).fetchone()
+        if int_row is None:
+            raise KernelNotFoundError(f"interaction {event_id} not found")
+
+        aggregate = _agg_from_db(int_row["aggregate_json"], source=f"interaction {event_id}")
+        _validate_aggregate_structure(aggregate, row_event_id=event_id)
+        _validate_revision_contiguity(aggregate)
+
+        card_rows = conn.execute(
+            "SELECT * FROM card_index WHERE event_id = ? ORDER BY revision",
+            (event_id,),
+        ).fetchall()
+        _validate_card_index_correspondence(aggregate, card_rows)
+        _validate_aggregate_v1(aggregate, int_row)
+        _validate_terminal_state_v1(aggregate, int_row)
+        _validate_revision_v1(aggregate)
+        _validate_response_evidence_v1(aggregate)
+        _validate_message_set_v1(self, conn, event_id, aggregate)
+
+        validated_payload = None
+        validated_result = None
+        if message_row is not None:
+            validated_result = self.validate_replay_bundle(conn, message_row)
+            kind = message_row["kind"]
+            source = f"bundle {kind}:{message_row['message_id']}"
+            validated_payload = _decode_message_payload_json(
+                message_row["payload_json"], source=source
+            )
+
+        return ValidatedBundle(
+            int_row=int_row,
+            aggregate=aggregate,
+            validated_payload=validated_payload,
+            validated_result=validated_result,
+        )
+
     def validate_replay_bundle(
         self, conn: sqlite3.Connection, message_row: sqlite3.Row
     ) -> dict[str, Any]:

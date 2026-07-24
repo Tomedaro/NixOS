@@ -29,12 +29,14 @@ from ai_system.task_initiation_store import (
     KernelRefusalError,
     KernelStorageError,
     TaskInitiationStore,
+    ValidatedBundle,
     _agg_from_db,
     _agg_to_db,
     _convert_evidence_issues,
     _expected_response_result,
     _expected_stuck_result,
     _interaction_policy_from_json,
+    _interaction_policy_to_json,
     _translate_sqlite_error,
     InteractionPolicy,
     reconstruct_expected_aggregate_v1,
@@ -318,20 +320,6 @@ def wall_clock_epoch() -> int:
 
 
 
-def _interaction_policy_to_json(policy: KernelPolicy) -> str:
-    """Produce canonical JSON snapshot of lifecycle policy fields via InteractionPolicy."""
-    ip = InteractionPolicy(
-        stuck_ttl_seconds=policy.stuck_ttl_seconds,
-        max_future_skew_seconds=policy.max_future_skew_seconds,
-        max_card_revisions=policy.max_card_revisions,
-        tiny_start_minutes_cap=policy.tiny_start_minutes_cap,
-        start_countdown_seconds_cap=policy.start_countdown_seconds_cap,
-        observation_seconds=policy.observation_seconds,
-        context_ttl_seconds=policy.context_ttl_seconds,
-        card_ttl_seconds=policy.card_ttl_seconds,
-    )
-    return ip.to_canonical_json()
-
 
 
 
@@ -367,7 +355,8 @@ class TaskInitiationKernel:
                 ex = conn.execute("SELECT * FROM messages WHERE kind='stuck' AND message_id=?", (event_id,)).fetchone()
                 if ex is not None:
                     if ex["payload_sha256"] == ph:
-                        return OperationResult(result=self._store.validate_replay_bundle(conn, ex), replay=True)
+                        bundle = self._store.load_and_validate_bundle(conn, event_id, message_row=ex)
+                        return OperationResult(result=bundle.validated_result, replay=True)
                     raise KernelRefusalError(f"idempotency_conflict: {event_id}")
                 now = self._clock()
                 state = c._new_interaction(validated, received_at_epoch=now, policy=self._policy.reducer_policy())
@@ -390,7 +379,16 @@ class TaskInitiationKernel:
                 state = c._record_card_published(state, cd, now_epoch=now, resolved_task=resolved, policy=rp)
                 aj = _agg_to_db(state)
                 dl = cd.get("expires_at_epoch")
-                policy_json = _interaction_policy_to_json(self._policy)
+                policy_json = _interaction_policy_to_json(
+                    stuck_ttl_seconds=self._policy.stuck_ttl_seconds,
+                    max_future_skew_seconds=self._policy.max_future_skew_seconds,
+                    max_card_revisions=self._policy.max_card_revisions,
+                    tiny_start_minutes_cap=self._policy.tiny_start_minutes_cap,
+                    start_countdown_seconds_cap=self._policy.start_countdown_seconds_cap,
+                    observation_seconds=self._policy.observation_seconds,
+                    context_ttl_seconds=self._policy.context_ttl_seconds,
+                    card_ttl_seconds=self._policy.card_ttl_seconds,
+                )
                 conn.execute("INSERT INTO interactions (event_id,interaction_id,aggregate_json,state_version,phase,terminal_status,next_deadline_epoch,last_observed_at_epoch,created_at_epoch,updated_at_epoch,interaction_policy_json) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                              (event_id, iid, aj, state["state_version"], state["phase"], state.get("terminal_status"), dl, now, now, now, policy_json))
                 conn.execute("INSERT INTO card_index (card_id,event_id,revision) VALUES (?,?,?)", (cd_id, event_id, 1))
@@ -453,9 +451,8 @@ class TaskInitiationKernel:
                 ).fetchone()
                 if ex is not None:
                     if ex["payload_sha256"] == ph:
-                        return OperationResult(
-                            result=self._store.validate_replay_bundle(conn, ex), replay=True
-                        )
+                        bundle = self._store.load_and_validate_bundle(conn, ex["event_id"], message_row=ex)
+                        return OperationResult(result=bundle.validated_result, replay=True)
                     raise KernelRefusalError(f"idempotency_conflict: {rid}")
                 # --- route Card -> interaction ---
                 cr = conn.execute(
@@ -600,14 +597,8 @@ class TaskInitiationKernel:
         self, conn: sqlite3.Connection, event_id: str
     ) -> tuple[sqlite3.Row, dict[str, Any]]:
         """Load and fully validate an interaction row and its aggregate."""
-        int_row = conn.execute(
-            "SELECT * FROM interactions WHERE event_id = ?", (event_id,)
-        ).fetchone()
-        if int_row is None:
-            raise KernelNotFoundError(f"interaction {event_id} not found")
-        aggregate = _agg_from_db(int_row["aggregate_json"], source=f"interaction {event_id}")
-        self._store._validate_interaction_row(conn, event_id)
-        return int_row, aggregate
+        bundle = self._store.load_and_validate_bundle(conn, event_id)
+        return bundle.int_row, bundle.aggregate
 
     def _load_interaction_policy(
         self, conn: sqlite3.Connection, event_id: str
