@@ -1796,3 +1796,48 @@ print(f"=== {PASSED} passed, {FAILED} failed ===")
 if FAILED:
     raise SystemExit(1)
 print("ALL PASS")
+
+print("=== 17. policy-driven tiny-start and countdown ===")
+sd17 = _mk_state_dir()
+k17 = _mk_kernel(sd17, policy=KernelPolicy(start_countdown_seconds_cap=60, tiny_start_minutes_cap=1))
+k17.initialize()
+res17 = _make_res_tasks(sd17, {"Tasks/test.md": {"label": "PT", "revision": _REV_FIXTURE}})
+s17 = _stuck()
+op17 = k17.ingest_stuck(s17, resolution=res17)
+cd = op17.result["card"]["start_countdown_seconds"]
+est = op17.result["card"]["tiny_start"]["estimated_minutes"]
+eid = op17.result["event_id"]
+check("17.1 countdown cap 60", cd == 60)
+check("17.2 tiny-start cap 1", est <= 1)
+check("17.3 check-db OK", k17.check_database()["status"] == "ok")
+# Restart with different policy
+del k17
+k17b = _mk_kernel(sd17, policy=KernelPolicy(start_countdown_seconds_cap=600))
+check("17.4 show after restart", k17b.show(eid)["phase"] == "awaiting_response")
+check("17.5 replay same", k17b.ingest_stuck(s17, resolution=res17).replay)
+
+# Persisted countdown survives policy drift
+sd17b = _mk_state_dir()
+k17c = _mk_kernel(sd17b, policy=KernelPolicy(start_countdown_seconds_cap=60, max_card_revisions=3))
+k17c.initialize()
+op17c = k17c.ingest_stuck(_stuck(), resolution=_make_res_tasks(sd17b, {"Tasks/test.md": {"label": "PD", "revision": _REV_FIXTURE}}))
+cid17 = op17c.result["card"]["card_id"]
+del k17c
+k17d = _mk_kernel(sd17b, policy=KernelPolicy(start_countdown_seconds_cap=600, tiny_start_minutes_cap=10))
+op17d = k17d.respond(_resp(op17c.result["card"], "shrink"), resolution=_make_res_tasks(sd17b, {"Tasks/test.md": {"label": "PD", "revision": _REV_FIXTURE}}))
+nc17 = op17d.result.get("next_card", {})
+check("17.6 persisted countdown after restart", nc17.get("start_countdown_seconds") == 60)
+check("17.7 persisted estimate after restart", nc17.get("tiny_start", {}).get("estimated_minutes", 99) <= 10)
+
+# Defaults unchanged
+sd17c = _mk_state_dir()
+k17e = _mk_kernel(sd17c)
+k17e.initialize()
+op17e = k17e.ingest_stuck(_stuck(), resolution=_make_res_tasks(sd17c, {"Tasks/test.md": {"label": "DF", "revision": _REV_FIXTURE}}))
+check("17.8 default estimate unchanged", op17e.result["card"]["tiny_start"]["estimated_minutes"] <= 10)
+check("17.9 default countdown unchanged", op17e.result["card"]["start_countdown_seconds"] == 180)
+
+print(f"=== {PASSED} passed, {FAILED} failed ===")
+if FAILED:
+    raise SystemExit(1)
+print("ALL PASS")

@@ -262,34 +262,35 @@ def build_placeholder_preparation(
     context["model_content_sha256"] = hashlib.sha256(c._canonical_json(model_payload)).hexdigest()
     context = c.validate_context(context)
 
-    # Proposal
+    # Proposal — clamp estimate to policy.tiny_start_minutes_cap
+    _cap = policy.tiny_start_minutes_cap
     if followup is None:
+        _est = min(3, _cap)
         proposal: dict[str, Any] = {
             "schema_version": "task_initiation_proposal.v1",
             "blocker": {"category": "unclear_next_step", "summary": "The next step needs to be made concrete."},
-            "tiny_start": {"kind": "digital", "estimated_minutes": 3,
+            "tiny_start": {"kind": "digital", "estimated_minutes": _est,
                            "instruction": "Open the task and write one concrete next step.",
                            "completion_signal": "One concrete next step is written."},
         }
     elif followup.get("action") == "shrink":
+        _est = min(1, _cap)
         proposal = {
             "schema_version": "task_initiation_proposal.v1",
             "blocker": {"category": "too_big", "summary": "The previous start was too large."},
-            "tiny_start": {"kind": "digital", "estimated_minutes": 1,
+            "tiny_start": {"kind": "digital", "estimated_minutes": _est,
                            "instruction": "Open the task and write one word toward it.",
                            "completion_signal": "One word is written."},
         }
     elif followup.get("action") == "blocked":
+        _est = min(2, _cap)
         proposal = {
             "schema_version": "task_initiation_proposal.v1",
             "blocker": {"category": "other", "summary": "A blocker remains."},
-            "tiny_start": {"kind": "digital", "estimated_minutes": 2,
+            "tiny_start": {"kind": "digital", "estimated_minutes": _est,
                            "instruction": "Write one sentence naming the blocker.",
                            "completion_signal": "One blocker sentence is written."},
         }
-    else:
-        raise KernelRefusalError(f"unknown followup action: {followup.get('action')}")
-    proposal = c.validate_proposal(proposal)
 
     # Card
     start_cd = min(proposal["tiny_start"]["estimated_minutes"] * 60, policy.start_countdown_seconds_cap)

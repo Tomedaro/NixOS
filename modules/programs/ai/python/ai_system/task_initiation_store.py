@@ -671,7 +671,7 @@ def _validate_aggregate_v1(
         )
 
 
-def _validate_revision_v1(aggregate: dict[str, Any]) -> None:
+def _validate_revision_v1(aggregate: dict[str, Any], *, policy: Any = None) -> None:
     """Validate revision key sets, lineage, Milestone 2 defaults, private Response records."""
     event_id = aggregate["event_id"]
     revisions = aggregate.get("revisions", [])
@@ -994,7 +994,8 @@ def _validate_revision_v1(aggregate: dict[str, Any]) -> None:
             if isinstance(ts_obj, dict):
                 est_min = ts_obj.get("estimated_minutes")
                 if isinstance(est_min, int) and not isinstance(est_min, bool) and est_min > 0:
-                    expected_sd = min(est_min * 60, 600)  # default cap
+                    cap = policy.start_countdown_seconds_cap if policy else 600
+                    expected_sd = min(est_min * 60, cap)
                     actual_sd = card_obj.get("start_countdown_seconds")
                     if actual_sd != expected_sd:
                         raise KernelCorruptionError(
@@ -2130,8 +2131,10 @@ class TaskInitiationStore:
         # Focused validator: terminal/phase/reason/deadline coherence
         _validate_terminal_state_v1(aggregate, int_row)
 
-        # Focused validator: revision key sets, lineage, defaults, bindings
-        _validate_revision_v1(aggregate)
+
+        # Load persisted policy for policy-derived validations
+        policy = _interaction_policy_from_json(int_row["interaction_policy_json"])
+        _validate_revision_v1(aggregate, policy=policy)
 
         # Focused validator: accepted_responses, evidence, timestamps
         _validate_response_evidence_v1(aggregate)
@@ -2276,6 +2279,9 @@ class TaskInitiationStore:
         if int_row is None:
             raise KernelNotFoundError(f"interaction {event_id} not found")
 
+        # Decode persisted interaction policy for policy-derived validations
+        policy = _interaction_policy_from_json(int_row["interaction_policy_json"])
+
         aggregate = _agg_from_db(int_row["aggregate_json"], source=f"interaction {event_id}")
         _validate_aggregate_structure(aggregate, row_event_id=event_id)
         _validate_revision_contiguity(aggregate)
@@ -2287,7 +2293,7 @@ class TaskInitiationStore:
         _validate_card_index_correspondence(aggregate, card_rows)
         _validate_aggregate_v1(aggregate, int_row)
         _validate_terminal_state_v1(aggregate, int_row)
-        _validate_revision_v1(aggregate)
+        _validate_revision_v1(aggregate, policy=policy)
         _validate_response_evidence_v1(aggregate)
         _validate_message_set_v1(self, conn, event_id, aggregate)
 
