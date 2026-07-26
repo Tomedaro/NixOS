@@ -2684,7 +2684,157 @@ _sd9e = _safe_db_copy(sd28_9)
 _k9e = _mk_kernel(_sd9e, clock=lambda: FIXED_NOW_BASE + 2000)
 raises_msg(KernelCorruptionError, "reducer reconstruction mismatch", _k9e.reconcile)
 
-print(f"=== {PASSED} passed, {FAILED} failed ===")
+print("=== 29. immutable result validation ===")
+
+# --- 8: lying unrelated Response result ---
+sd29_8 = _mk_state_dir()
+k29_8 = _mk_kernel(sd29_8, clock=lambda: FIXED_NOW_BASE)
+k29_8.initialize()
+_res29_8 = _make_res_tasks(sd29_8, {"Tasks/t29.md":{"label":"T29","revision":_REV_FIXTURE}})
+_stuck29_8_orig = _stuck()
+op29_8 = k29_8.ingest_stuck(_stuck29_8_orig, resolution=_res29_8)
+eid29_8 = op29_8.result["event_id"]
+card29_8 = op29_8.result["card"]
+_resp29_8 = _resp(card29_8, "start")
+r29_8 = k29_8.respond(_resp29_8, resolution=_res29_8)
+check("29.8 start accepted", r29_8.result["status"] == "accepted")
+# Corrupt only the Response result_json
+_conn8 = sqlite3_module.connect(str(sd29_8 / "kernel.sqlite3"))
+_conn8.row_factory = sqlite3_module.Row
+_msg8 = _conn8.execute("SELECT * FROM messages WHERE kind='response' AND event_id=?", (eid29_8,)).fetchone()
+_bad_result8 = dict(r29_8.result); _bad_result8["status"] = "card_published"
+_conn8.execute("UPDATE messages SET result_json=? WHERE kind='response' AND message_id=?", (c._canonical_json(_bad_result8).decode("utf-8"), _msg8["message_id"]))
+_conn8.commit(); _conn8.close(); del k29_8
+# Surfaces
+_sd = _safe_db_copy(sd29_8); raises_msg(KernelCorruptionError, "result_json not canonical", _mk_kernel(_sd).check_database)
+_sd = _safe_db_copy(sd29_8); raises_msg(KernelCorruptionError, "result_json not canonical", _mk_kernel(_sd).show, eid29_8)
+_sd = _safe_db_copy(sd29_8); raises_msg(KernelCorruptionError, "result_json not canonical", _mk_kernel(_sd).list_active)
+# exact Stuck replay
+_sd = _safe_db_copy(sd29_8)
+_stuck29_8 = _stuck29_8_orig
+raises_msg(KernelCorruptionError, "result_json not canonical", _mk_kernel(_sd).ingest_stuck, _stuck29_8, resolution=_res29_8)
+# exact Response replay
+_sd = _safe_db_copy(sd29_8); raises_msg(KernelCorruptionError, "result_json not canonical", _mk_kernel(_sd).respond, _resp29_8, resolution=_res29_8)
+# new Response ID
+_sd = _safe_db_copy(sd29_8); _nr8 = _resp(card29_8, "defer", response_id=str(uuid.uuid4()))
+raises_msg(KernelCorruptionError, "result_json not canonical", _mk_kernel(_sd).respond, _nr8, resolution=_res29_8)
+# reconcile
+_sd = _safe_db_copy(sd29_8); raises_msg(KernelCorruptionError, "result_json not canonical", _mk_kernel(_sd, clock=lambda: FIXED_NOW_BASE+2000).reconcile)
+
+# --- 9: lying Stuck result ---
+sd29_9 = _mk_state_dir()
+k29_9 = _mk_kernel(sd29_9, clock=lambda: FIXED_NOW_BASE)
+k29_9.initialize()
+_res29_9 = _make_res_tasks(sd29_9, {"Tasks/t29b.md":{"label":"T29B","revision":_REV_FIXTURE}})
+_stuck29_9 = _stuck()
+op29_9 = k29_9.ingest_stuck(_stuck29_9, resolution=_res29_9)
+eid29_9 = op29_9.result["event_id"]
+card29_9 = op29_9.result["card"]
+_resp29_9 = _resp(card29_9, "start")
+k29_9.respond(_resp29_9, resolution=_res29_9)
+# Corrupt only the Stuck result_json
+_conn9 = sqlite3_module.connect(str(sd29_9 / "kernel.sqlite3"))
+_conn9.row_factory = sqlite3_module.Row
+_bad_result9 = dict(op29_9.result); _bad_result9["status"] = "accepted"
+_conn9.execute("UPDATE messages SET result_json=? WHERE kind='stuck' AND event_id=?", (c._canonical_json(_bad_result9).decode("utf-8"), eid29_9))
+_conn9.commit(); _conn9.close(); del k29_9
+_sd = _safe_db_copy(sd29_9); raises_msg(KernelCorruptionError, "result_json not canonical", _mk_kernel(_sd).check_database)
+_sd = _safe_db_copy(sd29_9); raises_msg(KernelCorruptionError, "result_json not canonical", _mk_kernel(_sd).show, eid29_9)
+_sd = _safe_db_copy(sd29_9); raises_msg(KernelCorruptionError, "result_json not canonical", _mk_kernel(_sd).list_active)
+_sd = _safe_db_copy(sd29_9); raises_msg(KernelCorruptionError, "result_json not canonical", _mk_kernel(_sd).ingest_stuck, _stuck29_9, resolution=_res29_9)
+_sd = _safe_db_copy(sd29_9); raises_msg(KernelCorruptionError, "result_json not canonical", _mk_kernel(_sd).respond, _resp29_9, resolution=_res29_9)
+_sd = _safe_db_copy(sd29_9); raises_msg(KernelCorruptionError, "result_json not canonical", _mk_kernel(_sd, clock=lambda: FIXED_NOW_BASE+2000).reconcile)
+
+
+# --- 10: lying historical result after later progress ---
+sd29_10 = _mk_state_dir()
+k29_10 = _mk_kernel(sd29_10, clock=lambda: FIXED_NOW_BASE)
+k29_10.initialize()
+_res29_10 = _make_res_tasks(sd29_10, {"Tasks/t29d.md":{"label":"T29D","revision":_REV_FIXTURE}})
+_stuck29_10 = _stuck()
+op29_10 = k29_10.ingest_stuck(_stuck29_10, resolution=_res29_10)
+eid29_10 = op29_10.result["event_id"]
+card29_10 = op29_10.result["card"]
+# Shrink
+_shr29_10 = _resp(card29_10, "shrink")
+shr_op29_10 = k29_10.respond(_shr29_10, resolution=_res29_10)
+check("29.10 shrink accepted", shr_op29_10.result["status"] == "accepted")
+shr_result_orig = dict(shr_op29_10.result)
+next_card = shr_op29_10.result["next_card"]
+# Start on next card
+_start29_10 = _resp(next_card, "start")
+k29_10.respond(_start29_10, resolution=_res29_10)
+# Corrupt the Shrink result
+_conn10 = sqlite3_module.connect(str(sd29_10 / "kernel.sqlite3"))
+_conn10.row_factory = sqlite3_module.Row
+_shr_msg = _conn10.execute("SELECT * FROM messages WHERE kind='response' AND message_id=?", (_shr29_10["response_id"],)).fetchone()
+_bad10 = dict(shr_result_orig); _bad10["status"] = "superseded"
+_conn10.execute("UPDATE messages SET result_json=? WHERE kind='response' AND message_id=?", (c._canonical_json(_bad10).decode(), _shr29_10["response_id"]))
+_conn10.commit(); _conn10.close(); del k29_10
+# All surfaces reject
+_sd = _safe_db_copy(sd29_10); raises_msg(KernelCorruptionError, "result_json not canonical", _mk_kernel(_sd).check_database)
+_sd = _safe_db_copy(sd29_10); raises_msg(KernelCorruptionError, "result_json not canonical", _mk_kernel(_sd).show, eid29_10)
+_sd = _safe_db_copy(sd29_10); raises_msg(KernelCorruptionError, "result_json not canonical", _mk_kernel(_sd).list_active)
+# Exact replay of later Start still rejects
+_sd = _safe_db_copy(sd29_10); raises_msg(KernelCorruptionError, "result_json not canonical", _mk_kernel(_sd).respond, _start29_10, resolution=_res29_10)
+_sd = _safe_db_copy(sd29_10); raises_msg(KernelCorruptionError, "result_json not canonical", _mk_kernel(_sd).ingest_stuck, _stuck29_10, resolution=_res29_10)
+
+# --- 11: superseding Response result ---
+sd29_11 = _mk_state_dir()
+k29_11 = _mk_kernel(sd29_11, clock=lambda: FIXED_NOW_BASE)
+k29_11.initialize()
+_r11a_path = sd29_11 / "r11a.json"
+_r11a_path.write_text(json.dumps({"active_session":{"status":"active","session_id":"s-A","task":"A"}}))
+_r11a = load_resolution_input(_r11a_path, policy=KernelPolicy())
+_stuck29_11 = _stuck()
+op29_11 = k29_11.ingest_stuck(_stuck29_11, resolution=_r11a)
+eid29_11 = op29_11.result["event_id"]
+card29_11 = op29_11.result["card"]
+_r11b_path = sd29_11 / "r11b.json"
+_r11b_path.write_text(json.dumps({"active_session":{"status":"active","session_id":"s-B","task":"B"}}))
+_r11b = load_resolution_input(_r11b_path, policy=KernelPolicy())
+_resp29_11 = _resp(card29_11, "start")
+r29_11 = k29_11.respond(_resp29_11, resolution=_r11b)
+check("29.11 superseded", r29_11.result["status"] == "superseded")
+# Corrupt the superseding Response result
+_conn11 = sqlite3_module.connect(str(sd29_11 / "kernel.sqlite3"))
+_conn11.row_factory = sqlite3_module.Row
+_bad11 = dict(r29_11.result); _bad11["status"] = "accepted"
+_conn11.execute("UPDATE messages SET result_json=? WHERE kind='response' AND message_id=?", (c._canonical_json(_bad11).decode(), _resp29_11["response_id"]))
+_conn11.commit(); _conn11.close(); del k29_11
+# Surfaces reject
+_sd = _safe_db_copy(sd29_11); raises_msg(KernelCorruptionError, "result_json not canonical", _mk_kernel(_sd).check_database)
+_sd = _safe_db_copy(sd29_11); raises_msg(KernelCorruptionError, "result_json not canonical", _mk_kernel(_sd).show, eid29_11)
+_sd = _safe_db_copy(sd29_11); raises_msg(KernelCorruptionError, "result_json not canonical", _mk_kernel(_sd).ingest_stuck, _stuck29_11, resolution=_r11a)
+_sd = _safe_db_copy(sd29_11); raises_msg(KernelCorruptionError, "result_json not canonical", _mk_kernel(_sd).respond, _resp29_11, resolution=_r11b)
+_sd = _safe_db_copy(sd29_11); raises_msg(KernelCorruptionError, "result_json not canonical", _mk_kernel(_sd, clock=lambda: FIXED_NOW_BASE+2000).reconcile)
+
+# --- 12: noncanonical and malformed results ---
+sd29_12 = _mk_state_dir()
+k29_12 = _mk_kernel(sd29_12, clock=lambda: FIXED_NOW_BASE)
+k29_12.initialize()
+_res29_12 = _make_res_tasks(sd29_12, {"Tasks/t29c.md":{"label":"T29C","revision":_REV_FIXTURE}})
+op29_12 = k29_12.ingest_stuck(_stuck(), resolution=_res29_12)
+card29_12 = op29_12.result["card"]
+k29_12.respond(_resp(card29_12, "start"), resolution=_res29_12)
+# Noncanonical JSON (whitespace)
+_conn12a = sqlite3_module.connect(str(sd29_12 / "kernel.sqlite3"))
+_conn12a.row_factory = sqlite3_module.Row
+_msg12a = _conn12a.execute("SELECT * FROM messages WHERE kind='stuck'").fetchone()
+_conn12a.execute("UPDATE messages SET result_json=? WHERE kind='stuck' AND message_id=?", (json.dumps(c._strict_json_loads(_msg12a["result_json"]), indent=2), _msg12a["message_id"]))
+_conn12a.commit(); _conn12a.close(); del k29_12
+_sd = _safe_db_copy(sd29_12); raises_msg(KernelCorruptionError, "result_json not canonical", _mk_kernel(_sd).check_database)
+# Valid JSON non-dictionary
+_conn12b = sqlite3_module.connect(str(sd29_12 / "kernel.sqlite3"))
+_conn12b.execute("UPDATE messages SET result_json='[]' WHERE kind='stuck'")
+_conn12b.commit(); _conn12b.close()
+_sd = _safe_db_copy(sd29_12); raises_msg(KernelCorruptionError, "result is not a dict", _mk_kernel(_sd).check_database)
+# Truncated JSON
+_conn12c = sqlite3_module.connect(str(sd29_12 / "kernel.sqlite3"))
+_conn12c.execute("UPDATE messages SET result_json='{\"x\":' WHERE kind='stuck'")
+_conn12c.commit(); _conn12c.close()
+_sd = _safe_db_copy(sd29_12); raises_msg(KernelCorruptionError, "invalid result_json", _mk_kernel(_sd).check_database)
+
 if FAILED:
     raise SystemExit(1)
 print("ALL PASS")

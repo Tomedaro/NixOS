@@ -2026,26 +2026,14 @@ class TaskInitiationStore:
             interactions = conn.execute(
                 "SELECT event_id FROM interactions ORDER BY event_id"
             ).fetchall()
-            bundles: dict[str, ValidatedBundle] = {}
             for row in interactions:
-                bundle = self.load_and_validate_bundle(conn, row["event_id"])
-                bundles[row["event_id"]] = bundle
+                self.load_and_validate_bundle(conn, row["event_id"])
 
-            # Replay every message bundle using cached aggregates
-            message_count = 0
-            messages = conn.execute(
-                "SELECT * FROM messages ORDER BY event_id, kind, message_id"
-            ).fetchall()
-            for msg_row in messages:
-                owner_bundle = bundles.get(msg_row["event_id"])
-                if owner_bundle is None:
-                    raise KernelCorruptionError(
-                        f"check_database: message {msg_row['message_id']} has no owner bundle"
-                    )
-                _payload, _result = self._validate_replay_against_bundle(
-                    conn, msg_row, owner_bundle.aggregate,
-                )
-                message_count += 1
+            # Message count from SQL (all messages already validated inside bundles)
+            message_count_row = conn.execute(
+                "SELECT COUNT(*) FROM messages"
+            ).fetchone()
+            message_count = message_count_row[0] if message_count_row else 0
 
             return {
                 "status": "ok",
@@ -2057,48 +2045,6 @@ class TaskInitiationStore:
     # ------------------------------------------------------------------
     # Row validation
     # ------------------------------------------------------------------
-
-    def _validate_interaction_row(
-        self, conn: sqlite3.Connection, event_id: str
-    ) -> None:
-        """Proportional validation of one interaction row and its related rows.
-
-        Dispatches to focused validators (Defect 4 consolidation).
-        """
-        int_row = conn.execute(
-            "SELECT * FROM interactions WHERE event_id = ?", (event_id,)
-        ).fetchone()
-        if int_row is None:
-            raise KernelCorruptionError(f"interaction {event_id} not found")
-
-        # Decode and validate aggregate
-        aggregate = _agg_from_db(int_row["aggregate_json"], source=f"interaction {event_id}")
-        _validate_aggregate_structure(aggregate, row_event_id=event_id)
-        _validate_revision_contiguity(aggregate)
-
-        # Focused validator: aggregate shape, derived columns, invariants
-        _validate_aggregate_v1(aggregate, int_row)
-
-        # Card-index correspondence
-        card_rows = conn.execute(
-            "SELECT * FROM card_index WHERE event_id = ? ORDER BY revision",
-            (event_id,),
-        ).fetchall()
-        _validate_card_index_correspondence(aggregate, card_rows)
-
-        # Focused validator: terminal/phase/reason/deadline coherence
-        _validate_terminal_state_v1(aggregate, int_row)
-
-
-        # Load persisted policy for policy-derived validations
-        policy = _interaction_policy_from_json(int_row["interaction_policy_json"])
-        _validate_revision_v1(aggregate, policy=policy)
-
-        # Focused validator: accepted_responses, evidence, timestamps
-        _validate_response_evidence_v1(aggregate)
-
-        # Focused validator: message multiplicity, reservation correspondence
-        _validate_message_set_v1(self, conn, event_id, aggregate)
 
     def _validate_message_row(
         self,
@@ -2363,12 +2309,23 @@ class TaskInitiationStore:
                 f"load_and_validate_bundle: terminal_status mismatch for {event_id}"
             )
 
-        # --- 7. Replay validation (non-recursive) ---
+        # --- 7. Validate all owner message results ---
         validated_payload = None
         validated_result = None
-        if message_row is not None:
-            validated_payload, validated_result = self._validate_replay_against_bundle(
-                conn, message_row, aggregate,
+        all_messages: list[sqlite3.Row] = [stuck_row] + list(resp_rows)
+        for msg_row in all_messages:
+            pl, res = self._validate_replay_against_bundle(conn, msg_row, reconstructed)
+            if (message_row is not None
+                    and msg_row["kind"] == message_row["kind"]
+                    and msg_row["message_id"] == message_row["message_id"]
+                    and msg_row["event_id"] == message_row["event_id"]):
+                validated_payload = pl
+                validated_result = res
+
+        if message_row is not None and validated_result is None:
+            raise KernelCorruptionError(
+                f"load_and_validate_bundle: selected message {message_row['message_id']} "
+                f"does not belong to owner {event_id}"
             )
 
         return ValidatedBundle(
@@ -2382,22 +2339,15 @@ class TaskInitiationStore:
     def validate_replay_bundle(
         self, conn: sqlite3.Connection, message_row: sqlite3.Row
     ) -> dict[str, Any]:
-        """Validate a replay message against its owner's aggregate.
-
-        Does NOT call load_and_validate_bundle to avoid recursion.
-        """
-        event_id = message_row["event_id"]
-        int_row = conn.execute(
-            "SELECT * FROM interactions WHERE event_id = ?", (event_id,)
-        ).fetchone()
-        if int_row is None:
-            raise KernelCorruptionError(f"validate_replay_bundle: interaction {event_id} not found")
-        aggregate = _agg_from_db(int_row["aggregate_json"], source=f"replay {event_id}")
-        _validate_aggregate_structure(aggregate, row_event_id=event_id)
-        _validate_revision_contiguity(aggregate)
-        self._validate_interaction_row(conn, event_id)
-        _payload, result = self._validate_replay_against_bundle(conn, message_row, aggregate)
-        return result
+        """Validate a replay message through the authoritative bundle loader."""
+        bundle = self.load_and_validate_bundle(
+            conn, message_row["event_id"], message_row=message_row,
+        )
+        if bundle.validated_result is None:
+            raise KernelCorruptionError(
+                f"validate_replay_bundle: no result for {message_row['message_id']}"
+            )
+        return bundle.validated_result
 
     @staticmethod
     def _compute_next_deadline(aggregate: dict[str, Any]) -> int | None:
