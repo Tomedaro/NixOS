@@ -230,6 +230,12 @@ def build_placeholder_preparation(
     context_expiry = now_epoch + policy.context_ttl_seconds
     label = resolved_task.get("label", "Unknown task")
 
+    # Refuse unknown followup actions before context validation
+    if followup is not None and followup.get("action") not in ("shrink", "blocked"):
+        raise KernelRefusalError(
+            f"unknown followup action: {followup.get('action')}"
+        )
+
     context: dict[str, Any] = {
         "schema_version": "task_initiation_context.v1",
         "context_id": context_id,
@@ -291,6 +297,12 @@ def build_placeholder_preparation(
                            "instruction": "Write one sentence naming the blocker.",
                            "completion_signal": "One blocker sentence is written."},
         }
+    else:
+        raise KernelRefusalError(
+            f"unknown followup action: {followup.get('action')}"
+        )
+
+    proposal = c.validate_proposal(proposal)
 
     # Card
     start_cd = min(proposal["tiny_start"]["estimated_minutes"] * 60, policy.start_countdown_seconds_cap)

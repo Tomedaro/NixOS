@@ -671,7 +671,7 @@ def _validate_aggregate_v1(
         )
 
 
-def _validate_revision_v1(aggregate: dict[str, Any], *, policy: Any = None) -> None:
+def _validate_revision_v1(aggregate: dict[str, Any], *, policy: InteractionPolicy) -> None:
     """Validate revision key sets, lineage, Milestone 2 defaults, private Response records."""
     event_id = aggregate["event_id"]
     revisions = aggregate.get("revisions", [])
@@ -887,39 +887,42 @@ def _validate_revision_v1(aggregate: dict[str, Any], *, policy: Any = None) -> N
             card_issued = rev["card_issued_at_epoch"]
             card_expires = rev["card_expires_at_epoch"]
             occurred = resp["occurred_at_epoch"]
-            usable = card_issued <= occurred < card_expires
+            received_at = resp["received_at_epoch"]
+            usable = (
+                card_issued <= occurred < card_expires
+                and occurred <= received_at + policy.max_future_skew_seconds
+            )
             if oeu != usable:
                 raise KernelCorruptionError(
                     f"interaction {event_id} r{rev_num}: occurred_at_epoch_usable={oeu} "
-                    f"but card window [{card_issued}, {card_expires}] => {usable}"
+                    f"but card window [{card_issued}, {card_expires}] skew={policy.max_future_skew_seconds} => {usable}"
                 )
 
         # --- Defect 10: Evidence issues per revision ---
+        # response_timestamp_inconsistent present iff occurred_at_epoch_usable is false.
+        # Treat None as an empty issue set for the purposes of the iff check.
         rev_ei = rev.get("evidence_issues")
-        if rev_ei is None:
-            pass  # null is acceptable per _REVISION_KEYS_V1; set means no issues
-        elif isinstance(rev_ei, set):
-            for issue in rev_ei:
-                if not isinstance(issue, str):
-                    raise KernelCorruptionError(
-                        f"interaction {event_id} r{rev_num}: evidence_issue not a string: {issue!r}"
-                    )
-                if issue != "response_timestamp_inconsistent":
-                    raise KernelCorruptionError(
-                        f"interaction {event_id} r{rev_num}: unknown evidence_issue: {issue!r}"
-                    )
-            # response_timestamp_inconsistent present iff occurred_at_epoch_usable is false
-            has_inconsistent = "response_timestamp_inconsistent" in rev_ei
-            if resp is not None:
-                should_have = not resp.get("occurred_at_epoch_usable", True)
-                if has_inconsistent != should_have:
-                    raise KernelCorruptionError(
-                        f"interaction {event_id} r{rev_num}: evidence_issues inconsistent with "
-                        f"occurred_at_epoch_usable"
-                    )
-        else:
+        if rev_ei is not None and not isinstance(rev_ei, set):
             raise KernelCorruptionError(
-                f"interaction {event_id} r{rev_num}: evidence_issues expected set, got {type(rev_ei).__name__}"
+                f"interaction {event_id} r{rev_num}: evidence_issues expected set or null, "
+                f"got {type(rev_ei).__name__}"
+            )
+        effective_issues: set[str] = set() if rev_ei is None else rev_ei
+        for issue in effective_issues:
+            if not isinstance(issue, str):
+                raise KernelCorruptionError(
+                    f"interaction {event_id} r{rev_num}: evidence_issue not a string: {issue!r}"
+                )
+            if issue != "response_timestamp_inconsistent":
+                raise KernelCorruptionError(
+                    f"interaction {event_id} r{rev_num}: unknown evidence_issue: {issue!r}"
+                )
+        has_inconsistent = "response_timestamp_inconsistent" in effective_issues
+        should_have = resp is not None and resp.get("occurred_at_epoch_usable") is False
+        if has_inconsistent != should_have:
+            raise KernelCorruptionError(
+                f"interaction {event_id} r{rev_num}: evidence_issues "
+                f"has_inconsistent={has_inconsistent} should_have={should_have}"
             )
 
         # --- Cross-object semantic bindings ---
@@ -994,7 +997,7 @@ def _validate_revision_v1(aggregate: dict[str, Any], *, policy: Any = None) -> N
             if isinstance(ts_obj, dict):
                 est_min = ts_obj.get("estimated_minutes")
                 if isinstance(est_min, int) and not isinstance(est_min, bool) and est_min > 0:
-                    cap = policy.start_countdown_seconds_cap if policy else 600
+                    cap = policy.start_countdown_seconds_cap
                     expected_sd = min(est_min * 60, cap)
                     actual_sd = card_obj.get("start_countdown_seconds")
                     if actual_sd != expected_sd:

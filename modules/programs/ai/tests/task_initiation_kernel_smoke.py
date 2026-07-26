@@ -1791,11 +1791,6 @@ res2_path.write_text(json.dumps({"tasks": {"Tasks/a.md": {"label": "A", "revisio
                                            "Tasks/b.md": {"label": "B", "revision": _REV_FIXTURE}}}))
 raises(KernelRefusalError, load_resolution_input, res2_path, policy=pol24_3)
 check("24.3 2 tasks rejected", True)
-print()
-print(f"=== {PASSED} passed, {FAILED} failed ===")
-if FAILED:
-    raise SystemExit(1)
-print("ALL PASS")
 
 print("=== 17. policy-driven tiny-start and countdown ===")
 sd17 = _mk_state_dir()
@@ -1836,6 +1831,265 @@ k17e.initialize()
 op17e = k17e.ingest_stuck(_stuck(), resolution=_make_res_tasks(sd17c, {"Tasks/test.md": {"label": "DF", "revision": _REV_FIXTURE}}))
 check("17.8 default estimate unchanged", op17e.result["card"]["tiny_start"]["estimated_minutes"] <= 10)
 check("17.9 default countdown unchanged", op17e.result["card"]["start_countdown_seconds"] == 180)
+
+
+print("=== 25. degraded response evidence ===")
+
+# --- Test 1: inside Card window, beyond future skew ---
+sd25_1 = _mk_state_dir()
+skew = 300
+k25_1 = _mk_kernel(sd25_1, clock=lambda: FIXED_NOW_BASE, policy=KernelPolicy(max_future_skew_seconds=skew))
+k25_1.initialize()
+res25_1 = _make_res_tasks(sd25_1, {"Tasks/test.md": {"label": "D1", "revision": _REV_FIXTURE}})
+op25_1 = k25_1.ingest_stuck(_stuck(), resolution=res25_1)
+card25_1 = op25_1.result["card"]
+eid25_1 = op25_1.result["event_id"]
+# occurred = FIXED_NOW_BASE + 500 (inside card window, but > FIXED_NOW_BASE+100 + 300)
+resp25_1 = _resp(card25_1, "start", occurred_at_epoch=FIXED_NOW_BASE + 500)
+k25_1b = _mk_kernel(sd25_1, clock=lambda: FIXED_NOW_BASE + 100, policy=KernelPolicy(max_future_skew_seconds=skew))
+r25_1 = k25_1b.respond(resp25_1, resolution=res25_1)
+check("25.1 degraded: accepted", r25_1.result["status"] == "accepted")
+show25_1 = k25_1b.show(eid25_1, include_sensitive=True)
+agg25_1 = show25_1["aggregate"]
+rev25_1 = agg25_1["revisions"][0]
+check("25.1 degraded: occurred_at_epoch_usable=False",
+      rev25_1["response"]["occurred_at_epoch_usable"] is False)
+check("25.1 degraded: revision evidence has response_timestamp_inconsistent",
+      "response_timestamp_inconsistent" in rev25_1.get("evidence_issues", set()))
+check("25.1 degraded: aggregate evidence has response_timestamp_inconsistent",
+      "response_timestamp_inconsistent" in agg25_1.get("evidence_issues", set()))
+check("25.1 degraded: check_database ok", k25_1b.check_database()["status"] == "ok")
+# close/reopen
+del k25_1b
+k25_1c = _mk_kernel(sd25_1, clock=lambda: FIXED_NOW_BASE + 200, policy=KernelPolicy(max_future_skew_seconds=skew))
+show25_1c = k25_1c.show(eid25_1, include_sensitive=True)
+check("25.1 degraded: close/reopen survives",
+      show25_1c["aggregate"]["revisions"][0]["response"]["occurred_at_epoch_usable"] is False)
+check("25.1 degraded: show succeeds", show25_1c["phase"] == "observing")
+# exact replay
+replay25_1 = k25_1c.respond(resp25_1, resolution=res25_1)
+check("25.1 degraded: exact replay is replay", replay25_1.replay)
+check("25.1 degraded: exact replay result matches", replay25_1.result == r25_1.result)
+
+# --- Test 2: exactly at skew boundary ---
+sd25_2 = _mk_state_dir()
+k25_2 = _mk_kernel(sd25_2, clock=lambda: FIXED_NOW_BASE, policy=KernelPolicy(max_future_skew_seconds=300))
+k25_2.initialize()
+res25_2 = _make_res_tasks(sd25_2, {"Tasks/test.md": {"label": "D2", "revision": _REV_FIXTURE}})
+op25_2 = k25_2.ingest_stuck(_stuck(), resolution=res25_2)
+card25_2 = op25_2.result["card"]
+# occurred == received + skew: FIXED_NOW_BASE + 300 == FIXED_NOW_BASE + 0 + 300
+resp25_2 = _resp(card25_2, "start", occurred_at_epoch=FIXED_NOW_BASE + 300)
+k25_2b = _mk_kernel(sd25_2, clock=lambda: FIXED_NOW_BASE, policy=KernelPolicy(max_future_skew_seconds=300))
+r25_2 = k25_2b.respond(resp25_2, resolution=res25_2)
+show25_2 = k25_2b.show(op25_2.result["event_id"], include_sensitive=True)
+rev25_2 = show25_2["aggregate"]["revisions"][0]
+check("25.2 at boundary: usable", rev25_2["response"]["occurred_at_epoch_usable"] is True)
+check("25.2 at boundary: response_timestamp_inconsistent absent",
+      "response_timestamp_inconsistent" not in rev25_2.get("evidence_issues", set()))
+
+# --- Test 3: one second beyond skew boundary ---
+sd25_3 = _mk_state_dir()
+k25_3 = _mk_kernel(sd25_3, clock=lambda: FIXED_NOW_BASE, policy=KernelPolicy(max_future_skew_seconds=300))
+k25_3.initialize()
+res25_3 = _make_res_tasks(sd25_3, {"Tasks/test.md": {"label": "D3", "revision": _REV_FIXTURE}})
+op25_3 = k25_3.ingest_stuck(_stuck(), resolution=res25_3)
+card25_3 = op25_3.result["card"]
+# occurred == received + skew + 1
+resp25_3 = _resp(card25_3, "start", occurred_at_epoch=FIXED_NOW_BASE + 301)
+k25_3b = _mk_kernel(sd25_3, clock=lambda: FIXED_NOW_BASE, policy=KernelPolicy(max_future_skew_seconds=300))
+r25_3 = k25_3b.respond(resp25_3, resolution=res25_3)
+show25_3 = k25_3b.show(op25_3.result["event_id"], include_sensitive=True)
+rev25_3 = show25_3["aggregate"]["revisions"][0]
+check("25.3 beyond boundary: accepted", r25_3.result["status"] == "accepted")
+check("25.3 beyond boundary: unusable", rev25_3["response"]["occurred_at_epoch_usable"] is False)
+check("25.3 beyond boundary: response_timestamp_inconsistent present",
+      "response_timestamp_inconsistent" in rev25_3.get("evidence_issues", set()))
+
+# --- Test 4: client occurrence exactly at Card expiry ---
+sd25_4 = _mk_state_dir()
+k25_4 = _mk_kernel(sd25_4, clock=lambda: FIXED_NOW_BASE, policy=KernelPolicy(max_future_skew_seconds=600))
+k25_4.initialize()
+res25_4 = _make_res_tasks(sd25_4, {"Tasks/test.md": {"label": "D4", "revision": _REV_FIXTURE}})
+op25_4 = k25_4.ingest_stuck(_stuck(), resolution=res25_4)
+card25_4 = op25_4.result["card"]
+card_exp = card25_4["expires_at_epoch"]
+eid25_4 = op25_4.result["event_id"]
+# received in time (< expiry), but occurred == expiry (strict comparison fails)
+resp25_4 = _resp(card25_4, "start", occurred_at_epoch=card_exp)
+k25_4b = _mk_kernel(sd25_4, clock=lambda: card_exp - 1, policy=KernelPolicy(max_future_skew_seconds=600))
+r25_4 = k25_4b.respond(resp25_4, resolution=res25_4)
+check("25.4 at expiry: accepted", r25_4.result["status"] == "accepted")
+show25_4 = k25_4b.show(eid25_4, include_sensitive=True)
+rev25_4 = show25_4["aggregate"]["revisions"][0]
+check("25.4 at expiry: unusable", rev25_4["response"]["occurred_at_epoch_usable"] is False)
+# restart and replay
+del k25_4b
+k25_4c = _mk_kernel(sd25_4, clock=lambda: card_exp + 100, policy=KernelPolicy(max_future_skew_seconds=600))
+show25_4c = k25_4c.show(eid25_4, include_sensitive=True)
+check("25.4 at expiry: survives restart",
+      show25_4c["aggregate"]["revisions"][0]["response"]["occurred_at_epoch_usable"] is False)
+replay25_4 = k25_4c.respond(resp25_4, resolution=res25_4)
+check("25.4 at expiry: replay is replay", replay25_4.replay)
+check("25.4 at expiry: replay matches", replay25_4.result == r25_4.result)
+
+# --- Test 5: client occurrence before Card issuance ---
+sd25_5 = _mk_state_dir()
+k25_5 = _mk_kernel(sd25_5, clock=lambda: FIXED_NOW_BASE, policy=KernelPolicy(max_future_skew_seconds=300))
+k25_5.initialize()
+res25_5 = _make_res_tasks(sd25_5, {"Tasks/test.md": {"label": "D5", "revision": _REV_FIXTURE}})
+op25_5 = k25_5.ingest_stuck(_stuck(), resolution=res25_5)
+card25_5 = op25_5.result["card"]
+# occurred before card issuance, received is valid
+resp25_5 = _resp(card25_5, "start", occurred_at_epoch=card25_5["issued_at_epoch"] - 1)
+k25_5b = _mk_kernel(sd25_5, clock=lambda: FIXED_NOW_BASE + 1, policy=KernelPolicy(max_future_skew_seconds=300))
+r25_5 = k25_5b.respond(resp25_5, resolution=res25_5)
+show25_5 = k25_5b.show(op25_5.result["event_id"], include_sensitive=True)
+rev25_5 = show25_5["aggregate"]["revisions"][0]
+check("25.5 before issuance: accepted", r25_5.result["status"] == "accepted")
+check("25.5 before issuance: unusable", rev25_5["response"]["occurred_at_epoch_usable"] is False)
+check("25.5 before issuance: response_timestamp_inconsistent present",
+      "response_timestamp_inconsistent" in rev25_5.get("evidence_issues", set()))
+
+# --- Test 6: server receipt exactly at Card expiry -> expired/refused ---
+sd25_6 = _mk_state_dir()
+k25_6 = _mk_kernel(sd25_6, clock=lambda: FIXED_NOW_BASE, policy=KernelPolicy(max_future_skew_seconds=300))
+k25_6.initialize()
+res25_6 = _make_res_tasks(sd25_6, {"Tasks/test.md": {"label": "D6", "revision": _REV_FIXTURE}})
+op25_6 = k25_6.ingest_stuck(_stuck(), resolution=res25_6)
+card25_6 = op25_6.result["card"]
+card_exp6 = card25_6["expires_at_epoch"]
+# received == card expiry
+resp25_6 = _resp(card25_6, "start", occurred_at_epoch=card_exp6 - 10)
+k25_6b = _mk_kernel(sd25_6, clock=lambda: card_exp6, policy=KernelPolicy(max_future_skew_seconds=300))
+raises(KernelRefusalError, k25_6b.respond, resp25_6, resolution=res25_6)
+
+# --- Test 7: persisted skew survives runtime-policy drift ---
+sd25_7 = _mk_state_dir()
+k25_7 = _mk_kernel(sd25_7, clock=lambda: FIXED_NOW_BASE, policy=KernelPolicy(max_future_skew_seconds=300))
+k25_7.initialize()
+res25_7 = _make_res_tasks(sd25_7, {"Tasks/test.md": {"label": "D7", "revision": _REV_FIXTURE}})
+op25_7 = k25_7.ingest_stuck(_stuck(), resolution=res25_7)
+card25_7 = op25_7.result["card"]
+eid25_7 = op25_7.result["event_id"]
+del k25_7
+# Reopen with skew=1 runtime policy (contracts reject 0), persisted skew is 300
+k25_7b = _mk_kernel(sd25_7, clock=lambda: FIXED_NOW_BASE, policy=KernelPolicy(max_future_skew_seconds=1))
+# occurred = received + 200, within persisted 300 but beyond runtime 1
+resp25_7 = _resp(card25_7, "start", occurred_at_epoch=FIXED_NOW_BASE + 200)
+r25_7 = k25_7b.respond(resp25_7, resolution=res25_7)
+show25_7 = k25_7b.show(eid25_7, include_sensitive=True)
+rev25_7 = show25_7["aggregate"]["revisions"][0]
+check("25.7 drift: accepted", r25_7.result["status"] == "accepted")
+check("25.7 drift: usable with persisted 300",
+      rev25_7["response"]["occurred_at_epoch_usable"] is True)
+# New interaction under runtime skew 1: same relative occurrence is unusable
+op25_7b = k25_7b.ingest_stuck(_stuck(event_id=str(uuid.uuid4())), resolution=res25_7)
+card25_7b = op25_7b.result["card"]
+eid25_7b = op25_7b.result["event_id"]
+resp25_7b = _resp(card25_7b, "start", occurred_at_epoch=FIXED_NOW_BASE + 200)
+r25_7b = k25_7b.respond(resp25_7b, resolution=res25_7)
+show25_7b = k25_7b.show(eid25_7b, include_sensitive=True)
+rev25_7b = show25_7b["aggregate"]["revisions"][0]
+check("25.7 drift: new interaction under skew 1: unusable",
+      rev25_7b["response"]["occurred_at_epoch_usable"] is False)
+
+# --- Test 8: exact historical replay for usable and unusable ---
+# 8a: usable response
+sd25_8a = _mk_state_dir()
+k25_8a = _mk_kernel(sd25_8a, clock=lambda: FIXED_NOW_BASE, policy=KernelPolicy(max_future_skew_seconds=300))
+k25_8a.initialize()
+res25_8a = _make_res_tasks(sd25_8a, {"Tasks/test.md": {"label": "D8a", "revision": _REV_FIXTURE}})
+op25_8a = k25_8a.ingest_stuck(_stuck(), resolution=res25_8a)
+card25_8a = op25_8a.result["card"]
+resp25_8a = _resp(card25_8a, "start", occurred_at_epoch=FIXED_NOW_BASE + 100)
+r25_8a = k25_8a.respond(resp25_8a, resolution=res25_8a)
+orig25_8a = r25_8a.result
+# Advance clock and replay
+k25_8a2 = _mk_kernel(sd25_8a, clock=lambda: FIXED_NOW_BASE + 500, policy=KernelPolicy(max_future_skew_seconds=300))
+replay25_8a = k25_8a2.respond(resp25_8a, resolution=res25_8a)
+check("25.8a usable replay: is replay", replay25_8a.replay)
+check("25.8a usable replay: result matches", replay25_8a.result == orig25_8a)
+
+# 8b: unusable response
+sd25_8b = _mk_state_dir()
+k25_8b = _mk_kernel(sd25_8b, clock=lambda: FIXED_NOW_BASE, policy=KernelPolicy(max_future_skew_seconds=300))
+k25_8b.initialize()
+res25_8b = _make_res_tasks(sd25_8b, {"Tasks/test.md": {"label": "D8b", "revision": _REV_FIXTURE}})
+op25_8b = k25_8b.ingest_stuck(_stuck(), resolution=res25_8b)
+card25_8b = op25_8b.result["card"]
+resp25_8b = _resp(card25_8b, "start", occurred_at_epoch=FIXED_NOW_BASE + 500)
+k25_8b2 = _mk_kernel(sd25_8b, clock=lambda: FIXED_NOW_BASE + 100, policy=KernelPolicy(max_future_skew_seconds=300))
+r25_8b = k25_8b2.respond(resp25_8b, resolution=res25_8b)
+orig25_8b = r25_8b.result
+check("25.8b unusable original: unusable",
+      orig25_8b.get("response", {}).get("occurred_at_epoch_usable") is not True)
+k25_8b3 = _mk_kernel(sd25_8b, clock=lambda: FIXED_NOW_BASE + 700, policy=KernelPolicy(max_future_skew_seconds=300))
+replay25_8b = k25_8b3.respond(resp25_8b, resolution=res25_8b)
+check("25.8b unusable replay: is replay", replay25_8b.replay)
+check("25.8b unusable replay: result matches", replay25_8b.result == orig25_8b)
+
+# --- Test 9: restored preparation guard ---
+# 9a: unknown followup action -> KernelRefusalError
+raises(KernelRefusalError, build_placeholder_preparation,
+        resolved_task={"label": "T9"},
+        interaction_id=str(uuid.uuid4()),
+        revision=1,
+        task_fingerprint=hashlib.sha256(b"tf9").hexdigest(),
+        now_epoch=FIXED_NOW_BASE,
+        context_id=str(uuid.uuid4()),
+        card_id=str(uuid.uuid4()),
+        followup={"action": "unsupported_action", "detail": "test", "prior_tiny_start": "prev"},
+        policy=KernelPolicy())
+
+# 9b: valid initial preparation unchanged
+ctx9b, prop9b, crd9b = build_placeholder_preparation(
+    resolved_task={"label": "T9b"},
+    interaction_id=str(uuid.uuid4()),
+    revision=1,
+    task_fingerprint=hashlib.sha256(b"tf9b").hexdigest(),
+    now_epoch=FIXED_NOW_BASE,
+    context_id=str(uuid.uuid4()),
+    card_id=str(uuid.uuid4()),
+    followup=None,
+    policy=KernelPolicy(),
+)
+check("25.9b initial blocker unclear_next_step",
+      prop9b["blocker"]["category"] == "unclear_next_step")
+check("25.9b initial estimate 3", prop9b["tiny_start"]["estimated_minutes"] == 3)
+check("25.9b initial countdown 180", crd9b["start_countdown_seconds"] == 180)
+
+# 9c: valid Shrink preparation unchanged
+ctx9c, prop9c, crd9c = build_placeholder_preparation(
+    resolved_task={"label": "T9c"},
+    interaction_id=str(uuid.uuid4()),
+    revision=2,
+    task_fingerprint=hashlib.sha256(b"tf9c").hexdigest(),
+    now_epoch=FIXED_NOW_BASE,
+    context_id=str(uuid.uuid4()),
+    card_id=str(uuid.uuid4()),
+    followup={"action": "shrink", "detail": "too big", "prior_tiny_start": "prev inst"},
+    policy=KernelPolicy(),
+)
+check("25.9c shrink blocker too_big", prop9c["blocker"]["category"] == "too_big")
+check("25.9c shrink estimate 1", prop9c["tiny_start"]["estimated_minutes"] == 1)
+check("25.9c shrink countdown 60", crd9c["start_countdown_seconds"] == 60)
+
+# 9d: valid Blocked preparation unchanged
+ctx9d, prop9d, crd9d = build_placeholder_preparation(
+    resolved_task={"label": "T9d"},
+    interaction_id=str(uuid.uuid4()),
+    revision=2,
+    task_fingerprint=hashlib.sha256(b"tf9d").hexdigest(),
+    now_epoch=FIXED_NOW_BASE,
+    context_id=str(uuid.uuid4()),
+    card_id=str(uuid.uuid4()),
+    followup={"action": "blocked", "detail": "still blocked", "prior_tiny_start": "prev inst"},
+    policy=KernelPolicy(),
+)
+check("25.9d blocked blocker other", prop9d["blocker"]["category"] == "other")
+check("25.9d blocked estimate 2", prop9d["tiny_start"]["estimated_minutes"] == 2)
+check("25.9d blocked countdown 120", crd9d["start_countdown_seconds"] == 120)
 
 print(f"=== {PASSED} passed, {FAILED} failed ===")
 if FAILED:
