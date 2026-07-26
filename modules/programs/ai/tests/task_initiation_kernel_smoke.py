@@ -2515,6 +2515,175 @@ _d9g = _make_distinct_resolved_task_for_supersession(_t9g)
 check("27.9g max-length label: differs", c.task_fingerprint(_t9g) != c.task_fingerprint(_d9g))
 check("27.9g max-length: original unchanged", _t9g["label"] == "y"*500)
 
+
+print("=== 28. cross-surface validation authority ===")
+
+_import_copy = __import__("copy")
+
+def _safe_db_copy(sd: Path) -> Path:
+    """Copy state dir's DB using SQLite backup for consistency."""
+    import os as _os
+    _nsd = _mk_state_dir()
+    _src = sqlite3_module.connect(str(sd / "kernel.sqlite3"))
+    _dst = sqlite3_module.connect(str(_nsd / "kernel.sqlite3"))
+    _src.backup(_dst)
+    _src.close(); _dst.close()
+    _os.chmod(str(_nsd), 0o700)
+    _os.chmod(str(_nsd / "kernel.sqlite3"), 0o600)
+    return _nsd
+# --- 7: accepted-summary contradiction ---
+sd28_7 = _mk_state_dir()
+k28_7 = _mk_kernel(sd28_7, clock=lambda: FIXED_NOW_BASE)
+k28_7.initialize()
+_res28_7 = _make_res_tasks(sd28_7, {"Tasks/t28.md":{"label":"T28","revision":_REV_FIXTURE}})
+op28_7 = k28_7.ingest_stuck(_stuck(), resolution=_res28_7)
+eid28_7 = op28_7.result["event_id"]
+card28_7 = op28_7.result["card"]
+_resp28_7 = _resp(card28_7, "start")
+r28_7 = k28_7.respond(_resp28_7, resolution=_res28_7)
+check("28.7 start accepted", r28_7.result["status"] == "accepted")
+# Corrupt: change accepted_responses detail but leave revision response intact
+_conn7 = sqlite3_module.connect(str(sd28_7 / "kernel.sqlite3"))
+_conn7.row_factory = sqlite3_module.Row
+_row7 = _conn7.execute("SELECT * FROM interactions WHERE event_id=?", (eid28_7,)).fetchone()
+_agg7 = _agg_from_db(_row7["aggregate_json"], source="corrupt")
+_agg7["accepted_responses"][0]["detail"] = "corrupted_detail"
+_rewrite_aggregate_canonically(_conn7, eid28_7, _agg7)
+_conn7.close()
+del k28_7
+# check_database
+_sd7a = _safe_db_copy(sd28_7)
+_k7a = _mk_kernel(_sd7a)
+raises_msg(KernelCorruptionError, "reducer reconstruction mismatch", _k7a.check_database)
+# show
+_sd7b = _safe_db_copy(sd28_7)
+_k7b = _mk_kernel(_sd7b)
+raises_msg(KernelCorruptionError, "reducer reconstruction mismatch", _k7b.show, eid28_7)
+# list_active
+_sd7c = _safe_db_copy(sd28_7)
+_k7c = _mk_kernel(_sd7c)
+raises_msg(KernelCorruptionError, "reducer reconstruction mismatch", _k7c.list_active)
+# exact Response replay
+_sd7d = _safe_db_copy(sd28_7)
+_k7d = _mk_kernel(_sd7d)
+raises_msg(KernelCorruptionError, "reducer reconstruction mismatch", _k7d.respond, _resp28_7, resolution=_res28_7)
+# respond with new Response ID
+_sd7e = _safe_db_copy(sd28_7)
+_k7e = _mk_kernel(_sd7e)
+_new_resp7 = _resp(card28_7, "defer", response_id=str(uuid.uuid4()))
+raises_msg(KernelCorruptionError, "reducer reconstruction mismatch", _k7e.respond, _new_resp7, resolution=_res28_7)
+
+# reconcile (owner is observing, deadline passes with clock advance)
+_sd7f = _safe_db_copy(sd28_7)
+_k7f = TaskInitiationKernel(_sd7f, clock=lambda: FIXED_NOW_BASE + 2000, policy=KernelPolicy(), busy_timeout_seconds=0.2)
+raises_msg(KernelCorruptionError, "reducer reconstruction mismatch", _k7f.reconcile)
+
+# --- 8: reducer-owned timestamp contradiction ---
+sd28_8 = _mk_state_dir()
+k28_8 = _mk_kernel(sd28_8, clock=lambda: FIXED_NOW_BASE)
+k28_8.initialize()
+_res28_8 = _make_res_tasks(sd28_8, {"Tasks/t28b.md":{"label":"T28B","revision":_REV_FIXTURE}})
+op28_8 = k28_8.ingest_stuck(_stuck(), resolution=_res28_8)
+card28_8 = op28_8.result["card"]
+eid28_8 = op28_8.result["event_id"]
+_resp28_8 = _resp(card28_8, "start")
+k28_8.respond(_resp28_8, resolution=_res28_8)
+_conn8 = sqlite3_module.connect(str(sd28_8 / "kernel.sqlite3"))
+_conn8.row_factory = sqlite3_module.Row
+_row8 = _conn8.execute("SELECT * FROM interactions WHERE event_id=?", (eid28_8,)).fetchone()
+_agg8 = _agg_from_db(_row8["aggregate_json"], source="corrupt")
+_agg8["first_response_received_at_epoch"] = None
+_rewrite_aggregate_canonically(_conn8, eid28_8, _agg8)
+_conn8.close()
+del k28_8
+_sd8a = _safe_db_copy(sd28_8)
+raises_msg(KernelCorruptionError, "reducer reconstruction mismatch", _mk_kernel(_sd8a).check_database)
+_sd8b = _safe_db_copy(sd28_8)
+raises_msg(KernelCorruptionError, "reducer reconstruction mismatch", _mk_kernel(_sd8b).show, eid28_8)
+_sd8c = _safe_db_copy(sd28_8)
+raises_msg(KernelCorruptionError, "reducer reconstruction mismatch", _mk_kernel(_sd8c).list_active)
+# exact replay (submit same response_id as originally accepted)
+_sd8r = _safe_db_copy(sd28_8)
+raises_msg(KernelCorruptionError, "reducer reconstruction mismatch", _mk_kernel(_sd8r).respond, _resp28_8, resolution=_res28_8)
+# new-ID respond for first case
+_sd8n = _safe_db_copy(sd28_8)
+raises_msg(KernelCorruptionError, "reducer reconstruction mismatch", _mk_kernel(_sd8n).respond, _resp(card28_8, "defer", response_id=str(uuid.uuid4())), resolution=_res28_8)
+# reconcile for first case
+_sd8s = _safe_db_copy(sd28_8)
+raises_msg(KernelCorruptionError, "reducer reconstruction mismatch", _mk_kernel(_sd8s, clock=lambda: FIXED_NOW_BASE + 2000).reconcile)
+
+# second case: corrupt start_at_epoch (fresh healthy DB)
+sd28_8b = _mk_state_dir()
+k28_8b = _mk_kernel(sd28_8b, clock=lambda: FIXED_NOW_BASE)
+k28_8b.initialize()
+_res28_8b = _make_res_tasks(sd28_8b, {"Tasks/t28b2.md":{"label":"T28B2","revision":_REV_FIXTURE}})
+op28_8b = k28_8b.ingest_stuck(_stuck(), resolution=_res28_8b)
+card28_8b = op28_8b.result["card"]
+eid28_8b = op28_8b.result["event_id"]
+_resp28_8b = _resp(card28_8b, "start")
+r28_8b = k28_8b.respond(_resp28_8b, resolution=_res28_8b)
+check("28.8b start accepted", r28_8b.result["status"] == "accepted")
+_conn8b = sqlite3_module.connect(str(sd28_8b / "kernel.sqlite3"))
+_conn8b.row_factory = sqlite3_module.Row
+_row8b = _conn8b.execute("SELECT * FROM interactions WHERE event_id=?", (eid28_8b,)).fetchone()
+_agg8b = _agg_from_db(_row8b["aggregate_json"], source="corrupt")
+_agg8b["start_at_epoch"] = None
+_rewrite_aggregate_canonically(_conn8b, eid28_8b, _agg8b)
+_conn8b.close()
+del k28_8b
+_sd8d = _safe_db_copy(sd28_8b)
+raises_msg(KernelCorruptionError, "reducer reconstruction mismatch", _mk_kernel(_sd8d).check_database)
+_sd8e = _safe_db_copy(sd28_8b)
+raises_msg(KernelCorruptionError, "reducer reconstruction mismatch", _mk_kernel(_sd8e).show, eid28_8b)
+_sd8f = _safe_db_copy(sd28_8b)
+raises_msg(KernelCorruptionError, "reducer reconstruction mismatch", _mk_kernel(_sd8f).list_active)
+# also replay and respond rejected
+_sd8g = _safe_db_copy(sd28_8b)
+raises_msg(KernelCorruptionError, "reducer reconstruction mismatch", _mk_kernel(_sd8g).respond, _resp28_8b, resolution=_res28_8b)
+# reconcile for second case
+_sd8h = _safe_db_copy(sd28_8b)
+raises_msg(KernelCorruptionError, "reducer reconstruction mismatch", _mk_kernel(_sd8h, clock=lambda: FIXED_NOW_BASE + 2000).reconcile)
+
+# --- 9: impossible terminal history ---
+# new-ID respond for second case
+_sd8i = _safe_db_copy(sd28_8b)
+raises_msg(KernelCorruptionError, "reducer reconstruction mismatch", _mk_kernel(_sd8i).respond, _resp(card28_8b, "defer", response_id=str(uuid.uuid4())), resolution=_res28_8b)
+sd28_9 = _mk_state_dir()
+k28_9 = _mk_kernel(sd28_9, clock=lambda: FIXED_NOW_BASE)
+k28_9.initialize()
+_res28_9 = _make_res_tasks(sd28_9, {"Tasks/t28c.md":{"label":"T28C","revision":_REV_FIXTURE}})
+op28_9 = k28_9.ingest_stuck(_stuck(), resolution=_res28_9)
+card28_9 = op28_9.result["card"]
+eid28_9 = op28_9.result["event_id"]
+_resp28_9 = _resp(card28_9, "defer")
+r28_9 = k28_9.respond(_resp28_9, resolution=_res28_9)
+check("28.9 defer completed", r28_9.result["terminal_status"] == "completed")
+# Corrupt: change terminal_status to expired with different reason
+_conn9 = sqlite3_module.connect(str(sd28_9 / "kernel.sqlite3"))
+_conn9.row_factory = sqlite3_module.Row
+_row9 = _conn9.execute("SELECT * FROM interactions WHERE event_id=?", (eid28_9,)).fetchone()
+_agg9 = _agg_from_db(_row9["aggregate_json"], source="corrupt")
+_agg9["terminal_status"] = "expired"
+_agg9["resolution_reason"] = "card_expired_without_response"
+_rewrite_aggregate_canonically(_conn9, eid28_9, _agg9)
+_conn9.execute("UPDATE interactions SET terminal_status='expired' WHERE event_id=?", (eid28_9,))
+_conn9.commit()
+_conn9.close()
+del k28_9
+_sd9a = _safe_db_copy(sd28_9)
+raises_msg(KernelCorruptionError, "reducer reconstruction mismatch", _mk_kernel(_sd9a).check_database)
+_sd9b = _safe_db_copy(sd28_9)
+raises_msg(KernelCorruptionError, "reducer reconstruction mismatch", _mk_kernel(_sd9b).show, eid28_9)
+_sd9c = _safe_db_copy(sd28_9)
+_k9c = _mk_kernel(_sd9c)
+raises_msg(KernelCorruptionError, "reducer reconstruction mismatch", _k9c.ingest_stuck, _stuck(event_id=eid28_9), resolution=_res28_9)
+_sd9d = _safe_db_copy(sd28_9)
+_k9d = _mk_kernel(_sd9d)
+raises_msg(KernelCorruptionError, "reducer reconstruction mismatch", _k9d.respond, _resp28_9, resolution=_res28_9)
+_sd9e = _safe_db_copy(sd28_9)
+_k9e = _mk_kernel(_sd9e, clock=lambda: FIXED_NOW_BASE + 2000)
+raises_msg(KernelCorruptionError, "reducer reconstruction mismatch", _k9e.reconcile)
+
 print(f"=== {PASSED} passed, {FAILED} failed ===")
 if FAILED:
     raise SystemExit(1)

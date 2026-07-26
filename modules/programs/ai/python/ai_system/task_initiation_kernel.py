@@ -409,36 +409,8 @@ class TaskInitiationKernel:
                 result_json = c._canonical_json(result).decode("utf-8")
                 conn.execute("INSERT INTO messages (kind,message_id,payload_sha256,payload_json,event_id,result_json,recorded_at_epoch) VALUES (?,?,?,?,?,?,?)",
                              ("stuck", event_id, ph, pjs, event_id, result_json, now))
-                # --- write-before-commit gate: validate and reconstruct ---
+                # --- write-before-commit gate: validate through shared authority ---
                 self._load_validated_interaction(conn, event_id)
-                interaction_pol = InteractionPolicy(
-                    stuck_ttl_seconds=self._policy.stuck_ttl_seconds,
-                    max_future_skew_seconds=self._policy.max_future_skew_seconds,
-                    max_card_revisions=self._policy.max_card_revisions,
-                    tiny_start_minutes_cap=self._policy.tiny_start_minutes_cap,
-                    start_countdown_seconds_cap=self._policy.start_countdown_seconds_cap,
-                    observation_seconds=self._policy.observation_seconds,
-                    context_ttl_seconds=self._policy.context_ttl_seconds,
-                    card_ttl_seconds=self._policy.card_ttl_seconds,
-                )
-                sr = conn.execute(
-                    "SELECT * FROM messages WHERE kind='stuck' AND event_id=?", (event_id,)
-                ).fetchone()
-                if sr is None:
-                    raise KernelCorruptionError(f"ingest_stuck: no Stuck row for {event_id}")
-                reconstructed = reconstruct_expected_aggregate_v1(
-                    stuck_row=sr,
-                    resolved_task=resolved,
-                    revisions=state["revisions"],
-                    response_messages={},
-                    superseding_msg=None,
-                    terminal_at_epoch=None,
-                    interaction_policy=interaction_pol,
-                )
-                if _agg_to_db(reconstructed) != _agg_to_db(state):
-                    raise KernelCorruptionError(
-                        "ingest_stuck: reducer reconstruction mismatch"
-                    )
                 return OperationResult(result=result, replay=False)
         except c.TaskInitiationContractError as exc:
             raise KernelRefusalError(str(exc)) from exc
@@ -556,45 +528,8 @@ class TaskInitiationKernel:
                         "INSERT INTO messages (kind,message_id,payload_sha256,payload_json,event_id,result_json,recorded_at_epoch) VALUES (?,?,?,?,?,?,?)",
                         ("response", rid, ph, pjs, event_id, result_json, eff),
                     )
-                    # --- post-commit validation ---
+                    # --- post-commit validation through shared authority ---
                     self._load_validated_interaction(conn, event_id)
-                    # --- reducer reconstruction gate ---
-                    all_resp_rows = conn.execute(
-                        "SELECT * FROM messages WHERE kind='response' AND event_id=?",
-                        (event_id,),
-                    ).fetchall()
-                    resp_msg_map: dict[str, Any] = {}
-                    superseding: Any = None
-                    for rrow in all_resp_rows:
-                        rpay = c._strict_json_loads(rrow["payload_json"])
-                        if isinstance(rpay, dict):
-                            resp_msg_map[rpay.get("response_id", rrow["message_id"])] = rrow
-                    for rrow in all_resp_rows:
-                        rpay = c._strict_json_loads(rrow["payload_json"])
-                        if isinstance(rpay, dict):
-                            rid_key = rpay.get("response_id")
-                            in_rev = any(
-                                (rev.get("response") or {}).get("response_id") == rid_key
-                                for rev in state.get("revisions", [])
-                            )
-                            if not in_rev:
-                                superseding = rrow
-                    rec_policy = persisted_policy_ip
-                    # Use original resolved_task from aggregate for reconstruction,
-                    # not the current resolution (which may differ for task_changed).
-                    rec_agg = reconstruct_expected_aggregate_v1(
-                        stuck_row=sr,
-                        resolved_task=aggregate.get("resolved_task", resolved),
-                        revisions=state["revisions"],
-                        response_messages=resp_msg_map,
-                        superseding_msg=superseding,
-                        terminal_at_epoch=state.get("terminal_at_epoch"),
-                        interaction_policy=rec_policy,
-                    )
-                    if _agg_to_db(rec_agg) != _agg_to_db(state):
-                        raise KernelCorruptionError(
-                            "respond: reducer reconstruction mismatch"
-                        )
                     return OperationResult(result=result, replay=False)
                 # If we reach here with a post_commit_refusal, let the with block exit normally
                 # so it commits, then raise after
@@ -693,17 +628,18 @@ class TaskInitiationKernel:
         try:
             with self._store.immediate_transaction() as conn:
                 now = self._clock()
-                rows = conn.execute(
-                    "SELECT * FROM interactions WHERE terminal_status IS NULL ORDER BY event_id"
+                rows_all = conn.execute(
+                    "SELECT * FROM interactions ORDER BY event_id"
                 ).fetchall()
-                # Pass 1: validate all owners, abort on any corruption
-                owners: list[tuple[sqlite3.Row, dict[str, Any]]] = []
-                for row in rows:
+                # Pass 1: validate ALL owners, abort on any corruption
+                active_owners: list[tuple[sqlite3.Row, dict[str, Any]]] = []
+                for row in rows_all:
                     _, aggregate = self._load_validated_interaction(conn, row["event_id"])
-                    owners.append((row, aggregate))
-                # Pass 2: advance and persist
+                    if row["terminal_status"] is None:
+                        active_owners.append((row, aggregate))
+                # Pass 2: advance and persist (only active owners)
                 changed = 0; expired = 0; completed = 0
-                for row, aggregate in owners:
+                for row, aggregate in active_owners:
                     eff = max(now, row["last_observed_at_epoch"])
                     persisted_policy = self._load_interaction_policy(conn, row["event_id"])
                     ns = c._advance_time(aggregate, now_epoch=eff, policy=persisted_policy)
@@ -717,49 +653,6 @@ class TaskInitiationKernel:
                         self._persist_state(conn, ns, row["event_id"], eff)
                         # Validate after persist
                         self._load_validated_interaction(conn, row["event_id"])
-                        # P1: reconstruct expected aggregate for changed owners
-                        event_id = row["event_id"]
-                        stuck_row = conn.execute(
-                            "SELECT * FROM messages WHERE kind='stuck' AND event_id=?",
-                            (event_id,),
-                        ).fetchone()
-                        if stuck_row is not None:
-                            resp_rows = conn.execute(
-                                "SELECT * FROM messages WHERE kind='response' AND event_id=? ORDER BY message_id",
-                                (event_id,),
-                            ).fetchall()
-                            resp_msg_map: dict[str, sqlite3.Row] = {}
-                            superseding: sqlite3.Row | None = None
-                            accepted_ids: set[str] = set()
-                            for rev in ns.get("revisions", []):
-                                rev_resp = rev.get("response")
-                                if rev_resp is not None and isinstance(rev_resp, dict):
-                                    accepted_ids.add(rev_resp.get("response_id", ""))
-                            for rr in resp_rows:
-                                rid = rr["message_id"]
-                                try:
-                                    rpay = c._strict_json_loads(rr["payload_json"])
-                                except (json.JSONDecodeError, ValueError):
-                                    raise KernelCorruptionError(f"reconcile: invalid response payload for {rid}")
-                                if isinstance(rpay, dict):
-                                    actual_rid = rpay.get("response_id", rid)
-                                    if actual_rid in accepted_ids:
-                                        resp_msg_map[actual_rid] = rr
-                                    else:
-                                        superseding = rr
-                            rec_agg = reconstruct_expected_aggregate_v1(
-                                stuck_row=stuck_row,
-                                resolved_task=ns.get("resolved_task", aggregate.get("resolved_task", {})),
-                                revisions=ns.get("revisions", []),
-                                response_messages=resp_msg_map,
-                                superseding_msg=superseding,
-                                terminal_at_epoch=ns.get("terminal_at_epoch"),
-                                interaction_policy=persisted_policy,
-                            )
-                            if _agg_to_db(rec_agg) != _agg_to_db(ns):
-                                raise KernelCorruptionError(
-                                    f"reconcile: reducer reconstruction mismatch for {event_id}"
-                                )
                     elif eff > row["last_observed_at_epoch"]:
                         # No reducer change, but high-water must advance
                         conn.execute(

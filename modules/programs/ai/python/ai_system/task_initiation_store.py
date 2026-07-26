@@ -2026,70 +2026,25 @@ class TaskInitiationStore:
             interactions = conn.execute(
                 "SELECT event_id FROM interactions ORDER BY event_id"
             ).fetchall()
+            bundles: dict[str, ValidatedBundle] = {}
             for row in interactions:
-                self._validate_interaction_row(conn, row["event_id"])
+                bundle = self.load_and_validate_bundle(conn, row["event_id"])
+                bundles[row["event_id"]] = bundle
 
-                # P0: reconstruct expected aggregate and compare
-                event_id = row["event_id"]
-                int_row = conn.execute(
-                    "SELECT * FROM interactions WHERE event_id = ?", (event_id,)
-                ).fetchone()
-                if int_row is None:
-                    raise KernelCorruptionError(f"check_database: interaction {event_id} vanished mid-check")
-                aggregate = _agg_from_db(int_row["aggregate_json"], source=f"interaction {event_id}")
-                stuck_row = conn.execute(
-                    "SELECT * FROM messages WHERE kind='stuck' AND event_id=?",
-                    (event_id,),
-                ).fetchone()
-                if stuck_row is None:
-                    raise KernelCorruptionError(f"check_database: missing Stuck message for {event_id}")
-                # Collect response messages
-                resp_rows = conn.execute(
-                    "SELECT * FROM messages WHERE kind='response' AND event_id=? ORDER BY message_id",
-                    (event_id,),
-                ).fetchall()
-                resp_msg_map: dict[str, sqlite3.Row] = {}
-                superseding: sqlite3.Row | None = None
-                accepted_ids: set[str] = set()
-                for rev in aggregate.get("revisions", []):
-                    rev_resp = rev.get("response")
-                    if rev_resp is not None and isinstance(rev_resp, dict):
-                        accepted_ids.add(rev_resp.get("response_id", ""))
-                for rr in resp_rows:
-                    rid = rr["message_id"]
-                    # Decode to get response_id from payload
-                    try:
-                        rpay = c._strict_json_loads(rr["payload_json"])
-                    except (json.JSONDecodeError, ValueError):
-                        raise KernelCorruptionError(f"check_database: invalid response payload for {rid}")
-                    if isinstance(rpay, dict):
-                        actual_rid = rpay.get("response_id", rid)
-                        if actual_rid in accepted_ids:
-                            resp_msg_map[actual_rid] = rr
-                        else:
-                            superseding = rr
-                policy = _interaction_policy_from_json(int_row["interaction_policy_json"])
-                reconstructed = reconstruct_expected_aggregate_v1(
-                    stuck_row=stuck_row,
-                    resolved_task=aggregate.get("resolved_task", {}),
-                    revisions=aggregate.get("revisions", []),
-                    response_messages=resp_msg_map,
-                    superseding_msg=superseding,
-                    terminal_at_epoch=aggregate.get("terminal_at_epoch"),
-                    interaction_policy=policy,
-                )
-                if _agg_to_db(reconstructed) != _agg_to_db(aggregate):
-                    raise KernelCorruptionError(
-                        f"check_database: reducer reconstruction mismatch for {event_id}"
-                    )
-
-            # Replay every message bundle (Defect 11)
+            # Replay every message bundle using cached aggregates
             message_count = 0
             messages = conn.execute(
                 "SELECT * FROM messages ORDER BY event_id, kind, message_id"
             ).fetchall()
             for msg_row in messages:
-                self.validate_replay_bundle(conn, msg_row)
+                owner_bundle = bundles.get(msg_row["event_id"])
+                if owner_bundle is None:
+                    raise KernelCorruptionError(
+                        f"check_database: message {msg_row['message_id']} has no owner bundle"
+                    )
+                _payload, _result = self._validate_replay_against_bundle(
+                    conn, msg_row, owner_bundle.aggregate,
+                )
                 message_count += 1
 
             return {
@@ -2246,46 +2201,89 @@ class TaskInitiationStore:
                             f"{source}: recorded_at {row['recorded_at_epoch']} != "
                             f"terminal_at_epoch {ta}"
                         )
+    # ------------------------------------------------------------------
+    # Internal: validate a replay message against an already-validated bundle
+    # ------------------------------------------------------------------
 
-        # Canonical result encoding check (Defect 10)
-        # Only when aggregate is available - rebuild expected result and verify
-        if aggregate is not None:
-            if kind == "stuck":
-                expected_result = _expected_stuck_result(
-                    row["event_id"], aggregate["interaction_id"], aggregate, conn,
-                )
-            else:
-                expected_result = _expected_response_result(
-                    message_id, aggregate, conn, payload=payload,
-                )
-            expected_bytes = c._canonical_json(expected_result)
-            if expected_bytes.decode("utf-8") != row["result_json"]:
-                raise KernelCorruptionError(
-                    f"{source}: result_json not canonical"
-                )
+    def _validate_replay_against_bundle(
+        self, conn: sqlite3.Connection, message_row: sqlite3.Row,
+        aggregate: dict[str, Any],
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Validate replay payload/reservation/result against *aggregate*.
+
+        Does NOT reload or reconstruct the owner.  Returns (payload, result).
+        """
+        kind = message_row["kind"]
+        message_id = message_row["message_id"]
+        event_id = message_row["event_id"]
+        source = f"replay {kind}:{message_id}"
+
+        # Verify payload
+        payload = _decode_message_payload_json(message_row["payload_json"], source=source)
+        computed_payload_hash = c._payload_sha256(payload)
+        if computed_payload_hash != message_row["payload_sha256"]:
+            raise KernelCorruptionError(f"{source}: payload_sha256 mismatch")
+
+        # Verify reservation
+        reservations = aggregate.get("message_reservations", {})
+        rkey = f"{kind}:{message_id}"
+        if reservations.get(rkey) != message_row["payload_sha256"]:
+            raise KernelCorruptionError(f"{source}: reservation mismatch")
+
+        # Decode result
+        try:
+            result = c._strict_json_loads(message_row["result_json"])
+        except (json.JSONDecodeError, ValueError) as exc:
+            raise KernelCorruptionError(f"{source}: invalid result_json: {exc}")
+        if not isinstance(result, dict):
+            raise KernelCorruptionError(f"{source}: result is not a dict")
+
+        # Build expected result
+        if kind == "stuck":
+            expected = _expected_stuck_result(
+                event_id, aggregate["interaction_id"], aggregate, conn,
+            )
+        elif kind == "response":
+            expected = _expected_response_result(message_id, aggregate, conn, payload=payload)
+        else:
+            raise KernelCorruptionError(f"{source}: unknown message kind: {kind}")
+
+        expected_bytes = c._canonical_json(expected)
+        if expected_bytes.decode("utf-8") != message_row["result_json"]:
+            raise KernelCorruptionError(
+                f"{source}: result_json not canonical"
+            )
+
+        return payload, result
+
+    # ------------------------------------------------------------------
+    # Public bundle loader (single semantic authority)
+    # ------------------------------------------------------------------
+
     def load_and_validate_bundle(
         self, conn: sqlite3.Connection, event_id: str, *, message_row: sqlite3.Row | None = None
     ) -> ValidatedBundle:
         """Load and fully validate an interaction bundle.
 
-        Decodes the aggregate, validates structure, contiguity, revision
-        keys, response evidence, message correspondence, and terminal
-        coherence.  If *message_row* is provided, also validates the
-        replay-consistent result and returns it in the bundle.
+        Performs structural decoding, deterministic-preparation validation,
+        frozen-reducer reconstruction, exact canonical aggregate comparison,
+        SQL-derived owner-column checks, Card-route checks, and optionally
+        replay-result validation.
 
-        Raises KernelNotFoundError if the interaction is absent;
-        KernelCorruptionError on any validation failure.
+        This is the single lifecycle authority for every public surface.
         """
+        # --- 1. Load interaction row ---
         int_row = conn.execute(
             "SELECT * FROM interactions WHERE event_id = ?", (event_id,)
         ).fetchone()
         if int_row is None:
             raise KernelNotFoundError(f"interaction {event_id} not found")
 
-        # Decode persisted interaction policy for policy-derived validations
+        # --- 2. Decode policy and aggregate ---
         policy = _interaction_policy_from_json(int_row["interaction_policy_json"])
-
         aggregate = _agg_from_db(int_row["aggregate_json"], source=f"interaction {event_id}")
+
+        # --- 3. Structural and preparatory validators ---
         _validate_aggregate_structure(aggregate, row_event_id=event_id)
         _validate_revision_contiguity(aggregate)
 
@@ -2300,14 +2298,77 @@ class TaskInitiationStore:
         _validate_response_evidence_v1(aggregate)
         _validate_message_set_v1(self, conn, event_id, aggregate)
 
+        # --- 4. Load reconstruction inputs ---
+        stuck_row = conn.execute(
+            "SELECT * FROM messages WHERE kind='stuck' AND event_id=?",
+            (event_id,),
+        ).fetchone()
+        if stuck_row is None:
+            raise KernelCorruptionError(f"load_and_validate_bundle: missing Stuck message for {event_id}")
+
+        resp_rows = conn.execute(
+            "SELECT * FROM messages WHERE kind='response' AND event_id=? ORDER BY message_id",
+            (event_id,),
+        ).fetchall()
+        resp_msg_map: dict[str, sqlite3.Row] = {}
+        superseding: sqlite3.Row | None = None
+        accepted_ids: set[str] = set()
+        for rev in aggregate.get("revisions", []):
+            rev_resp = rev.get("response")
+            if rev_resp is not None and isinstance(rev_resp, dict):
+                accepted_ids.add(rev_resp.get("response_id", ""))
+        for rr in resp_rows:
+            rid = rr["message_id"]
+            try:
+                rpay = c._strict_json_loads(rr["payload_json"])
+            except (json.JSONDecodeError, ValueError):
+                raise KernelCorruptionError(f"load_and_validate_bundle: invalid response payload for {rid}")
+            if isinstance(rpay, dict):
+                actual_rid = rpay.get("response_id", rid)
+                if actual_rid in accepted_ids:
+                    resp_msg_map[actual_rid] = rr
+                else:
+                    superseding = rr
+
+        # --- 5. Reducer reconstruction + canonical comparison ---
+        resolved_task = aggregate.get("resolved_task", {})
+        if not isinstance(resolved_task, dict):
+            raise KernelCorruptionError(f"load_and_validate_bundle: resolved_task not a dict for {event_id}")
+
+        reconstructed = reconstruct_expected_aggregate_v1(
+            stuck_row=stuck_row,
+            resolved_task=resolved_task,
+            revisions=aggregate.get("revisions", []),
+            response_messages=resp_msg_map,
+            superseding_msg=superseding,
+            terminal_at_epoch=aggregate.get("terminal_at_epoch"),
+            interaction_policy=policy,
+        )
+        if _agg_to_db(reconstructed) != _agg_to_db(aggregate):
+            raise KernelCorruptionError(
+                f"load_and_validate_bundle: reducer reconstruction mismatch for {event_id}"
+            )
+
+        # --- 6. Validate SQL-derived owner columns ---
+        if int_row["event_id"] != aggregate.get("event_id"):
+            raise KernelCorruptionError(f"load_and_validate_bundle: event_id mismatch for {event_id}")
+        if int_row["phase"] != aggregate.get("phase"):
+            raise KernelCorruptionError(
+                f"load_and_validate_bundle: phase mismatch for {event_id}: "
+                f"{int_row['phase']} != {aggregate.get('phase')}"
+            )
+        stored_status = _require_terminal_status(int_row["terminal_status"], f"int_row.terminal_status {event_id}")
+        if stored_status != aggregate.get("terminal_status"):
+            raise KernelCorruptionError(
+                f"load_and_validate_bundle: terminal_status mismatch for {event_id}"
+            )
+
+        # --- 7. Replay validation (non-recursive) ---
         validated_payload = None
         validated_result = None
         if message_row is not None:
-            validated_result = self.validate_replay_bundle(conn, message_row)
-            kind = message_row["kind"]
-            source = f"bundle {kind}:{message_row['message_id']}"
-            validated_payload = _decode_message_payload_json(
-                message_row["payload_json"], source=source
+            validated_payload, validated_result = self._validate_replay_against_bundle(
+                conn, message_row, aggregate,
             )
 
         return ValidatedBundle(
@@ -2317,74 +2378,25 @@ class TaskInitiationStore:
             validated_result=validated_result,
         )
 
+
     def validate_replay_bundle(
         self, conn: sqlite3.Connection, message_row: sqlite3.Row
     ) -> dict[str, Any]:
-        """Owner-scoped replay validation with exact binding.
+        """Validate a replay message against its owner's aggregate.
 
-        Loads the owning interaction, validates aggregate completeness,
-        verifies payload/reservation/result consistency against exact
-        version-1 shapes, checks Card routes, and returns the decoded
-        immutable result. Raises KernelCorruptionError on any invalidity.
-
-        The result is stored directly in result_json, never wrapped in
-        an ``{"ok": ..., "result": ...}`` compatibility envelope.
+        Does NOT call load_and_validate_bundle to avoid recursion.
         """
-        kind = message_row["kind"]
-        message_id = message_row["message_id"]
         event_id = message_row["event_id"]
-        source = f"replay {kind}:{message_id}"
-
-        # Load and validate the owner aggregate
         int_row = conn.execute(
             "SELECT * FROM interactions WHERE event_id = ?", (event_id,)
         ).fetchone()
         if int_row is None:
-            raise KernelCorruptionError(f"{source}: interaction {event_id} not found")
-
+            raise KernelCorruptionError(f"validate_replay_bundle: interaction {event_id} not found")
         aggregate = _agg_from_db(int_row["aggregate_json"], source=f"replay {event_id}")
         _validate_aggregate_structure(aggregate, row_event_id=event_id)
         _validate_revision_contiguity(aggregate)
-
-        # Full interaction row validation
         self._validate_interaction_row(conn, event_id)
-
-        # Verify payload
-        payload = _decode_message_payload_json(message_row["payload_json"], source=source)
-        computed_payload_hash = c._payload_sha256(payload)
-        if computed_payload_hash != message_row["payload_sha256"]:
-            raise KernelCorruptionError(f"{source}: payload_sha256 mismatch")
-
-        # Verify reservation
-        reservations = aggregate.get("message_reservations", {})
-        rkey = f"{kind}:{message_id}"
-        if reservations.get(rkey) != message_row["payload_sha256"]:
-            raise KernelCorruptionError(f"{source}: reservation mismatch")
-
-        # Decode result directly (no wrapper)
-        try:
-            result = c._strict_json_loads(message_row["result_json"])
-        except (json.JSONDecodeError, ValueError) as exc:
-            raise KernelCorruptionError(f"{source}: invalid result_json: {exc}")
-        if not isinstance(result, dict):
-            raise KernelCorruptionError(f"{source}: result is not a dict")
-
-        # Build expected result from authoritative persisted evidence
-        if kind == "stuck":
-            expected = _expected_stuck_result(
-                event_id, aggregate["interaction_id"], aggregate, conn,
-            )
-        elif kind == "response":
-            expected = _expected_response_result(message_id, aggregate, conn, payload=payload)
-        else:
-            raise KernelCorruptionError(f"{source}: unknown message kind: {kind}")
-
-        # Compare expected with stored result
-        if c._canonical_json(expected) != c._canonical_json(result):
-            raise KernelCorruptionError(
-                f"{source}: result mismatch; expected={c._canonical_json(expected).decode('utf-8')}"
-            )
-
+        _payload, result = self._validate_replay_against_bundle(conn, message_row, aggregate)
         return result
 
     @staticmethod
@@ -2402,10 +2414,6 @@ class TaskInitiationStore:
             return aggregate.get("observation_due_at_epoch")
         return None
 
-
-# ---------------------------------------------------------------------------
-# Replay result derivation
-# ---------------------------------------------------------------------------
 
 
 def _expected_stuck_result(
@@ -2438,8 +2446,8 @@ def _expected_stuck_result(
         "card": card,
     }
 
-
 def _expected_response_result(
+
     response_id: str,
     aggregate: dict[str, Any],
     conn: sqlite3.Connection,
