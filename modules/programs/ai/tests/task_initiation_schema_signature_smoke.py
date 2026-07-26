@@ -1,4 +1,4 @@
-"""Unit tests for canonical schema-signature extraction (Milestone 2 6C1).
+"""Unit tests for canonical schema-signature extraction (Milestone 2 6C1b).
 
 Does NOT test production enforcement.  All checks are extractor-only.
 """
@@ -36,12 +36,12 @@ def check(description: str, condition: bool) -> None:
         print(f"FAIL {description}")
 
 
-def raises(exc_type: type, fn, *a, **kw):
+def expect_raises(description: str, exc_type: type, fn, *a, **kw):
     try:
         fn(*a, **kw)
-        check(f"{fn.__name__} raises {exc_type.__name__}", False)
+        check(description, False)
     except exc_type:
-        pass
+        check(description, True)
 
 
 def _mk_mem_conn():
@@ -66,9 +66,9 @@ expected = _expected_schema_signature()
 check("35A.1 actual == expected", actual == expected)
 check("35A.1 user_version == 1", actual.user_version == 1)
 check("35A.1 3 tables", len(actual.tables) == 3)
-check("35A.1 1 named index in interactions",
-      any(ni.index_name == "interactions_active_deadline_idx"
-          for t in actual.tables for ni in t.named_indexes))
+check("35A.1 1 named index", any(
+    ni.index_name == "interactions_active_deadline_idx"
+    for t in actual.tables for ni in t.named_indexes))
 conn.close()
 
 # ===========================================================================
@@ -83,67 +83,70 @@ a = "CREATE TABLE x ( a INTEGER PRIMARY KEY )"
 b = "CREATE   TABLE   x   (   a   INTEGER   PRIMARY   KEY   )"
 c = "CREATE TABLE x (\n  a INTEGER PRIMARY KEY\n)"
 d = "CREATE TABLE x ( a INTEGER PRIMARY KEY )"
-check("35A.2 different spacing equal", _normalize_schema_sql(a) == _normalize_schema_sql(b))
-check("35A.2 newline normalized equal", _normalize_schema_sql(c) == _normalize_schema_sql(a))
+check("35A.2 diff spacing equal", _normalize_schema_sql(a) == _normalize_schema_sql(b))
+check("35A.2 newline equal", _normalize_schema_sql(c) == _normalize_schema_sql(a))
 check("35A.2 identical equal", _normalize_schema_sql(a) == _normalize_schema_sql(d))
 
-# Whitespace inside string literal preserved
 e = "CREATE TABLE x (a TEXT CHECK (a IN ('a b')))"
 f = "CREATE TABLE x (a TEXT CHECK (a IN ('a  b')))"
-check("35A.2 literal whitespace preserved",
-      _normalize_schema_sql(e) != _normalize_schema_sql(f))
+check("35A.2 literal whitespace preserved", _normalize_schema_sql(e) != _normalize_schema_sql(f))
 
-# CHECK expression change
 g = "CHECK (x > 0)"
 h = "CHECK (x >= 0)"
 check("35A.2 CHECK change unequal", _normalize_schema_sql(g) != _normalize_schema_sql(h))
 
-# Keyword case change
 i = "CREATE TABLE x (a INTEGER)"
 j = "create table x (a integer)"
 check("35A.2 keyword case unequal", _normalize_schema_sql(i) != _normalize_schema_sql(j))
 
-# ASC vs DESC
 k = "CREATE INDEX idx ON x(a ASC)"
 l = "CREATE INDEX idx ON x(a DESC)"
 check("35A.2 ASC vs DESC unequal", _normalize_schema_sql(k) != _normalize_schema_sql(l))
 
-# BINARY vs NOCASE
 m = "CREATE INDEX idx ON x(a COLLATE BINARY)"
 n = "CREATE INDEX idx ON x(a COLLATE NOCASE)"
 check("35A.2 BINARY vs NOCASE unequal", _normalize_schema_sql(m) != _normalize_schema_sql(n))
 
-# Line comment preserved
 o = "CREATE TABLE x (a INTEGER -- comment\n)"
 p = "CREATE TABLE x (a INTEGER)"
-check("35A.2 line comment makes unequal", _normalize_schema_sql(o) != _normalize_schema_sql(p))
+check("35A.2 comment unequal", _normalize_schema_sql(o) != _normalize_schema_sql(p))
 
-# Block comment preserved
 q = "CREATE TABLE x (a INTEGER /* comment */)"
-check("35A.2 block comment makes unequal", _normalize_schema_sql(q) != _normalize_schema_sql(p))
+check("35A.2 block comment unequal", _normalize_schema_sql(q) != _normalize_schema_sql(p))
 
-# Unterminated quote
-raises(KernelCorruptionError, _normalize_schema_sql, "CREATE TABLE x (a TEXT CHECK (a = 'unterminated)")
-raises(KernelCorruptionError, _normalize_schema_sql, "CREATE TABLE x /* unterminated block")
+expect_raises("35A.2 unterminated quote", KernelCorruptionError,
+              _normalize_schema_sql, "CREATE TABLE x (a TEXT CHECK (a = 'unterminated)")
+expect_raises("35A.2 unterminated block comment", KernelCorruptionError,
+              _normalize_schema_sql, "CREATE TABLE x /* unterminated block")
 
 # ===========================================================================
-# 35A.3: same-count automatic-index difference
+# 35A.3: automatic-index semantic multiset
 # ===========================================================================
 print("=== 35A.3 automatic-index multiset ===")
 
+# Same table name, same columns, different UNIQUE column
 c1 = _mk_mem_conn()
-c1.execute("CREATE TABLE t1 (a INTEGER PRIMARY KEY, b INTEGER UNIQUE)")
+c1.execute("CREATE TABLE t (a INTEGER PRIMARY KEY, b INTEGER UNIQUE, c INTEGER)")
 c2 = _mk_mem_conn()
-c2.execute("CREATE TABLE t2 (a INTEGER PRIMARY KEY, b TEXT UNIQUE)")
+c2.execute("CREATE TABLE t (a INTEGER PRIMARY KEY, b INTEGER, c INTEGER UNIQUE)")
 
-s1 = _schema_signature(c1)
-s2 = _schema_signature(c2)
-
-t1_idxes = [ai for t in s1.tables for ai in t.auto_indexes]
-t2_idxes = [ai for t in s2.tables for ai in t.auto_indexes]
-check("35A.3 both have 2 auto indexes", len(t1_idxes) == len(t2_idxes))
-check("35A.3 auto-index multisets differ", s1 != s2)
+ai1 = _schema_signature(c1).tables[0].auto_indexes
+ai2 = _schema_signature(c2).tables[0].auto_indexes
+check("35A.3 equal auto-index count", len(ai1) == len(ai2))
+check("35A.3 auto-index multisets differ", ai1 != ai2)
 c1.close(); c2.close()
+
+# Same column, different collation
+c3 = _mk_mem_conn()
+c3.execute("CREATE TABLE t (a INTEGER PRIMARY KEY, b TEXT UNIQUE COLLATE BINARY)")
+c4 = _mk_mem_conn()
+c4.execute("CREATE TABLE t (a INTEGER PRIMARY KEY, b TEXT UNIQUE COLLATE NOCASE)")
+
+ai3 = _schema_signature(c3).tables[0].auto_indexes
+ai4 = _schema_signature(c4).tables[0].auto_indexes
+check("35A.3 collation: equal count", len(ai3) == len(ai4))
+check("35A.3 collation: multisets differ", ai3 != ai4)
+c3.close(); c4.close()
 
 # ===========================================================================
 # 35A.4: named index definition
@@ -156,8 +159,7 @@ c1.execute("CREATE INDEX idx1 ON t(a ASC)")
 c2 = _mk_mem_conn()
 c2.execute("CREATE TABLE t (a INTEGER, b INTEGER)")
 c2.execute("CREATE INDEX idx1 ON t(a DESC)")
-
-check("35A.4 ASC vs DESC different", _schema_signature(c1) != _schema_signature(c2))
+check("35A.4 ASC vs DESC", _schema_signature(c1) != _schema_signature(c2))
 c1.close(); c2.close()
 
 c3 = _mk_mem_conn()
@@ -166,9 +168,17 @@ c3.execute("CREATE INDEX idx1 ON t(a COLLATE BINARY)")
 c4 = _mk_mem_conn()
 c4.execute("CREATE TABLE t (a INTEGER, b INTEGER)")
 c4.execute("CREATE INDEX idx1 ON t(a COLLATE NOCASE)")
-
-check("35A.4 BINARY vs NOCASE different", _schema_signature(c3) != _schema_signature(c4))
+check("35A.4 BINARY vs NOCASE", _schema_signature(c3) != _schema_signature(c4))
 c3.close(); c4.close()
+
+c5 = _mk_mem_conn()
+c5.execute("CREATE TABLE t (a INTEGER, b INTEGER)")
+c5.execute("CREATE INDEX idx1 ON t(a) WHERE a IS NOT NULL")
+c6 = _mk_mem_conn()
+c6.execute("CREATE TABLE t (a INTEGER, b INTEGER)")
+c6.execute("CREATE INDEX idx1 ON t(a)")
+check("35A.4 partial vs nonpartial", _schema_signature(c5) != _schema_signature(c6))
+c5.close(); c6.close()
 
 # ===========================================================================
 # 35A.5: table definition and options
@@ -189,12 +199,75 @@ c4.execute("CREATE TABLE t (a INTEGER DEFAULT 0)")
 check("35A.5 DEFAULT different", _schema_signature(c3) != _schema_signature(c4))
 c3.close(); c4.close()
 
+c5 = _mk_mem_conn()
+c5.execute("CREATE TABLE t (x INTEGER) STRICT")
+c6 = _mk_mem_conn()
+c6.execute("CREATE TABLE t (x INTEGER)")
+check("35A.5 STRICT vs non-STRICT", _schema_signature(c5) != _schema_signature(c6))
+c5.close(); c6.close()
+
+c7 = _mk_mem_conn()
+c7.execute("CREATE TABLE t (x INTEGER PRIMARY KEY) WITHOUT ROWID")
+c8 = _mk_mem_conn()
+c8.execute("CREATE TABLE t (x INTEGER PRIMARY KEY)")
+check("35A.5 WITHOUT ROWID", _schema_signature(c7) != _schema_signature(c8))
+c7.close(); c8.close()
+
+# FK deferrability
+c9 = _mk_mem_conn()
+c9.execute("CREATE TABLE parent (id INTEGER PRIMARY KEY)")
+c9.execute("CREATE TABLE child (pid INTEGER REFERENCES parent(id))")
+c10 = _mk_mem_conn()
+c10.execute("CREATE TABLE parent (id INTEGER PRIMARY KEY)")
+c10.execute("CREATE TABLE child (pid INTEGER REFERENCES parent(id) DEFERRABLE INITIALLY DEFERRED)")
+check("35A.5 FK deferrability", _schema_signature(c9) != _schema_signature(c10))
+c9.close(); c10.close()
+
+# ===========================================================================
+# 35A.6: table_list capability
+# ===========================================================================
+print("=== 35A.6 table_list capability ===")
+
+c = _mk_mem_conn()
+c.execute("CREATE TABLE t (x INTEGER)")
+sig = _schema_signature(c)
+check("35A.6 supported is bool", isinstance(sig.table_options.table_list_supported, bool))
+entries = sig.table_options.entries
+check("35A.6 has entry for t", len(entries) >= 1 and entries[0][0] == "t")
+if sig.table_options.table_list_supported and len(entries) > 0:
+    e = entries[0]
+    check("35A.6 ncol is 1", e[2] == 1)
+    check("35A.6 wr is 0/1", e[3] in (0, 1))
+    check("35A.6 strict is 0/1", e[4] in (0, 1))
+c.close()
+
+# table_list error propagation
+import sqlite3 as _sq
+class _ErrProxy:
+    def __init__(self, real):
+        object.__setattr__(self, '_r', real)
+    def __getattr__(self, n):
+        return getattr(object.__getattribute__(self, '_r'), n)
+    def execute(self, sql, *a):
+        if 'PRAGMA main.table_list' in str(sql):
+            _e = _sq.OperationalError("injected table_list failure")
+            _e.sqlite_errorcode = _sq.SQLITE_IOERR
+            raise _e
+        return object.__getattribute__(self, '_r').execute(sql, *a)
+c2 = _mk_mem_conn()
+c2.execute("CREATE TABLE t (x INTEGER)")
+proxy = _ErrProxy(c2)
+expect_raises("35A.6 table_list error propagates", _sq.OperationalError,
+              _schema_signature, proxy)
+c2.close()
+
 # ===========================================================================
 # 35A.7: expected-signature cache isolation
 # ===========================================================================
 print("=== 35A.7 cache isolation ===")
 
-_expected_schema_signature.cache_clear()
+import ai_system.task_initiation_store as _store
+_store._expected_schema_signature.cache_clear()
 _build_count = [0]
 _orig_build = _build_expected_schema_signature
 
@@ -202,7 +275,6 @@ def _counting_build():
     _build_count[0] += 1
     return _orig_build()
 
-import ai_system.task_initiation_store as _store
 _store._build_expected_schema_signature = _counting_build
 _store._expected_schema_signature.cache_clear()
 
@@ -213,9 +285,59 @@ check("35A.7 second call cached", _build_count[0] == 1)
 s3 = _store._expected_schema_signature()
 check("35A.7 third call cached", _build_count[0] == 1)
 
-# Restore
 _store._build_expected_schema_signature = _orig_build
 _store._expected_schema_signature.cache_clear()
+
+# Actual altered schema must differ from expected
+c_alt = _mk_mem_conn()
+c_alt.execute("CREATE TABLE extra (x INTEGER)")
+alt_sig = _store._schema_signature(c_alt)
+check("35A.7 altered != expected", alt_sig != _store._expected_schema_signature())
+c_alt.close()
+
+# Canonical OK after alter
+c_ok = _mk_mem_conn()
+for stmt in _SCHEMA_DDL_STATEMENTS: c_ok.execute(stmt)
+c_ok.execute("PRAGMA user_version = 1")
+check("35A.7 canonical OK after alter", _schema_signature(c_ok) == _store._expected_schema_signature())
+c_ok.close()
+
+# ===========================================================================
+# 35A.8: object inventory
+# ===========================================================================
+print("=== 35A.8 object inventory ===")
+
+c1 = _mk_mem_conn(); c1.execute("CREATE TABLE t (x INTEGER)")
+c2 = _mk_mem_conn(); c2.execute("CREATE TABLE t (x INTEGER)")
+c2.execute("CREATE VIEW v AS SELECT * FROM t")
+check("35A.8 extra view", _schema_signature(c1) != _schema_signature(c2))
+c1.close(); c2.close()
+
+c3 = _mk_mem_conn(); c3.execute("CREATE TABLE t (x INTEGER)")
+c4 = _mk_mem_conn(); c4.execute("CREATE TABLE t (x INTEGER)")
+c4.execute("CREATE TRIGGER tr AFTER INSERT ON t BEGIN SELECT 1; END")
+check("35A.8 extra trigger", _schema_signature(c3) != _schema_signature(c4))
+c3.close(); c4.close()
+
+c5 = _mk_mem_conn(); c5.execute("CREATE TABLE t (x INTEGER)")
+c6 = _mk_mem_conn(); c6.execute("CREATE TABLE t (x INTEGER)")
+c6.execute("CREATE TABLE extra (y INTEGER)")
+check("35A.8 extra table", _schema_signature(c5) != _schema_signature(c6))
+c5.close(); c6.close()
+
+c7 = _mk_mem_conn(); c7.execute("CREATE TABLE t (x INTEGER)")
+c8 = _mk_mem_conn(); c8.execute("CREATE TABLE t (x INTEGER)")
+c8.execute("CREATE INDEX extra_idx ON t(x)")
+check("35A.8 extra named index", _schema_signature(c7) != _schema_signature(c8))
+c7.close(); c8.close()
+
+c9 = _mk_mem_conn(); c9.execute("CREATE TABLE t (x INTEGER)")
+c9.execute("CREATE INDEX idx1 ON t(x)")
+c10 = _mk_mem_conn(); c10.execute("CREATE TABLE t (x INTEGER)")
+c10.execute("CREATE INDEX idx1 ON t(x)")
+c10.execute("ANALYZE")
+check("35A.8 ANALYZE unchanged", _schema_signature(c9) == _schema_signature(c10))
+c9.close(); c10.close()
 
 # ===========================================================================
 # 35A.9: safe discovered names
@@ -224,114 +346,20 @@ print("=== 35A.9 safe PRAGMA names ===")
 
 c = _mk_mem_conn()
 c.execute("CREATE TABLE t (x INTEGER)")
-c.execute("CREATE INDEX \"weird''name\" ON t(x)")
-
+c.execute("CREATE INDEX [weird'name] ON t(x)")
 sig = _schema_signature(c)
 names = [ni.index_name for t in sig.tables for ni in t.named_indexes]
 check("35A.9 weird name captured", any("weird" in n for n in names))
 c.close()
 
+# ===========================================================================
+# 35A.10: DDL immutability
+# ===========================================================================
+print("=== 35A.10 DDL immutability ===")
 
-# --- 35A.4 partial: named index partial vs nonpartial ---
-c5 = _mk_mem_conn()
-c5.execute("CREATE TABLE t (a INTEGER, b INTEGER)")
-c5.execute("CREATE INDEX idx1 ON t(a) WHERE a IS NOT NULL")
-c6 = _mk_mem_conn()
-c6.execute("CREATE TABLE t (a INTEGER, b INTEGER)")
-c6.execute("CREATE INDEX idx1 ON t(a)")
-check("35A.4 partial vs nonpartial different", _schema_signature(c5) != _schema_signature(c6))
-c5.close(); c6.close()
+check("35A.10 _SCHEMA_DDL_STATEMENTS is tuple", isinstance(_SCHEMA_DDL_STATEMENTS, tuple))
+check("35A.10 has 4 statements", len(_SCHEMA_DDL_STATEMENTS) == 4)
 
-# --- 35A.7 actual-signature cache isolation ---
-_store._expected_schema_signature.cache_clear()
-_canonical = _store._schema_signature(_mk_mem_conn())  # not cached, just an actual sig
-# Alter schema and verify actual signature differs from expected
-_c_alt = _mk_mem_conn()
-_c_alt.execute("CREATE TABLE extra (x INTEGER)")
-_alt_sig = _store._schema_signature(_c_alt)
-check("35A.7 altered sig != canonical expected", _alt_sig != _store._expected_schema_signature())
-_c_alt.close()
-# Cache still contains expected, not actual
-_c_ok = _mk_mem_conn()
-for stmt in _SCHEMA_DDL_STATEMENTS: _c_ok.execute(stmt)
-_c_ok.execute("PRAGMA user_version = 1")
-_ok_sig = _store._schema_signature(_c_ok)
-check("35A.7 canonical OK after alter", _ok_sig == _store._expected_schema_signature())
-_c_ok.close()
-
-# --- 35A.8 object inventory ---
-_c_inv1 = _mk_mem_conn()
-_c_inv1.execute("CREATE TABLE t (x INTEGER)")
-_c_inv2 = _mk_mem_conn()
-_c_inv2.execute("CREATE TABLE t (x INTEGER)")
-_c_inv2.execute("CREATE VIEW v AS SELECT * FROM t")
-check("35A.8 extra view -> different", _schema_signature(_c_inv1) != _schema_signature(_c_inv2))
-_c_inv1.close(); _c_inv2.close()
-_c_inv3 = _mk_mem_conn()
-_c_inv3.execute("CREATE TABLE t (x INTEGER)")
-_c_inv4 = _mk_mem_conn()
-_c_inv4.execute("CREATE TABLE t (x INTEGER)")
-_c_inv4.execute("CREATE TRIGGER tr AFTER INSERT ON t BEGIN SELECT 1; END")
-check("35A.8 extra trigger -> different", _schema_signature(_c_inv3) != _schema_signature(_c_inv4))
-_c_inv3.close(); _c_inv4.close()
-# Extra table
-_c_inv5 = _mk_mem_conn()
-_c_inv5.execute("CREATE TABLE t (x INTEGER)")
-_c_inv6 = _mk_mem_conn()
-_c_inv6.execute("CREATE TABLE t (x INTEGER)")
-_c_inv6.execute("CREATE TABLE extra (y INTEGER)")
-check("35A.8 extra table -> different", _schema_signature(_c_inv5) != _schema_signature(_c_inv6))
-_c_inv5.close(); _c_inv6.close()
-# Extra named index
-_c_inv7 = _mk_mem_conn()
-_c_inv7.execute("CREATE TABLE t (x INTEGER)")
-_c_inv8 = _mk_mem_conn()
-_c_inv8.execute("CREATE TABLE t (x INTEGER)")
-_c_inv8.execute("CREATE INDEX extra_idx ON t(x)")
-check("35A.8 extra named index -> different", _schema_signature(_c_inv7) != _schema_signature(_c_inv8))
-_c_inv7.close(); _c_inv8.close()
-# ANALYZE does not change object inventory
-_c_an1 = _mk_mem_conn()
-_c_an1.execute("CREATE TABLE t (x INTEGER)")
-_c_an1.execute("CREATE INDEX idx1 ON t(x)")
-_c_an2 = _mk_mem_conn()
-_c_an2.execute("CREATE TABLE t (x INTEGER)")
-_c_an2.execute("CREATE INDEX idx1 ON t(x)")
-_c_an2.execute("ANALYZE")
-check("35A.8 ANALYZE does not change signature", _schema_signature(_c_an1) == _schema_signature(_c_an2))
-_c_an1.close(); _c_an2.close()
-
-
-
-# --- 35A.5 STRICT option ---
-_c_str1 = _mk_mem_conn()
-_c_str1.execute("CREATE TABLE t (x INTEGER) STRICT")
-_c_str2 = _mk_mem_conn()
-_c_str2.execute("CREATE TABLE t (x INTEGER)")
-check("35A.5 STRICT vs non-STRICT different", _schema_signature(_c_str1) != _schema_signature(_c_str2))
-_c_str1.close(); _c_str2.close()
-
-# --- 35A.5 WITHOUT ROWID ---
-_c_wr1 = _mk_mem_conn()
-_c_wr1.execute("CREATE TABLE t (x INTEGER PRIMARY KEY) WITHOUT ROWID")
-_c_wr2 = _mk_mem_conn()
-_c_wr2.execute("CREATE TABLE t (x INTEGER PRIMARY KEY)")
-check("35A.5 WITHOUT ROWID different", _schema_signature(_c_wr1) != _schema_signature(_c_wr2))
-_c_wr1.close(); _c_wr2.close()
-
-# --- 35A.6 table_list capability ---
-_c_tl = _mk_mem_conn()
-_c_tl.execute("CREATE TABLE t (x INTEGER)")
-_sig_tl = _schema_signature(_c_tl)
-check("35A.6 table_list_supported is bool", isinstance(_sig_tl.table_options.table_list_supported, bool))
-_tl_entries = _sig_tl.table_options.entries
-check("35A.6 table_list has entry for t", len(_tl_entries) >= 1 and _tl_entries[0][0] == "t")
-if _sig_tl.table_options.table_list_supported and len(_tl_entries) > 0:
-    _entry = _tl_entries[0]
-    check("35A.6 ncol is 1", _entry[2] == 1)
-    check("35A.6 wr is 0 or 1", _entry[3] in (0, 1))
-    check("35A.6 strict is 0 or 1", _entry[4] in (0, 1))
-_c_tl.close()
 # ===========================================================================
 # Summary
 # ===========================================================================

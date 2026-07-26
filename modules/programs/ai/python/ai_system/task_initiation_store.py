@@ -147,7 +147,7 @@ _VALID_TERMINAL_STATUSES = frozenset({
     "completed", "expired", "superseded", "refused", "failed",
 })
 
-_SCHEMA_DDL_STATEMENTS = [
+_SCHEMA_DDL_STATEMENTS = (
     """CREATE TABLE interactions (
     event_id TEXT PRIMARY KEY,
     interaction_id TEXT NOT NULL UNIQUE,
@@ -188,7 +188,7 @@ _SCHEMA_DDL_STATEMENTS = [
 )""",
     """CREATE INDEX interactions_active_deadline_idx
     ON interactions(terminal_status, next_deadline_epoch, event_id)""",
-]
+)
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
@@ -450,34 +450,32 @@ def _schema_signature(conn: sqlite3.Connection) -> SchemaSignature:
     # Table options (PRAGMA table_list)
     table_list_supported = False
     tl_entries: list[tuple] = []
-    try:
-        cur = conn.execute("PRAGMA main.table_list")
-        desc = cur.description
-        if desc is not None:
-            col_names = [d[0] for d in desc]
-            if 'strict' in col_names or 'ncol' in col_names:
-                table_list_supported = True
-                tl_rows = cur.fetchall()
-                private_names = {t.table_name for t in tables}
-                for tl in tl_rows:
-                    if tl["name"] in private_names:
-                        tl_entries.append((
-                            tl["name"], tl["type"],
-                            tl["ncol"] if "ncol" in col_names else None,
-                            tl["wr"] if "wr" in col_names else None,
-                            tl["strict"] if "strict" in col_names else None,
-                        ))
-                # Require exactly one row per private table
-                found_names = {e[0] for e in tl_entries}
-                if found_names != private_names:
-                    raise KernelCorruptionError(
-                        "table_list: private table rows mismatch: "
-                        f"expected {sorted(private_names)}, got {sorted(found_names)}"
-                    )
-    except KernelCorruptionError:
-        raise
-    except Exception:
-        pass  # table_list not supported; signature records this
+    cur = conn.execute("PRAGMA main.table_list")
+    desc = cur.description
+    if desc is not None:
+        col_names = [d[0] for d in desc]
+        required = {'name', 'type', 'ncol', 'wr', 'strict'}
+        missing = required - set(col_names)
+        if missing:
+            raise KernelCorruptionError(f"table_list: missing required fields: {sorted(missing)}")
+        table_list_supported = True
+        tl_rows = cur.fetchall()
+        private_names = {t.table_name for t in tables}
+        for tl in tl_rows:
+            if tl["name"] in private_names:
+                tl_entries.append((
+                    tl["name"], tl["type"],
+                    tl["ncol"] if "ncol" in col_names else None,
+                    tl["wr"] if "wr" in col_names else None,
+                    tl["strict"] if "strict" in col_names else None,
+                ))
+        # Require exactly one row per private table
+        found_names = {e[0] for e in tl_entries}
+        if found_names != private_names:
+            raise KernelCorruptionError(
+                "table_list: private table rows mismatch: "
+                f"expected {sorted(private_names)}, got {sorted(found_names)}"
+            )
     table_options = TableOptionsSignature(table_list_supported, tuple(sorted(tl_entries)))
 
     return SchemaSignature(user_version, tuple(user_objects), tuple(tables), table_options)
