@@ -1271,6 +1271,58 @@ def _validate_preparation_lineage_v1(
                     f"interaction {event_id} r{rev_num}: followup.prior_tiny_start mismatch"
                 )
 
+
+def _validate_resolved_task_origin_v1(
+    *,
+    stuck_payload: Mapping[str, Any],
+    aggregate: Mapping[str, Any],
+) -> None:
+    """Validate that persisted resolved_task is bound to the immutable Stuck event."""
+    event_id = aggregate["event_id"]
+    validated_stuck = c.validate_stuck_event(stuck_payload)
+    resolved_task = aggregate.get("resolved_task")
+    if not isinstance(resolved_task, dict):
+        raise KernelCorruptionError(
+            f"interaction {event_id}: resolved_task is not a dict"
+        )
+    rt_source = resolved_task.get("source")
+    stuck_task_ref = validated_stuck.get("task_ref")
+
+    # A. Stuck contains an explicit TaskRef
+    if stuck_task_ref is not None:
+        if rt_source != "explicit_task_ref":
+            raise KernelCorruptionError(
+                f"interaction {event_id}: resolved_task.source is {rt_source!r} "
+                f"but immutable Stuck has an explicit task_ref"
+            )
+        rt_task_ref = resolved_task.get("task_ref")
+        stuck_ref = stuck_task_ref["ref"]
+        if rt_task_ref != stuck_ref:
+            raise KernelCorruptionError(
+                f"interaction {event_id}: resolved_task.task_ref {rt_task_ref!r} "
+                f"!= immutable Stuck task_ref {stuck_ref!r}"
+            )
+        return
+
+    # B. Stuck does NOT contain an explicit TaskRef
+    if rt_source == "explicit_task_ref":
+        raise KernelCorruptionError(
+            f"interaction {event_id}: resolved_task.source is explicit_task_ref "
+            f"but immutable Stuck has no task_ref"
+        )
+
+    # C. Fallback-description source
+    if rt_source == "fallback_description":
+        rt_label = resolved_task.get("label")
+        stuck_desc = validated_stuck.get("task_description")
+        if rt_label != stuck_desc:
+            raise KernelCorruptionError(
+                f"interaction {event_id}: resolved_task.label {rt_label!r} "
+                f"!= immutable Stuck task_description {stuck_desc!r}"
+            )
+
+    # D. Active-session source: Stuck must have no explicit TaskRef (already ensured above)
+
 def _validate_response_evidence_v1(aggregate: dict[str, Any]) -> None:
     """Validate accepted_responses, evidence issues, and derived timestamps."""
     event_id = aggregate["event_id"]
@@ -2515,6 +2567,15 @@ class TaskInitiationStore:
                     else:
                         superseding = rr
     
+            # --- 4b. Validate resolved-task origin against Stuck ---
+            stuck_payload = _decode_message_payload_json(
+                stuck_row["payload_json"], source=f"bundle stuck origin {event_id}"
+            )
+            _validate_resolved_task_origin_v1(
+                stuck_payload=stuck_payload,
+                aggregate=aggregate,
+            )
+
             # --- 5. Reducer reconstruction + canonical comparison ---
             resolved_task = aggregate.get("resolved_task", {})
             if not isinstance(resolved_task, dict):

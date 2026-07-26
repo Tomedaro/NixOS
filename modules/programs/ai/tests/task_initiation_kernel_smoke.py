@@ -3523,6 +3523,162 @@ op = _k.ingest_stuck(_stuck(), resolution=_r)
 check("33.14 initial card ok", op.result["status"] == "card_published")
 check("33.14 check_database ok", _k.check_database()["status"] == "ok")
 
+
+print("=== 34. resolved task origin ===")
+
+# --- 34.1: coherently changed fallback origin ---
+_sd = _mk_state_dir(); _k = _mk_kernel(_sd); _k.initialize()
+_r = _make_res_tasks(_sd, {"Tasks/t34a.md":{"label":"T34A","revision":_REV_FIXTURE}})
+st = _stuck(task_description="Original immutable description")
+op = _k.ingest_stuck(st, resolution=_r); _eid = op.result["event_id"]; del _k
+_c = sqlite3_module.connect(str(_sd / "kernel.sqlite3")); _c.row_factory = sqlite3_module.Row
+_row = _c.execute("SELECT * FROM interactions WHERE event_id=?", (_eid,)).fetchone()
+_agg = _agg_from_db(_row["aggregate_json"], source="corrupt")
+_agg["resolved_task"]["label"] = "Completely different task"
+_new_fp = c.task_fingerprint(_agg["resolved_task"])
+_agg["task_fingerprint"] = _new_fp
+_agg["revisions"][0]["task_fingerprint"] = _new_fp
+_agg["revisions"][0]["context"]["task_fingerprint"] = _new_fp
+_agg["revisions"][0]["context"]["disclosed_facts"]["task"]["label"] = "Completely different task"
+_agg["revisions"][0]["context"]["provenance"][0]["source_ref_sha256"] = _new_fp
+_agg["revisions"][0]["card"]["task_label"] = "Completely different task"
+_ctx = _agg["revisions"][0]["context"]
+_ctx["model_content_sha256"] = hashlib.sha256(c._canonical_json(c.api_payload_from_context(_ctx))).hexdigest()
+_rewrite_aggregate_canonically(_c, _eid, _agg); _c.close()
+raises_msg(KernelCorruptionError, "resolved_task.label", _mk_kernel(_safe_db_copy(_sd)).check_database)
+
+# --- 34.2: coherently changed explicit TaskRef ---
+_sd = _mk_state_dir(); _k = _mk_kernel(_sd); _k.initialize()
+_r = _make_res_tasks(_sd, {"Tasks/original.md":{"label":"Orig","revision":_REV_FIXTURE}})
+st = _stuck(task_ref={"source":"tasknotes","ref":"Tasks/original.md"})
+op = _k.ingest_stuck(st, resolution=_r); _eid = op.result["event_id"]; del _k
+_c = sqlite3_module.connect(str(_sd / "kernel.sqlite3")); _c.row_factory = sqlite3_module.Row
+_row = _c.execute("SELECT * FROM interactions WHERE event_id=?", (_eid,)).fetchone()
+_agg = _agg_from_db(_row["aggregate_json"], source="corrupt")
+_agg["resolved_task"]["task_ref"] = "Tasks/other.md"
+_new_fp = c.task_fingerprint(_agg["resolved_task"])
+_agg["task_fingerprint"] = _new_fp
+_agg["revisions"][0]["task_fingerprint"] = _new_fp
+_agg["revisions"][0]["context"]["task_fingerprint"] = _new_fp
+_agg["revisions"][0]["context"]["provenance"][0]["source_ref_sha256"] = _new_fp
+_ctx = _agg["revisions"][0]["context"]
+_ctx["model_content_sha256"] = hashlib.sha256(c._canonical_json(c.api_payload_from_context(_ctx))).hexdigest()
+_rewrite_aggregate_canonically(_c, _eid, _agg); _c.close()
+raises_msg(KernelCorruptionError, "resolved_task.task_ref", _mk_kernel(_safe_db_copy(_sd)).check_database)
+
+# --- 34.3: explicit Stuck rewritten as fallback ---
+_sd = _mk_state_dir(); _k = _mk_kernel(_sd); _k.initialize()
+_r = _make_res_tasks(_sd, {"Tasks/t34c.md":{"label":"T34C","revision":_REV_FIXTURE}})
+st = _stuck(task_ref={"source":"tasknotes","ref":"Tasks/t34c.md"})
+op = _k.ingest_stuck(st, resolution=_r); _eid = op.result["event_id"]; del _k
+_c = sqlite3_module.connect(str(_sd / "kernel.sqlite3")); _c.row_factory = sqlite3_module.Row
+_row = _c.execute("SELECT * FROM interactions WHERE event_id=?", (_eid,)).fetchone()
+_agg = _agg_from_db(_row["aggregate_json"], source="corrupt")
+_agg["resolved_task"] = {"source":"fallback_description","label":"Fake"}
+_new_fp = c.task_fingerprint(_agg["resolved_task"])
+_agg["task_fingerprint"] = _new_fp
+_agg["revisions"][0]["task_fingerprint"] = _new_fp
+_agg["revisions"][0]["context"]["task_fingerprint"] = _new_fp
+_agg["revisions"][0]["context"]["provenance"][0]["source_ref_sha256"] = _new_fp
+_ctx = _agg["revisions"][0]["context"]
+_ctx["model_content_sha256"] = hashlib.sha256(c._canonical_json(c.api_payload_from_context(_ctx))).hexdigest()
+_rewrite_aggregate_canonically(_c, _eid, _agg); _c.close()
+raises_msg(KernelCorruptionError, "explicit task_ref", _mk_kernel(_safe_db_copy(_sd)).check_database)
+
+# --- 34.5: fallback Stuck rewritten as explicit ---
+_sd = _mk_state_dir(); _k = _mk_kernel(_sd); _k.initialize()
+_r = _make_res_tasks(_sd, {"Tasks/t34e.md":{"label":"T34E","revision":_REV_FIXTURE}})
+st = _stuck(task_description="Fallback task")
+op = _k.ingest_stuck(st, resolution=_r); _eid = op.result["event_id"]; del _k
+_c = sqlite3_module.connect(str(_sd / "kernel.sqlite3")); _c.row_factory = sqlite3_module.Row
+_row = _c.execute("SELECT * FROM interactions WHERE event_id=?", (_eid,)).fetchone()
+_agg = _agg_from_db(_row["aggregate_json"], source="corrupt")
+_agg["resolved_task"] = {"source":"explicit_task_ref","task_ref":"Tasks/fake.md","label":"Fake","source_revision":_REV_FIXTURE}
+_new_fp = c.task_fingerprint(_agg["resolved_task"])
+_agg["task_fingerprint"] = _new_fp
+_agg["revisions"][0]["task_fingerprint"] = _new_fp
+_agg["revisions"][0]["context"]["task_fingerprint"] = _new_fp
+_agg["revisions"][0]["context"]["provenance"][0]["source_ref_sha256"] = _new_fp
+_ctx = _agg["revisions"][0]["context"]
+_ctx["model_content_sha256"] = hashlib.sha256(c._canonical_json(c.api_payload_from_context(_ctx))).hexdigest()
+_rewrite_aggregate_canonically(_c, _eid, _agg); _c.close()
+raises_msg(KernelCorruptionError, "explicit_task_ref", _mk_kernel(_safe_db_copy(_sd)).check_database)
+
+
+# --- 34.10: cross-surface rejection for fallback corruption ---
+_sd = _mk_state_dir(); _k = _mk_kernel(_sd); _k.initialize()
+_r = _make_res_tasks(_sd, {"Tasks/t34j.md":{"label":"T34J","revision":_REV_FIXTURE}})
+st = _stuck(task_description="Original immutable description")
+op = _k.ingest_stuck(st, resolution=_r); _eid = op.result["event_id"]; del _k
+_c = sqlite3_module.connect(str(_sd / "kernel.sqlite3")); _c.row_factory = sqlite3_module.Row
+_row = _c.execute("SELECT * FROM interactions WHERE event_id=?", (_eid,)).fetchone()
+_agg = _agg_from_db(_row["aggregate_json"], source="corrupt")
+_agg["resolved_task"]["label"] = "Completely different task"
+_new_fp = c.task_fingerprint(_agg["resolved_task"])
+_agg["task_fingerprint"] = _new_fp
+_agg["revisions"][0]["task_fingerprint"] = _new_fp
+_agg["revisions"][0]["context"]["task_fingerprint"] = _new_fp
+_agg["revisions"][0]["context"]["disclosed_facts"]["task"]["label"] = "Completely different task"
+_agg["revisions"][0]["context"]["provenance"][0]["source_ref_sha256"] = _new_fp
+_agg["revisions"][0]["card"]["task_label"] = "Completely different task"
+_ctx = _agg["revisions"][0]["context"]
+_ctx["model_content_sha256"] = hashlib.sha256(c._canonical_json(c.api_payload_from_context(_ctx))).hexdigest()
+_rewrite_aggregate_canonically(_c, _eid, _agg); _c.close()
+raises_msg(KernelCorruptionError, "resolved_task.label", _mk_kernel(_safe_db_copy(_sd)).check_database)
+raises_msg(KernelCorruptionError, "resolved_task.label", _mk_kernel(_safe_db_copy(_sd)).show, _eid)
+raises_msg(KernelCorruptionError, "resolved_task.label", _mk_kernel(_safe_db_copy(_sd)).ingest_stuck, st, resolution=_r)
+
+# --- 34.11: no external reread ---
+_sd = _mk_state_dir(); _k = _mk_kernel(_sd); _k.initialize()
+_r = _make_res_tasks(_sd, {"Tasks/t34k.md":{"label":"T34K","revision":_REV_FIXTURE}})
+st = _stuck(task_ref={"source":"tasknotes","ref":"Tasks/t34k.md"})
+op = _k.ingest_stuck(st, resolution=_r); _eid = op.result["event_id"]; del _k
+# Delete resolution file
+(_sd / _r._path if hasattr(_r, '_path') else None)
+# Reopen without resolution
+_k2 = _mk_kernel(_sd)
+check("34.11 restart check ok", _k2.check_database()["status"] == "ok")
+check("34.11 restart show ok", _k2.show(_eid)["phase"] == "awaiting_response")
+check("34.11 replay ok", _k2.ingest_stuck(st, resolution=_r).replay)
+
+# --- 34.6: healthy explicit resolution ---
+_sd = _mk_state_dir(); _k = _mk_kernel(_sd); _k.initialize()
+_r = _make_res_tasks(_sd, {"Tasks/t34f.md":{"label":"T34F","revision":_REV_FIXTURE}})
+st = _stuck(task_ref={"source":"tasknotes","ref":"Tasks/t34f.md"})
+op = _k.ingest_stuck(st, resolution=_r); _eid = op.result["event_id"]
+check("34.6 ingest succeeds", op.result["status"] == "card_published")
+check("34.6 check_database ok", _k.check_database()["status"] == "ok")
+check("34.6 show ok", _k.show(_eid)["phase"] == "awaiting_response")
+del _k
+# Restart without resolution file
+_k2 = _mk_kernel(_sd)
+check("34.6 restart check ok", _k2.check_database()["status"] == "ok")
+check("34.6 restart show ok", _k2.show(_eid)["phase"] == "awaiting_response")
+
+# --- 34.7: healthy fallback resolution ---
+_sd = _mk_state_dir(); _k = _mk_kernel(_sd); _k.initialize()
+_r_empty_path = _sd / "r_empty.json"; _r_empty_path.write_text(json.dumps({}))
+_r_empty = load_resolution_input(_r_empty_path, policy=KernelPolicy())
+st = _stuck(task_description="  Fallback  Description  ")
+op = _k.ingest_stuck(st, resolution=_r_empty); _eid = op.result["event_id"]
+show = _k.show(_eid, include_sensitive=True)
+_rt = show["aggregate"]["resolved_task"]
+check("34.7 source is fallback", _rt["source"] == "fallback_description")
+check("34.7 label normalized", _rt["label"] == "Fallback Description")
+del _k; _k2 = _mk_kernel(_sd)
+check("34.7 restart healthy", _k2.check_database()["status"] == "ok")
+
+# --- 34.9: explicit TaskRef retains priority ---
+_sd = _mk_state_dir(); _k = _mk_kernel(_sd); _k.initialize()
+_r = _make_res_tasks(_sd, {"Tasks/t34i.md":{"label":"T34I","revision":_REV_FIXTURE}})
+_r_session_path = _sd / "r_session.json"
+_r_session_path.write_text(json.dumps({"tasks":{"Tasks/t34i.md":{"label":"T34I","revision":_REV_FIXTURE}},"active_session":{"status":"active","session_id":"s-X","task":"Session Task"}}))
+_r_session = load_resolution_input(_r_session_path, policy=KernelPolicy())
+st = _stuck(task_ref={"source":"tasknotes","ref":"Tasks/t34i.md"})
+op = _k.ingest_stuck(st, resolution=_r_session); _eid = op.result["event_id"]
+show = _k.show(_eid, include_sensitive=True)
+check("34.9 explicit wins over session", show["aggregate"]["resolved_task"]["source"] == "explicit_task_ref")
+
 if FAILED:
     raise SystemExit(1)
 print("ALL PASS")
