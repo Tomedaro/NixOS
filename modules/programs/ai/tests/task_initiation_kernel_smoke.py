@@ -40,6 +40,7 @@ from ai_system.task_initiation_kernel import (
     build_placeholder_preparation,
     load_resolution_input,
 )
+from ai_system.task_initiation_private import InteractionPolicy
 from ai_system.task_initiation_store import (
     TaskInitiationStore,
     _agg_from_db,
@@ -2090,6 +2091,134 @@ ctx9d, prop9d, crd9d = build_placeholder_preparation(
 check("25.9d blocked blocker other", prop9d["blocker"]["category"] == "other")
 check("25.9d blocked estimate 2", prop9d["tiny_start"]["estimated_minutes"] == 2)
 check("25.9d blocked countdown 120", crd9d["start_countdown_seconds"] == 120)
+
+
+print("=== 26. zero future skew ===")
+
+# --- Test 3: zero-skew interaction can be created ---
+sd26_3 = _mk_state_dir()
+k26_3 = _mk_kernel(sd26_3, clock=lambda: FIXED_NOW_BASE, policy=KernelPolicy(max_future_skew_seconds=0))
+k26_3.initialize()
+res26_3 = _make_res_tasks(sd26_3, {"Tasks/test.md": {"label": "Z3", "revision": _REV_FIXTURE}})
+op26_3 = k26_3.ingest_stuck(_stuck(), resolution=res26_3)
+check("26.3 zero-skew ingest: card_published", op26_3.result["status"] == "card_published")
+eid26_3 = op26_3.result["event_id"]
+check("26.3 check_database ok", k26_3.check_database()["status"] == "ok")
+# close/reopen
+del k26_3
+k26_3b = _mk_kernel(sd26_3, clock=lambda: FIXED_NOW_BASE + 10, policy=KernelPolicy(max_future_skew_seconds=0))
+check("26.3 reopen: show succeeds", k26_3b.show(eid26_3)["phase"] == "awaiting_response")
+# exact Stuck replay
+replay26_3 = k26_3b.ingest_stuck(_stuck(event_id=eid26_3), resolution=res26_3)
+check("26.3 replay is replay", replay26_3.replay)
+check("26.3 replay matches", replay26_3.result == op26_3.result)
+
+# --- Test 4: zero-skew Response at receipt is usable ---
+sd26_4 = _mk_state_dir()
+k26_4 = _mk_kernel(sd26_4, clock=lambda: FIXED_NOW_BASE, policy=KernelPolicy(max_future_skew_seconds=0))
+k26_4.initialize()
+res26_4 = _make_res_tasks(sd26_4, {"Tasks/test.md": {"label": "Z4", "revision": _REV_FIXTURE}})
+op26_4 = k26_4.ingest_stuck(_stuck(), resolution=res26_4)
+card26_4 = op26_4.result["card"]
+eid26_4 = op26_4.result["event_id"]
+# occurred == received (zero skew, inside card window)
+resp26_4 = _resp(card26_4, "start", occurred_at_epoch=FIXED_NOW_BASE)
+r26_4 = k26_4.respond(resp26_4, resolution=res26_4)
+check("26.4 zero-skew at receipt: accepted", r26_4.result["status"] == "accepted")
+show26_4 = k26_4.show(eid26_4, include_sensitive=True)
+rev26_4 = show26_4["aggregate"]["revisions"][0]
+check("26.4 zero-skew: usable", rev26_4["response"]["occurred_at_epoch_usable"] is True)
+check("26.4 zero-skew: no inconsistent", "response_timestamp_inconsistent" not in rev26_4.get("evidence_issues", set()))
+check("26.4 check_database ok", k26_4.check_database()["status"] == "ok")
+replay26_4 = k26_4.respond(resp26_4, resolution=res26_4)
+check("26.4 replay is replay", replay26_4.replay)
+check("26.4 replay result matches", replay26_4.result == r26_4.result)
+
+# --- Test 5: zero-skew Response one second ahead is degraded ---
+sd26_5 = _mk_state_dir()
+k26_5 = _mk_kernel(sd26_5, clock=lambda: FIXED_NOW_BASE, policy=KernelPolicy(max_future_skew_seconds=0))
+k26_5.initialize()
+res26_5 = _make_res_tasks(sd26_5, {"Tasks/test.md": {"label": "Z5", "revision": _REV_FIXTURE}})
+op26_5 = k26_5.ingest_stuck(_stuck(), resolution=res26_5)
+card26_5 = op26_5.result["card"]
+eid26_5 = op26_5.result["event_id"]
+# occurred == received + 1 (zero skew should make it degraded)
+resp26_5 = _resp(card26_5, "start", occurred_at_epoch=FIXED_NOW_BASE + 1)
+r26_5 = k26_5.respond(resp26_5, resolution=res26_5)
+check("26.5 ahead by 1: accepted", r26_5.result["status"] == "accepted")
+show26_5 = k26_5.show(eid26_5, include_sensitive=True)
+rev26_5 = show26_5["aggregate"]["revisions"][0]
+check("26.5 ahead by 1: unusable", rev26_5["response"]["occurred_at_epoch_usable"] is False)
+check("26.5 ahead by 1: inconsistent present", "response_timestamp_inconsistent" in rev26_5.get("evidence_issues", set()))
+check("26.5 check_database ok", k26_5.check_database()["status"] == "ok")
+# restart
+del k26_5
+k26_5b = _mk_kernel(sd26_5, clock=lambda: FIXED_NOW_BASE + 100, policy=KernelPolicy(max_future_skew_seconds=0))
+show26_5b = k26_5b.show(eid26_5, include_sensitive=True)
+check("26.5 restart: survives", show26_5b["aggregate"]["revisions"][0]["response"]["occurred_at_epoch_usable"] is False)
+replay26_5 = k26_5b.respond(resp26_5, resolution=res26_5)
+check("26.5 replay is replay", replay26_5.replay)
+check("26.5 replay result matches", replay26_5.result == r26_5.result)
+
+# --- Test 6: exact runtime-policy drift (persisted 300 vs runtime 0) ---
+sd26_6 = _mk_state_dir()
+k26_6 = _mk_kernel(sd26_6, clock=lambda: FIXED_NOW_BASE, policy=KernelPolicy(max_future_skew_seconds=300))
+k26_6.initialize()
+res26_6 = _make_res_tasks(sd26_6, {"Tasks/test.md": {"label": "Z6", "revision": _REV_FIXTURE}})
+op26_6 = k26_6.ingest_stuck(_stuck(), resolution=res26_6)
+card26_6 = op26_6.result["card"]
+eid26_6 = op26_6.result["event_id"]
+del k26_6
+# Reopen with skew=0 runtime, persisted skew is 300
+k26_6b = _mk_kernel(sd26_6, clock=lambda: FIXED_NOW_BASE, policy=KernelPolicy(max_future_skew_seconds=0))
+resp26_6 = _resp(card26_6, "start", occurred_at_epoch=FIXED_NOW_BASE + 200)
+r26_6 = k26_6b.respond(resp26_6, resolution=res26_6)
+show26_6 = k26_6b.show(eid26_6, include_sensitive=True)
+rev26_6 = show26_6["aggregate"]["revisions"][0]
+check("26.6 drift: old interaction usable (persisted 300)", rev26_6["response"]["occurred_at_epoch_usable"] is True)
+# New interaction under runtime skew 0
+op26_6b = k26_6b.ingest_stuck(_stuck(event_id=str(uuid.uuid4())), resolution=res26_6)
+card26_6b = op26_6b.result["card"]
+eid26_6b = op26_6b.result["event_id"]
+resp26_6b = _resp(card26_6b, "start", occurred_at_epoch=FIXED_NOW_BASE + 200)
+r26_6b = k26_6b.respond(resp26_6b, resolution=res26_6)
+check("26.6 drift: new interaction accepted", r26_6b.result["status"] == "accepted")
+show26_6b = k26_6b.show(eid26_6b, include_sensitive=True)
+rev26_6b = show26_6b["aggregate"]["revisions"][0]
+check("26.6 drift: new interaction under skew 0: unusable", rev26_6b["response"]["occurred_at_epoch_usable"] is False)
+check("26.6 drift: new interaction inconsistent present", "response_timestamp_inconsistent" in rev26_6b.get("evidence_issues", set()))
+# --- Test 7: negative and boolean values remain rejected ---
+raises(ValueError, KernelPolicy, max_future_skew_seconds=-1)
+raises(ValueError, InteractionPolicy, max_future_skew_seconds=-1)
+raises(ValueError, KernelPolicy, max_future_skew_seconds=True)
+raises(ValueError, InteractionPolicy, max_future_skew_seconds=True)
+
+# JSON decode rejects negative stored skew
+_bad_neg = '{"policy_version":"task_initiation_interaction_policy.v1","stuck_ttl_seconds":7200,"max_future_skew_seconds":-1,"max_card_revisions":3,"tiny_start_minutes_cap":10,"start_countdown_seconds_cap":600,"observation_seconds":600,"context_ttl_seconds":300,"card_ttl_seconds":900}'
+from ai_system.task_initiation_private import _interaction_policy_from_json
+raises(KernelCorruptionError, _interaction_policy_from_json, _bad_neg)
+
+# JSON decode rejects boolean stored skew (Python's json.loads rejects true/false as keys? No, true is valid JSON for True)
+_bad_bool = '{"policy_version":"task_initiation_interaction_policy.v1","stuck_ttl_seconds":7200,"max_future_skew_seconds":true,"max_card_revisions":3,"tiny_start_minutes_cap":10,"start_countdown_seconds_cap":600,"observation_seconds":600,"context_ttl_seconds":300,"card_ttl_seconds":900}'
+raises(KernelCorruptionError, _interaction_policy_from_json, _bad_bool)
+
+# --- Test 8: other zero-valued policies remain rejected ---
+raises(ValueError, KernelPolicy, stuck_ttl_seconds=0)
+raises(ValueError, InteractionPolicy, stuck_ttl_seconds=0)
+raises(ValueError, KernelPolicy, max_card_revisions=0)
+raises(ValueError, InteractionPolicy, max_card_revisions=0)
+raises(ValueError, KernelPolicy, tiny_start_minutes_cap=0)
+raises(ValueError, InteractionPolicy, tiny_start_minutes_cap=0)
+raises(ValueError, KernelPolicy, start_countdown_seconds_cap=0)
+raises(ValueError, InteractionPolicy, start_countdown_seconds_cap=0)
+raises(ValueError, KernelPolicy, observation_seconds=0)
+raises(ValueError, InteractionPolicy, observation_seconds=0)
+raises(ValueError, KernelPolicy, context_ttl_seconds=0)
+raises(ValueError, InteractionPolicy, context_ttl_seconds=0)
+raises(ValueError, KernelPolicy, card_ttl_seconds=0)
+raises(ValueError, InteractionPolicy, card_ttl_seconds=0)
+
+
 
 print(f"=== {PASSED} passed, {FAILED} failed ===")
 if FAILED:

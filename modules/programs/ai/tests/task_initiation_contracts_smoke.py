@@ -477,6 +477,24 @@ for forbidden in (
 check("Start creates only observation deadline", state["observation_due_at_epoch"] == start["occurred_at_epoch"] + 1 + 600)
 
 print()
+
+print("=== zero-skew ingress validation ===")
+
+# Test 1: Stuck ingress honors zero skew
+_TS = 1_700_000_000
+_stuck_at_now = c.validate_stuck_event({"schema_version":"task_initiation_stuck.v1","event_id":uid(),"source":"tasker","occurred_at_epoch":_TS}, now_epoch=_TS, max_future_skew_seconds=0)
+check("z1 stuck at now: accepted", _stuck_at_now["occurred_at_epoch"] == _TS)
+raises("invalid_timestamp",
+       c.validate_stuck_event, {"schema_version":"task_initiation_stuck.v1","event_id":uid(),"source":"tasker","occurred_at_epoch":_TS+1}, now_epoch=_TS, max_future_skew_seconds=0)
+
+# Test 2: Response ingress honors zero skew
+_resp_at_now = c.validate_response({"schema_version":"task_initiation_response.v1","response_id":uid(),"card_id":uid(),"action":"start","detail":None,"occurred_at_epoch":_TS}, now_epoch=_TS, max_future_skew_seconds=0)
+check("z2 resp at now: accepted", _resp_at_now["occurred_at_epoch"] == _TS)
+raises("invalid_timestamp",
+       c.validate_response, {"schema_version":"task_initiation_response.v1","response_id":uid(),"card_id":uid(),"action":"start","detail":None,"occurred_at_epoch":_TS+1}, now_epoch=_TS, max_future_skew_seconds=0)
+
+
+
 print(f"=== {PASSED} passed, {FAILED} failed ===")
 if FAILED:
     raise SystemExit(1)

@@ -254,6 +254,23 @@ def _require_int(value: Any, field: str) -> int:
     return value
 
 
+def _require_nonnegative_int(value: Any, field: str) -> int:
+    """Like _require_int but allows zero (value >= 0)."""
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise TaskInitiationContractError("invalid_schema", field)
+    return value
+
+
+def _policy_nonnegative_int(
+    policy: Mapping[str, Any] | None,
+    key: str,
+    default: int,
+) -> int:
+    """Extract a policy integer that may be zero (>= 0)."""
+    value = default if policy is None else policy.get(key, default)
+    return _require_nonnegative_int(value, f"policy.{key}")
+
+
 def _require_sha256(value: Any, field: str) -> str:
     text = _require_str(value, field, 64)
     if not _SHA256_RE.fullmatch(text):
@@ -378,7 +395,7 @@ def validate_stuck_event(
     _require_literal(v.get("source"), "source", "tasker")
     occurred = _require_epoch(v.get("occurred_at_epoch"), "occurred_at_epoch")
     if now_epoch is not None:
-        skew = max_future_skew_seconds or _MAX_FUTURE_CLOCK_SKEW_SECONDS
+        skew = _MAX_FUTURE_CLOCK_SKEW_SECONDS if max_future_skew_seconds is None else _require_nonnegative_int(max_future_skew_seconds, "max_future_skew_seconds")
         _check_future_timestamp(
             occurred,
             received_at_epoch=now_epoch,
@@ -533,7 +550,7 @@ def validate_response(
         raise TaskInitiationContractError("invalid_schema", "response.detail")
     occurred = _require_epoch(v.get("occurred_at_epoch"), "response.occurred_at_epoch")
     if now_epoch is not None:
-        skew = max_future_skew_seconds or _MAX_FUTURE_CLOCK_SKEW_SECONDS
+        skew = _MAX_FUTURE_CLOCK_SKEW_SECONDS if max_future_skew_seconds is None else _require_nonnegative_int(max_future_skew_seconds, "max_future_skew_seconds")
         _check_future_timestamp(
             occurred, received_at_epoch=now_epoch,
             max_future_skew_seconds=skew, field="response.occurred_at_epoch",
@@ -1059,7 +1076,7 @@ def _new_interaction(
 ) -> dict[str, Any]:
     validated = validate_stuck_event(stuck)
     received_at_epoch = _require_epoch(received_at_epoch, "received_at_epoch")
-    skew = _policy_int(policy, "max_future_skew_seconds", _MAX_FUTURE_CLOCK_SKEW_SECONDS)
+    skew = _policy_nonnegative_int(policy, "max_future_skew_seconds", _MAX_FUTURE_CLOCK_SKEW_SECONDS)
     _check_future_timestamp(
         validated["occurred_at_epoch"],
         received_at_epoch=received_at_epoch,
@@ -1518,7 +1535,7 @@ def _apply_response(
     if received_at_epoch >= revision["card_expires_at_epoch"]:
         raise TaskInitiationContractError("expired", "response")
 
-    skew = _policy_int(policy, "max_future_skew_seconds", _MAX_FUTURE_CLOCK_SKEW_SECONDS)
+    skew = _policy_nonnegative_int(policy, "max_future_skew_seconds", _MAX_FUTURE_CLOCK_SKEW_SECONDS)
     occurred = validated["occurred_at_epoch"]
     timestamp_consistent = (
         revision["card_issued_at_epoch"] <= occurred < revision["card_expires_at_epoch"]
