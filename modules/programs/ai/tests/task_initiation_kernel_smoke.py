@@ -3014,6 +3014,306 @@ _conn.execute("UPDATE interactions SET interaction_policy_json='{\"policy_versio
 _conn.commit(); _conn.close()
 raises_msg(KernelCorruptionError, "interaction policy", _mk_kernel(_safe_db_copy(sd30_9b)).check_database)
 
+
+print("=== 31. sqlite engine failures ===")
+
+# --- 1: malformed SQLite through check_database ---
+_sd31_1 = _mk_state_dir()
+_db31_1 = _sd31_1 / "kernel.sqlite3"
+_db31_1.write_bytes(b"not a sqlite database")
+_db31_1.chmod(0o600)
+_sd31_1.chmod(0o700)
+_k31_1 = TaskInitiationKernel(_sd31_1, clock=_fixed_clock, busy_timeout_seconds=0.2)
+raises(KernelCorruptionError, _k31_1.check_database)
+# CLI
+_py = str(Path(__file__).resolve().parent.parent / "python")
+_env = {**os.environ, "PYTHONPATH": _py}
+_cli = [sys.executable, "-m", "ai_system.task_initiation_cli", "--state-dir", str(_sd31_1)]
+_r = subprocess.run([*_cli, "check-db"], capture_output=True, text=True, env=_env)
+check("31.1 CLI check-db exit 5", _r.returncode == 5)
+
+# --- 2: malformed SQLite through show ---
+_r = subprocess.run([*_cli, "show", str(uuid.uuid4())], capture_output=True, text=True, env=_env)
+check("31.2 CLI show exit 5", _r.returncode == 5)
+
+# --- 3: malformed SQLite through initialization ---
+_sd31_3 = _mk_state_dir()
+_db31_3 = _sd31_3 / "kernel.sqlite3"
+_db31_3.write_bytes(b"garbage")
+_db31_3.chmod(0o600)
+_sd31_3.chmod(0o700)
+_k31_3 = TaskInitiationKernel(_sd31_3, clock=_fixed_clock, busy_timeout_seconds=0.2)
+raises(KernelCorruptionError, _k31_3.initialize)
+
+# --- 4: writer busy lock ---
+_sd31_4 = _mk_state_dir()
+_k31_4 = _mk_kernel(_sd31_4)
+_k31_4.initialize()
+_r31_4 = _make_res_tasks(_sd31_4, {"Tasks/t31a.md":{"label":"T31A","revision":_REV_FIXTURE}})
+op31_4 = _k31_4.ingest_stuck(_stuck(), resolution=_r31_4)
+card31_4 = op31_4.result["card"]
+# Hold a writer lock from another connection
+import threading as _th
+_held = _th.Event(); _ready = _th.Event()
+def _hold_lock():
+    _kk = TaskInitiationKernel(_sd31_4, clock=_fixed_clock, busy_timeout_seconds=0.1)
+    with _kk._store.immediate_transaction() as _c:
+        _ready.set()
+        _held.wait(timeout=5)
+_t = _th.Thread(target=_hold_lock); _t.start()
+_ready.wait(timeout=2)
+raises(KernelBusyError, _k31_4.respond, _resp(card31_4, "start", response_id=str(uuid.uuid4())), resolution=_r31_4)
+_held.set(); _t.join()
+# CLI exit 6
+_cli31_4 = [sys.executable, "-m", "ai_system.task_initiation_cli", "--state-dir", str(_sd31_4)]
+_rr = _safe_db_copy(_sd31_4)  # not needed, just use original
+check("31.4 db healthy after lock", _mk_kernel(_safe_db_copy(_sd31_4)).check_database()["status"] == "ok")
+
+# --- 5: extended busy/locked classifier ---
+import sqlite3 as _sq
+from ai_system.task_initiation_store import _translate_sqlite_error
+for _code, _desc in [(_sq.SQLITE_BUSY, "BUSY"), (getattr(_sq, 'SQLITE_BUSY_SNAPSHOT', 517), "BUSY_SNAPSHOT"),
+                     (_sq.SQLITE_LOCKED, "LOCKED"), (getattr(_sq, 'SQLITE_LOCKED_SHAREDCACHE', 262), "LOCKED_SHAREDCACHE")]:
+    _exc = _sq.DatabaseError("test")
+    _exc.sqlite_errorcode = _code
+    _result = _translate_sqlite_error(_exc)
+    check(f"31.5 {_desc} -> KernelBusyError", isinstance(_result, KernelBusyError))
+
+# --- 6: extended I/O/read-only classifier ---
+for _code, _desc in [(getattr(_sq, 'SQLITE_IOERR', 10), "IOERR"),
+                     (getattr(_sq, 'SQLITE_IOERR_READ', 266), "IOERR_READ"),
+                     (_sq.SQLITE_READONLY, "READONLY"),
+                     (getattr(_sq, 'SQLITE_READONLY_DBMOVED', 1032), "READONLY_DBMOVED"),
+                     (_sq.SQLITE_CANTOPEN, "CANTOPEN"),
+                     (getattr(_sq, 'SQLITE_FULL', 13), "FULL"),
+                     (_sq.SQLITE_PERM, "PERM")]:
+    _exc = _sq.DatabaseError("test")
+    _exc.sqlite_errorcode = _code
+    _result = _translate_sqlite_error(_exc)
+    check(f"31.6 {_desc} -> KernelStorageError", isinstance(_result, KernelStorageError))
+
+# --- 7: corrupt/not-a-database classifier ---
+for _code, _desc in [(_sq.SQLITE_CORRUPT, "CORRUPT"), (_sq.SQLITE_NOTADB, "NOTADB")]:
+    _exc = _sq.DatabaseError("test")
+    _exc.sqlite_errorcode = _code
+    _result = _translate_sqlite_error(_exc)
+    check(f"31.7 {_desc} -> KernelCorruptionError", isinstance(_result, KernelCorruptionError))
+
+
+# --- 7b: FORMAT classifier ---
+_exc7b = _sq.DatabaseError("test")
+_exc7b.sqlite_errorcode = getattr(_sq, 'SQLITE_FORMAT', 24)
+check("31.7b FORMAT -> KernelCorruptionError", isinstance(_translate_sqlite_error(_exc7b), KernelCorruptionError))
+
+# --- 8: unexpected IntegrityError rollback ---
+_sd31_8 = _mk_state_dir()
+_k31_8 = _mk_kernel(_sd31_8)
+_k31_8.initialize()
+_r31_8 = _make_res_tasks(_sd31_8, {"Tasks/t31b.md":{"label":"T31B","revision":_REV_FIXTURE}})
+op31_8 = _k31_8.ingest_stuck(_stuck(), resolution=_r31_8)
+del _k31_8
+# Rebuild interactions with a CHECK that rejects normal writes
+_conn8 = sqlite3_module.connect(str(_sd31_8 / "kernel.sqlite3"))
+_conn8.execute("PRAGMA foreign_keys = OFF")
+_conn8.execute("CREATE TABLE interactions_new (event_id TEXT PRIMARY KEY, interaction_id TEXT NOT NULL UNIQUE, aggregate_json TEXT NOT NULL, state_version INTEGER NOT NULL CHECK (state_version > 999999), phase TEXT NOT NULL, terminal_status TEXT, next_deadline_epoch INTEGER, last_observed_at_epoch INTEGER NOT NULL, created_at_epoch INTEGER NOT NULL, updated_at_epoch INTEGER NOT NULL, interaction_policy_json TEXT NOT NULL)")
+_conn8.execute("PRAGMA ignore_check_constraints = ON")
+_conn8.execute("INSERT INTO interactions_new SELECT * FROM interactions")
+_conn8.execute("PRAGMA ignore_check_constraints = OFF")
+_conn8.execute("DROP TABLE interactions")
+_conn8.execute("ALTER TABLE interactions_new RENAME TO interactions")
+_conn8.execute("CREATE INDEX interactions_active_deadline_idx ON interactions (terminal_status, next_deadline_epoch, event_id)")
+_conn8.execute("PRAGMA foreign_keys = ON")
+_conn8.commit(); _conn8.close()
+_k31_8b = _mk_kernel(_sd31_8)
+raises(KernelCorruptionError, _k31_8b.ingest_stuck, _stuck(event_id=str(uuid.uuid4())), resolution=_r31_8)
+_k31_8c = _mk_kernel(_safe_db_copy(_sd31_8))
+with _k31_8c._store.read_connection() as _c8:
+    _ic = _c8.execute("SELECT COUNT(*) FROM interactions").fetchone()[0]
+    _mc = _c8.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
+    _cc = _c8.execute("SELECT COUNT(*) FROM card_index").fetchone()[0]
+check("31.8 int count unchanged", _ic == 1)
+check("31.8 msg count unchanged", _mc == 1)
+check("31.8 card count unchanged", _cc == 1)
+
+# --- 4b: CLI busy exit 6 ---
+_sd31_4b = _mk_state_dir()
+_k31_4b = _mk_kernel(_sd31_4b, clock=lambda: FIXED_NOW_BASE, busy_timeout_seconds=0.2)
+_k31_4b.initialize()
+_r31_4b = _make_res_tasks(_sd31_4b, {"Tasks/t31c.md":{"label":"T31C","revision":_REV_FIXTURE}})
+op31_4b = _k31_4b.ingest_stuck(_stuck(), resolution=_r31_4b)
+del _k31_4b
+_held4b = _th.Event(); _ready4b = _th.Event()
+def _hold_lock4b():
+    import sqlite3 as _s
+    _c = _s.connect(str(_sd31_4b / "kernel.sqlite3"))
+    _c.execute("BEGIN IMMEDIATE")
+    _ready4b.set()
+    _held4b.wait(timeout=30)
+    _c.execute("ROLLBACK"); _c.close()
+_t4b = _th.Thread(target=_hold_lock4b); _t4b.start()
+_lock_ok = _ready4b.wait(timeout=2)
+check("31.4b lock acquired", _lock_ok)
+try:
+    _cli4b = [sys.executable, "-m", "ai_system.task_initiation_cli", "--state-dir", str(_sd31_4b)]
+    _rf4b = _sd31_4b / "resp.json"
+    _rf4b.write_text(json.dumps({"schema_version":"task_initiation_response.v1","response_id":str(uuid.uuid4()),"card_id":op31_4b.result["card"]["card_id"],"action":"start","detail":None,"occurred_at_epoch":FIXED_NOW_BASE}))
+    _r4b_cli = subprocess.run([*_cli4b, "respond", "--input", str(_rf4b)], capture_output=True, text=True, env=_env)
+    check("31.4b CLI respond busy exit 6", _r4b_cli.returncode == 6)
+finally:
+    _held4b.set(); _t4b.join()
+_sd31_11b = _mk_state_dir()
+_k31_11b = TaskInitiationKernel(_sd31_11b, clock=_fixed_clock, busy_timeout_seconds=0.2)
+raises(KernelStorageError, _k31_11b.respond, {"schema_version":"task_initiation_response.v1","response_id":str(uuid.uuid4()),"card_id":str(uuid.uuid4()),"action":"start","detail":None,"occurred_at_epoch":FIXED_NOW_BASE})
+
+# --- 11: ordinary missing database remains storage failure ---
+_sd31_11 = _mk_state_dir()
+_k31_11 = TaskInitiationKernel(_sd31_11, clock=_fixed_clock, busy_timeout_seconds=0.2)
+raises(KernelStorageError, _k31_11.check_database)
+raises(KernelStorageError, _k31_11.show, str(uuid.uuid4()))
+_cli31_11 = [sys.executable, "-m", "ai_system.task_initiation_cli", "--state-dir", str(_sd31_11)]
+_r11 = subprocess.run([*_cli31_11, "check-db"], capture_output=True, text=True, env=_env)
+check("31.11 missing db exit 7", _r11.returncode == 7)
+
+# --- 8b: CLI exit 5 for IntegrityError ---
+_cli8b = [sys.executable, "-m", "ai_system.task_initiation_cli", "--state-dir", str(_sd31_8)]
+_sf8b = _sd31_8 / "s8b.json"
+_sf8b.write_text(json.dumps({"schema_version":"task_initiation_stuck.v1","event_id":str(uuid.uuid4()),"source":"tasker","occurred_at_epoch":int(time_mod.time()-10),"task_description":"X"}))
+_rf8b = _sd31_8 / "r8b.json"
+_rf8b.write_text(json.dumps({"tasks":{"Tasks/t31b.md":{"label":"T31B","revision":_REV_FIXTURE}}}))
+_r8b = subprocess.run([*_cli8b, "ingest-stuck", "--input", str(_sf8b), "--resolution-input", str(_rf8b)], capture_output=True, text=True, env=_env)
+check("31.8b CLI IntegrityError exit 5", _r8b.returncode == 5)
+
+# --- 9: rollback failure classification ---
+_exc9 = sqlite3_module.DatabaseError("original write failure")
+_exc9.sqlite_errorcode = sqlite3_module.SQLITE_IOERR
+_tr9 = _translate_sqlite_error(_exc9)
+check("31.9 IOERR -> KernelStorageError", isinstance(_tr9, KernelStorageError))
+check("31.9 diagnostic includes original", "original write failure" in str(_tr9))
+
+
+
+print("=== 32. sqlite cleanup failures ===")
+
+# --- Fault injection helpers ---
+_orig_connect = sqlite3_module.connect
+_safe_close_called = [0]
+
+class _CloseFailingConn:
+    """Wraps a real sqlite connection; close() and/or execute() can be faulted."""
+    def __init__(self, real, close_err=None, exec_fail_on=None, exec_err=None):
+        object.__setattr__(self, '_real', real)
+        object.__setattr__(self, '_close_err', close_err)
+        object.__setattr__(self, '_exec_fail_on', exec_fail_on)
+        object.__setattr__(self, '_exec_err', exec_err)
+        object.__setattr__(self, '_exec_count', [0])
+    def _close(self):
+        _safe_close_called[0] += 1
+        _err = object.__getattribute__(self, '_close_err')
+        if _err:
+            raise _err
+        return object.__getattribute__(self, '_real').close()
+    def _execute(self, sql, *args):
+        _ec = object.__getattribute__(self, '_exec_count')
+        _ec[0] += 1
+        _on = object.__getattribute__(self, '_exec_fail_on')
+        if _on is not None and _on in str(sql).upper():
+            _err = object.__getattribute__(self, '_exec_err') or sqlite3_module.DatabaseError("injected")
+            raise _err
+        return object.__getattribute__(self, '_real').execute(sql, *args)
+    def __getattr__(self, name):
+        if name == 'close': return self._close
+        if name == 'execute': return self._execute
+        return getattr(object.__getattribute__(self, '_real'), name)
+    def __setattr__(self, name, value):
+        if name.startswith('_'):
+            object.__setattr__(self, name, value)
+        else:
+            setattr(object.__getattribute__(self, '_real'), name, value)
+
+# --- 1: successful writer, close fails ---
+_ioerr = sqlite3_module.DatabaseError("close IOERR")
+_ioerr.sqlite_errorcode = sqlite3_module.SQLITE_IOERR
+_safe_close_called[0] = 0
+_sd32_1 = _mk_state_dir()
+_k32_1 = _mk_kernel(_sd32_1)
+_k32_1.initialize()
+_r32_1 = _make_res_tasks(_sd32_1, {"Tasks/t32a.md":{"label":"T32A","revision":_REV_FIXTURE}})
+op32_1 = _k32_1.ingest_stuck(_stuck(), resolution=_r32_1)
+del _k32_1
+def _fc32_1(*a, **kw):
+    return _CloseFailingConn(_orig_connect(*a, **kw), close_err=_ioerr)
+sqlite3_module.connect = _fc32_1
+try:
+    _k32_1b = _mk_kernel(_sd32_1)
+    raises(KernelStorageError, _k32_1b.check_database)
+    check("32.1 close called", _safe_close_called[0] >= 1)
+finally:
+    sqlite3_module.connect = _orig_connect
+
+# --- 2: writer body fails, rollback succeeds, close clean ---
+_busy = sqlite3_module.DatabaseError("BUSY")
+_busy.sqlite_errorcode = sqlite3_module.SQLITE_BUSY
+_sd32_2 = _mk_state_dir()
+_k32_2 = _mk_kernel(_sd32_2)
+_k32_2.initialize()
+_r32_2 = _make_res_tasks(_sd32_2, {"Tasks/t32b.md":{"label":"T32B","revision":_REV_FIXTURE}})
+op32_2 = _k32_2.ingest_stuck(_stuck(), resolution=_r32_2)
+card32_2 = op32_2.result["card"]
+del _k32_2
+def _fc32_2(*a, **kw):
+    return _CloseFailingConn(_orig_connect(*a, **kw), exec_fail_on="INSERT INTO", exec_err=_busy)
+sqlite3_module.connect = _fc32_2
+try:
+    _k32_2b = _mk_kernel(_sd32_2)
+    raises(KernelBusyError, _k32_2b.respond, _resp(card32_2, "start", response_id=str(uuid.uuid4())), resolution=_r32_2)
+finally:
+    sqlite3_module.connect = _orig_connect
+
+# --- 10: ordinary real SQLite paths unchanged ---
+_sd32_10 = _mk_state_dir()
+_k32_10 = _mk_kernel(_sd32_10)
+_k32_10.initialize()
+check("32.10 init succeeds", _k32_10.check_database()["status"] == "ok")
+_r32_10 = _make_res_tasks(_sd32_10, {"Tasks/t32c.md":{"label":"T32C","revision":_REV_FIXTURE}})
+op32_10 = _k32_10.ingest_stuck(_stuck(), resolution=_r32_10)
+check("32.10 ingest succeeds", op32_10.result["status"] == "card_published")
+card32_10 = op32_10.result["card"]
+r32_10 = _k32_10.respond(_resp(card32_10, "start"), resolution=_r32_10)
+check("32.10 respond succeeds", r32_10.result["status"] == "accepted")
+# --- 2: writer body fails, rollback succeeds, close succeeds ---
+_sd32_2 = _mk_state_dir()
+_k32_2 = _mk_kernel(_sd32_2)
+_k32_2.initialize()
+_r32_2 = _make_res_tasks(_sd32_2, {"Tasks/t32b.md":{"label":"T32B","revision":_REV_FIXTURE}})
+op32_2 = _k32_2.ingest_stuck(_stuck(), resolution=_r32_2)
+card32_2 = op32_2.result["card"]
+del _k32_2
+_busy = sqlite3_module.DatabaseError("BUSY")
+_busy.sqlite_errorcode = sqlite3_module.SQLITE_BUSY
+def _fc32_2(*a, **kw):
+    _c = _CloseFailingConn(_orig_connect(*a, **kw))
+    _c._execute_fail_on = "INSERT INTO card_index"
+    _c._close_err = _busy
+    return _c
+sqlite3_module.connect = _fc32_2
+try:
+    _k32_2b = _mk_kernel(_sd32_2)
+    raises(KernelBusyError, _k32_2b.respond, _resp(card32_2, "start", response_id=str(uuid.uuid4())), resolution=_r32_2)
+finally:
+    sqlite3_module.connect = _orig_connect
+
+# --- 10: ordinary real SQLite paths unchanged ---
+_sd32_10 = _mk_state_dir()
+_k32_10 = _mk_kernel(_sd32_10)
+_k32_10.initialize()
+check("32.10 init succeeds", _k32_10.check_database()["status"] == "ok")
+_r32_10 = _make_res_tasks(_sd32_10, {"Tasks/t32c.md":{"label":"T32C","revision":_REV_FIXTURE}})
+op32_10 = _k32_10.ingest_stuck(_stuck(), resolution=_r32_10)
+check("32.10 ingest succeeds", op32_10.result["status"] == "card_published")
+card32_10 = op32_10.result["card"]
+r32_10 = _k32_10.respond(_resp(card32_10, "start"), resolution=_r32_10)
+check("32.10 respond succeeds", r32_10.result["status"] == "accepted")
+
 if FAILED:
     raise SystemExit(1)
 print("ALL PASS")

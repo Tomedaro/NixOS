@@ -37,33 +37,57 @@ KernelStorageError = p.KernelStorageError
 def _translate_sqlite_error(exc: sqlite3.Error) -> Exception:
     """Map sqlite3 errors to kernel exceptions using error codes where available.
 
-    SQLITE_BUSY / SQLITE_LOCKED -> KernelBusyError
-    SQLITE_CORRUPT / SQLITE_NOTADB / IntegrityError -> KernelCorruptionError
-    SQLITE_FULL / SQLITE_IOERR / SQLITE_CANTOPEN / SQLITE_READONLY /
-        SQLITE_PERM -> KernelStorageError
-    Everything else remains a KernelStorageError.
+    Normalizes extended result codes to primary codes (code & 0xFF).
     """
     if isinstance(exc, sqlite3.IntegrityError):
         return KernelCorruptionError(str(exc))
-    if hasattr(exc, "sqlite_errorcode"):
+    if hasattr(exc, "sqlite_errorcode") and exc.sqlite_errorcode is not None:
         code = exc.sqlite_errorcode
-        if code == sqlite3.SQLITE_BUSY:
+        primary = code & 0xFF
+        # BUSY/LOCKED → KernelBusyError
+        if primary == sqlite3.SQLITE_BUSY or primary == sqlite3.SQLITE_LOCKED:
             return KernelBusyError()
-        if code == sqlite3.SQLITE_LOCKED:
-            return KernelBusyError()
-        if code == sqlite3.SQLITE_CORRUPT:
+        # CORRUPT/NOTADB/FORMAT/SCHEMA → KernelCorruptionError
+        if primary in (
+            sqlite3.SQLITE_CORRUPT,
+            sqlite3.SQLITE_NOTADB,
+            getattr(sqlite3, 'SQLITE_FORMAT', 24),
+            getattr(sqlite3, 'SQLITE_SCHEMA', 17),
+        ):
             return KernelCorruptionError(str(exc))
-        if code == sqlite3.SQLITE_NOTADB:
-            return KernelCorruptionError(str(exc))
-        if code in (
+        if primary in (
             sqlite3.SQLITE_FULL,
             sqlite3.SQLITE_IOERR,
             sqlite3.SQLITE_CANTOPEN,
             sqlite3.SQLITE_READONLY,
             sqlite3.SQLITE_PERM,
+            sqlite3.SQLITE_AUTH,
         ):
             return KernelStorageError(str(exc))
     return KernelStorageError(str(exc))
+
+
+def _safe_close(conn: sqlite3.Connection, *, active_exc: BaseException | None = None) -> None:
+    """Close *conn*, translating SQLite errors.  If *active_exc* is set (or an
+    exception is currently being handled) and close also fails, raise a combined
+    KernelStorageError preserving both contexts.
+    """
+    import sys as _sys
+    _existing = active_exc
+    if _existing is None:
+        _existing = _sys.exc_info()[1]
+    try:
+        conn.close()
+    except sqlite3.Error as _ce:
+        _classified = _translate_sqlite_error(_ce)
+        if _existing is not None and _existing is not _ce:
+            raise KernelStorageError(
+                f"close failed ({type(_ce).__name__}: {_ce}) after original error: "
+                f"{type(_existing).__name__}: {_existing}"
+            ) from _existing
+        raise _classified
+    except Exception:
+        raise
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -1749,8 +1773,6 @@ class TaskInitiationStore:
                     f"unsupported database version {version}; "
                     f"this kernel supports only version 1"
                 )
-            else:
-                raise KernelCorruptionError(f"unexpected user_version: {version}")
 
             # Final integrity check
             integrity = conn.execute("PRAGMA integrity_check").fetchall()
@@ -1762,13 +1784,12 @@ class TaskInitiationStore:
                 raise KernelCorruptionError(f"foreign_key_check failed: {fk_check}")
 
             return {"status": "initialized", "version": 1, "path": str(self._db_path)}
-
         except (KernelBusyError, KernelCorruptionError, KernelStorageError):
             raise
         except sqlite3.Error as exc:
             raise _translate_sqlite_error(exc)
         finally:
-            conn.close()
+            _safe_close(conn)
 
     def _migrate_v1(self, conn: sqlite3.Connection) -> None:
         """Create version-1 schema in a single transaction."""
@@ -2008,20 +2029,32 @@ class TaskInitiationStore:
             if conn.in_transaction:
                 conn.execute("COMMIT")
                 assert not conn.in_transaction, "COMMIT did not end transaction"
-        except (KernelBusyError, KernelCorruptionError, KernelStorageError):
+        except (KernelBusyError, KernelCorruptionError, KernelStorageError) as _exc:
             if conn.in_transaction:
-                conn.execute("ROLLBACK")
+                try: conn.execute("ROLLBACK")
+                except sqlite3.Error as _re:
+                    raise KernelStorageError(
+                        f"rollback failed after {type(_exc).__name__}({_exc}): rollback error {_re}"
+                    ) from _exc
             raise
         except sqlite3.Error as exc:
             if conn.in_transaction:
-                conn.execute("ROLLBACK")
+                try: conn.execute("ROLLBACK")
+                except sqlite3.Error as _re:
+                    raise KernelStorageError(
+                        f"rollback failed after sqlite3.Error({exc}): rollback error {_re}"
+                    ) from exc
             raise _translate_sqlite_error(exc)
         except Exception:
             if conn.in_transaction:
-                conn.execute("ROLLBACK")
+                try: conn.execute("ROLLBACK")
+                except sqlite3.Error as _re:
+                    raise KernelStorageError(
+                        f"rollback failed after Exception: {_re}"
+                    )
             raise
         finally:
-            conn.close()
+            _safe_close(conn)
 
     @contextmanager
     def read_connection(self) -> Iterator[sqlite3.Connection]:
@@ -2029,13 +2062,14 @@ class TaskInitiationStore:
         self._verify_permissions()
         uri = _sqlite_uri(self._db_path, mode="ro")
         try:
-            conn = sqlite3.connect(uri, uri=True)
+            conn = sqlite3.connect(uri, uri=True, timeout=self._busy_timeout)
         except sqlite3.Error as exc:
             raise _translate_sqlite_error(exc)
         conn.row_factory = sqlite3.Row
         try:
             conn.execute("PRAGMA query_only = ON")
             conn.execute("PRAGMA foreign_keys = ON")
+            conn.execute("PRAGMA busy_timeout = %d" % int(self._busy_timeout * 1000))
 
             # Verify DB version on every entry point
             vrow = conn.execute("PRAGMA user_version").fetchone()
@@ -2053,8 +2087,12 @@ class TaskInitiationStore:
                 )
 
             yield conn
+        except (KernelBusyError, KernelCorruptionError, KernelStorageError):
+            raise
+        except sqlite3.Error as exc:
+            raise _translate_sqlite_error(exc)
         finally:
-            conn.close()
+            _safe_close(conn)
 
     def check_database(self) -> dict[str, Any]:
         """Read-only structural, integrity, and proportional row validation."""
