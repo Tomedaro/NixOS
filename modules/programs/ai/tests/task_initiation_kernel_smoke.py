@@ -2835,6 +2835,185 @@ _conn12c.execute("UPDATE messages SET result_json='{\"x\":' WHERE kind='stuck'")
 _conn12c.commit(); _conn12c.close()
 _sd = _safe_db_copy(sd29_12); raises_msg(KernelCorruptionError, "invalid result_json", _mk_kernel(_sd).check_database)
 
+
+print("=== 30. malformed persisted values ===")
+
+# --- 1: aggregate evidence contains object ---
+sd30_1 = _mk_state_dir()
+k30_1 = _mk_kernel(sd30_1)
+k30_1.initialize()
+_r30_1 = _make_res_tasks(sd30_1, {"Tasks/t30.md":{"label":"T30","revision":_REV_FIXTURE}})
+op30_1 = k30_1.ingest_stuck(_stuck(), resolution=_r30_1)
+eid30_1 = op30_1.result["event_id"]
+del k30_1
+_conn = sqlite3_module.connect(str(sd30_1 / "kernel.sqlite3"))
+_conn.row_factory = sqlite3_module.Row
+_row = _conn.execute("SELECT * FROM interactions WHERE event_id=?", (eid30_1,)).fetchone()
+_agg = _agg_from_db(_row["aggregate_json"], source="corrupt")
+_agg["evidence_issues"] = [{"bad": "object"}]
+_rewrite_aggregate_canonically(_conn, eid30_1, _agg)
+_conn.close()
+raises_msg(KernelCorruptionError, "evidence_issues", _mk_kernel(_safe_db_copy(sd30_1)).check_database)
+
+# --- 2: revision evidence contains nested array ---
+sd30_2 = _mk_state_dir()
+k30_2 = _mk_kernel(sd30_2)
+k30_2.initialize()
+_r30_2 = _make_res_tasks(sd30_2, {"Tasks/t30b.md":{"label":"T30B","revision":_REV_FIXTURE}})
+op30_2 = k30_2.ingest_stuck(_stuck(), resolution=_r30_2)
+eid30_2 = op30_2.result["event_id"]
+del k30_2
+_conn = sqlite3_module.connect(str(sd30_2 / "kernel.sqlite3"))
+_conn.row_factory = sqlite3_module.Row
+_row = _conn.execute("SELECT * FROM interactions WHERE event_id=?", (eid30_2,)).fetchone()
+_agg = _agg_from_db(_row["aggregate_json"], source="corrupt")
+_agg["revisions"][0]["evidence_issues"] = [["response_timestamp_inconsistent"]]
+_rewrite_aggregate_canonically(_conn, eid30_2, _agg)
+_conn.close()
+raises_msg(KernelCorruptionError, "evidence_issues", _mk_kernel(_safe_db_copy(sd30_2)).check_database)
+
+# --- 3: duplicate evidence issue ---
+sd30_3 = _mk_state_dir()
+k30_3 = _mk_kernel(sd30_3)
+k30_3.initialize()
+_r30_3 = _make_res_tasks(sd30_3, {"Tasks/t30c.md":{"label":"T30C","revision":_REV_FIXTURE}})
+op30_3 = k30_3.ingest_stuck(_stuck(), resolution=_r30_3)
+eid30_3 = op30_3.result["event_id"]
+del k30_3
+_conn = sqlite3_module.connect(str(sd30_3 / "kernel.sqlite3"))
+_conn.row_factory = sqlite3_module.Row
+_row = _conn.execute("SELECT * FROM interactions WHERE event_id=?", (eid30_3,)).fetchone()
+_agg = _agg_from_db(_row["aggregate_json"], source="corrupt")
+_agg["evidence_issues"] = ["response_timestamp_inconsistent", "response_timestamp_inconsistent"]
+_rewrite_aggregate_canonically(_conn, eid30_3, _agg)
+_conn.close()
+raises_msg(KernelCorruptionError, "duplicate", _mk_kernel(_safe_db_copy(sd30_3)).check_database)
+
+# --- 4: non-object accepted summary ---
+for _bad_val, _label in [([1], "int"), (["x"], "string"), ([None], "null")]:
+    sd30_4 = _mk_state_dir()
+    k30_4 = _mk_kernel(sd30_4)
+    k30_4.initialize()
+    _r30_4 = _make_res_tasks(sd30_4, {"Tasks/t30d.md":{"label":"T30D","revision":_REV_FIXTURE}})
+    op30_4 = k30_4.ingest_stuck(_stuck(), resolution=_r30_4)
+    card30_4 = op30_4.result["card"]
+    eid30_4 = op30_4.result["event_id"]
+    k30_4.respond(_resp(card30_4, "start"), resolution=_r30_4)
+    del k30_4
+    _conn = sqlite3_module.connect(str(sd30_4 / "kernel.sqlite3"))
+    _conn.row_factory = sqlite3_module.Row
+    _row = _conn.execute("SELECT * FROM interactions WHERE event_id=?", (eid30_4,)).fetchone()
+    _agg = _agg_from_db(_row["aggregate_json"], source="corrupt")
+    _agg["accepted_responses"] = _bad_val
+    _rewrite_aggregate_canonically(_conn, eid30_4, _agg)
+    _conn.close()
+    raises_msg(KernelCorruptionError, "is not a dict", _mk_kernel(_safe_db_copy(sd30_4)).check_database)
+
+# --- 5: accepted-summary malformed scalar ---
+for _bad_key, _bad_val in [("revision", True), ("detail", 5)]:
+    sd30_5 = _mk_state_dir()
+    k30_5 = _mk_kernel(sd30_5)
+    k30_5.initialize()
+    _r30_5 = _make_res_tasks(sd30_5, {"Tasks/t30e.md":{"label":"T30E","revision":_REV_FIXTURE}})
+    op30_5 = k30_5.ingest_stuck(_stuck(), resolution=_r30_5)
+    card30_5 = op30_5.result["card"]
+    eid30_5 = op30_5.result["event_id"]
+    k30_5.respond(_resp(card30_5, "start"), resolution=_r30_5)
+    del k30_5
+    _conn = sqlite3_module.connect(str(sd30_5 / "kernel.sqlite3"))
+    _conn.row_factory = sqlite3_module.Row
+    _row = _conn.execute("SELECT * FROM interactions WHERE event_id=?", (eid30_5,)).fetchone()
+    _agg = _agg_from_db(_row["aggregate_json"], source="corrupt")
+    _agg["accepted_responses"][0][_bad_key] = _bad_val
+    _rewrite_aggregate_canonically(_conn, eid30_5, _agg)
+    _conn.close()
+    raises_msg(KernelCorruptionError, "must be", _mk_kernel(_safe_db_copy(sd30_5)).check_database)
+
+# --- 6: wrong interaction SQL scalar type ---
+sd30_6 = _mk_state_dir()
+k30_6 = _mk_kernel(sd30_6)
+k30_6.initialize()
+_r30_6 = _make_res_tasks(sd30_6, {"Tasks/t30f.md":{"label":"T30F","revision":_REV_FIXTURE}})
+k30_6.ingest_stuck(_stuck(), resolution=_r30_6)
+del k30_6
+_conn = sqlite3_module.connect(str(sd30_6 / "kernel.sqlite3"))
+_conn.execute("PRAGMA ignore_check_constraints=ON")
+_conn.execute("UPDATE interactions SET state_version='bad'")
+_conn.commit(); _conn.close()
+raises_msg(KernelCorruptionError, "must be", _mk_kernel(_safe_db_copy(sd30_6)).check_database)
+
+# --- 9: malformed policy JSON ---
+sd30_9 = _mk_state_dir()
+k30_9 = _mk_kernel(sd30_9)
+k30_9.initialize()
+_r30_9 = _make_res_tasks(sd30_9, {"Tasks/t30g.md":{"label":"T30G","revision":_REV_FIXTURE}})
+k30_9.ingest_stuck(_stuck(), resolution=_r30_9)
+del k30_9
+# JSON array
+_conn = sqlite3_module.connect(str(sd30_9 / "kernel.sqlite3"))
+_conn.execute("UPDATE interactions SET interaction_policy_json='[]'")
+_conn.commit(); _conn.close()
+raises_msg(KernelCorruptionError, "interaction policy", _mk_kernel(_safe_db_copy(sd30_9)).check_database)
+
+# --- 7: wrong message SQL scalar type ---
+sd30_7 = _mk_state_dir()
+k30_7 = _mk_kernel(sd30_7)
+k30_7.initialize()
+_r30_7 = _make_res_tasks(sd30_7, {"Tasks/t30i.md":{"label":"T30I","revision":_REV_FIXTURE}})
+k30_7.ingest_stuck(_stuck(), resolution=_r30_7)
+del k30_7
+_conn = sqlite3_module.connect(str(sd30_7 / "kernel.sqlite3"))
+_conn.execute("PRAGMA ignore_check_constraints=ON")
+_conn.execute("UPDATE messages SET recorded_at_epoch='bad'")
+_conn.commit(); _conn.close()
+raises_msg(KernelCorruptionError, "recorded_at", _mk_kernel(_safe_db_copy(sd30_7)).check_database)
+
+# --- 8: wrong card-route scalar type ---
+sd30_8 = _mk_state_dir()
+k30_8 = _mk_kernel(sd30_8)
+k30_8.initialize()
+_r30_8 = _make_res_tasks(sd30_8, {"Tasks/t30j.md":{"label":"T30J","revision":_REV_FIXTURE}})
+k30_8.ingest_stuck(_stuck(), resolution=_r30_8)
+del k30_8
+_conn = sqlite3_module.connect(str(sd30_8 / "kernel.sqlite3"))
+_conn.execute("PRAGMA ignore_check_constraints=ON")
+_conn.execute("UPDATE card_index SET revision='bad'")
+_conn.commit(); _conn.close()
+raises_msg(KernelCorruptionError, "card_index mismatch", _mk_kernel(_safe_db_copy(sd30_8)).check_database)
+
+# --- CLI exit 5 checks ---
+sd30_cli = _mk_state_dir()
+k30_cli = _mk_kernel(sd30_cli)
+k30_cli.initialize()
+k30_cli.ingest_stuck(_stuck(), resolution=_make_res_tasks(sd30_cli, {"Tasks/t30k.md":{"label":"T30K","revision":_REV_FIXTURE}}))
+del k30_cli
+_conn = sqlite3_module.connect(str(sd30_cli / "kernel.sqlite3"))
+_conn.row_factory = sqlite3_module.Row
+_row = _conn.execute("SELECT * FROM interactions").fetchone()
+_agg = _agg_from_db(_row["aggregate_json"], source="corrupt")
+_agg["evidence_issues"] = [{"bad": "object"}]
+_rewrite_aggregate_canonically(_conn, _row["event_id"], _agg)
+_conn.close()
+_py = str(Path(__file__).resolve().parent.parent / "python")
+_env = {**os.environ, "PYTHONPATH": _py}
+_cli = [sys.executable, "-m", "ai_system.task_initiation_cli", "--state-dir", str(sd30_cli)]
+_r = subprocess.run([*_cli, "check-db"], capture_output=True, text=True, env=_env)
+check("30.cli check-db exit 5", _r.returncode == 5)
+_r = subprocess.run([*_cli, "show", _row["event_id"]], capture_output=True, text=True, env=_env)
+check("30.cli show exit 5", _r.returncode == 5)
+
+# wrong scalar type
+sd30_9b = _mk_state_dir()
+k30_9b = _mk_kernel(sd30_9b)
+k30_9b.initialize()
+_r30_9b = _make_res_tasks(sd30_9b, {"Tasks/t30h.md":{"label":"T30H","revision":_REV_FIXTURE}})
+k30_9b.ingest_stuck(_stuck(), resolution=_r30_9b)
+del k30_9b
+_conn = sqlite3_module.connect(str(sd30_9b / "kernel.sqlite3"))
+_conn.execute("UPDATE interactions SET interaction_policy_json='{\"policy_version\":1}'")
+_conn.commit(); _conn.close()
+raises_msg(KernelCorruptionError, "interaction policy", _mk_kernel(_safe_db_copy(sd30_9b)).check_database)
+
 if FAILED:
     raise SystemExit(1)
 print("ALL PASS")

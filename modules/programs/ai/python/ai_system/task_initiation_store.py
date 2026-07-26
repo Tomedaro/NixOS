@@ -294,15 +294,38 @@ def _convert_evidence_issues(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def _restore_evidence_sets(data: dict[str, Any]) -> dict[str, Any]:
-    """Restore evidence_issues from arrays back to sets for reducer compatibility."""
+    """Restore evidence_issues from arrays back to sets for reducer compatibility.
+
+    Validates every element is a string before calling set(), so malformed
+    entries (objects, numbers, booleans, nested arrays) produce
+    KernelCorruptionError rather than TypeError.
+    """
     result = dict(data)
-    if "evidence_issues" in result and isinstance(result["evidence_issues"], list):
+    if "evidence_issues" in result:
+        if not isinstance(result["evidence_issues"], list):
+            raise KernelCorruptionError("evidence_issues: expected list")
+        for i, item in enumerate(result["evidence_issues"]):
+            if not isinstance(item, str):
+                raise KernelCorruptionError(
+                    f"evidence_issues[{i}]: expected string, got {type(item).__name__}"
+                )
+        if len(set(result["evidence_issues"])) != len(result["evidence_issues"]):
+            raise KernelCorruptionError("evidence_issues: duplicate entries")
         result["evidence_issues"] = set(result["evidence_issues"])
     if "revisions" in result:
         revisions = []
         for rev in result["revisions"]:
             r = dict(rev)
-            if "evidence_issues" in r and isinstance(r["evidence_issues"], list):
+            if "evidence_issues" in r:
+                if not isinstance(r["evidence_issues"], list):
+                    raise KernelCorruptionError("revision evidence_issues: expected list")
+                for i, item in enumerate(r["evidence_issues"]):
+                    if not isinstance(item, str):
+                        raise KernelCorruptionError(
+                            f"revision evidence_issues[{i}]: expected string, got {type(item).__name__}"
+                    )
+                if len(set(r["evidence_issues"])) != len(r["evidence_issues"]):
+                    raise KernelCorruptionError("revision evidence_issues: duplicate entries")
                 r["evidence_issues"] = set(r["evidence_issues"])
             revisions.append(r)
         result["revisions"] = revisions
@@ -1169,6 +1192,11 @@ def _validate_response_evidence_v1(aggregate: dict[str, Any]) -> None:
         )
 
     for i, entry in enumerate(ar):
+        if not isinstance(entry, dict):
+            raise KernelCorruptionError(
+                f"interaction {event_id}: accepted_responses[{i}] is not a dict, "
+                f"got {type(entry).__name__}"
+            )
         # Exact key set
         entry_keys = set(entry.keys())
         if entry_keys != _ACCEPTED_RESPONSE_KEYS_V1:
@@ -1181,6 +1209,27 @@ def _validate_response_evidence_v1(aggregate: dict[str, Any]) -> None:
                 parts.append(f"missing: {sorted(missing)}")
             raise KernelCorruptionError(
                 f"interaction {event_id}: accepted_response[{i}] key mismatch: " + "; ".join(parts)
+            )
+        # Validate scalar types
+        for fld, require_str in [("response_id", True), ("card_id", True), ("user_action", True), ("detail", False)]:
+            v = entry.get(fld)
+            if require_str:
+                if isinstance(v, bool) or not isinstance(v, str):
+                    raise KernelCorruptionError(
+                        f"interaction {event_id}: accepted_response[{i}].{fld} must be string, "
+                        f"got {type(v).__name__}"
+                    )
+            else:
+                if v is not None and (isinstance(v, bool) or not isinstance(v, str)):
+                    raise KernelCorruptionError(
+                        f"interaction {event_id}: accepted_response[{i}].{fld} must be string or null, "
+                        f"got {type(v).__name__}"
+                    )
+        rev_val = entry.get("revision")
+        if isinstance(rev_val, bool) or not isinstance(rev_val, int) or rev_val <= 0:
+            raise KernelCorruptionError(
+                f"interaction {event_id}: accepted_response[{i}].revision must be positive int, "
+                f"got {type(rev_val).__name__}"
             )
         expected = accepted_from_revisions[i]
         if entry["response_id"] != expected["response_id"]:
@@ -2225,109 +2274,155 @@ class TaskInitiationStore:
         if int_row is None:
             raise KernelNotFoundError(f"interaction {event_id} not found")
 
-        # --- 2. Decode policy and aggregate ---
-        policy = _interaction_policy_from_json(int_row["interaction_policy_json"])
-        aggregate = _agg_from_db(int_row["aggregate_json"], source=f"interaction {event_id}")
-
-        # --- 3. Structural and preparatory validators ---
-        _validate_aggregate_structure(aggregate, row_event_id=event_id)
-        _validate_revision_contiguity(aggregate)
-
-        card_rows = conn.execute(
-            "SELECT * FROM card_index WHERE event_id = ? ORDER BY revision",
-            (event_id,),
-        ).fetchall()
-        _validate_card_index_correspondence(aggregate, card_rows)
-        _validate_aggregate_v1(aggregate, int_row)
-        _validate_terminal_state_v1(aggregate, int_row)
-        _validate_revision_v1(aggregate, policy=policy)
-        _validate_response_evidence_v1(aggregate)
-        _validate_message_set_v1(self, conn, event_id, aggregate)
-
-        # --- 4. Load reconstruction inputs ---
-        stuck_row = conn.execute(
-            "SELECT * FROM messages WHERE kind='stuck' AND event_id=?",
-            (event_id,),
-        ).fetchone()
-        if stuck_row is None:
-            raise KernelCorruptionError(f"load_and_validate_bundle: missing Stuck message for {event_id}")
-
-        resp_rows = conn.execute(
-            "SELECT * FROM messages WHERE kind='response' AND event_id=? ORDER BY message_id",
-            (event_id,),
-        ).fetchall()
-        resp_msg_map: dict[str, sqlite3.Row] = {}
-        superseding: sqlite3.Row | None = None
-        accepted_ids: set[str] = set()
-        for rev in aggregate.get("revisions", []):
-            rev_resp = rev.get("response")
-            if rev_resp is not None and isinstance(rev_resp, dict):
-                accepted_ids.add(rev_resp.get("response_id", ""))
-        for rr in resp_rows:
-            rid = rr["message_id"]
-            try:
-                rpay = c._strict_json_loads(rr["payload_json"])
-            except (json.JSONDecodeError, ValueError):
-                raise KernelCorruptionError(f"load_and_validate_bundle: invalid response payload for {rid}")
-            if isinstance(rpay, dict):
-                actual_rid = rpay.get("response_id", rid)
-                if actual_rid in accepted_ids:
-                    resp_msg_map[actual_rid] = rr
-                else:
-                    superseding = rr
-
-        # --- 5. Reducer reconstruction + canonical comparison ---
-        resolved_task = aggregate.get("resolved_task", {})
-        if not isinstance(resolved_task, dict):
-            raise KernelCorruptionError(f"load_and_validate_bundle: resolved_task not a dict for {event_id}")
-
-        reconstructed = reconstruct_expected_aggregate_v1(
-            stuck_row=stuck_row,
-            resolved_task=resolved_task,
-            revisions=aggregate.get("revisions", []),
-            response_messages=resp_msg_map,
-            superseding_msg=superseding,
-            terminal_at_epoch=aggregate.get("terminal_at_epoch"),
-            interaction_policy=policy,
-        )
-        if _agg_to_db(reconstructed) != _agg_to_db(aggregate):
+        # --- 1b. Validate SQL scalar types ---
+        for _col, _require_pos in [
+            ("state_version", True), ("created_at_epoch", True),
+            ("updated_at_epoch", True), ("last_observed_at_epoch", True),
+        ]:
+            _v = int_row[_col]
+            if isinstance(_v, bool) or not isinstance(_v, int) or (_require_pos and _v <= 0):
+                raise KernelCorruptionError(
+                    f"load_and_validate_bundle: interactions.{_col} must be "
+                    f"{'positive ' if _require_pos else ''}int, got {type(_v).__name__} {_v!r}"
+                )
+        for _col in ("next_deadline_epoch",):
+            _v = int_row[_col]
+            if _v is not None:
+                if isinstance(_v, bool) or not isinstance(_v, int) or _v <= 0:
+                    raise KernelCorruptionError(
+                        f"load_and_validate_bundle: interactions.{_col} must be "
+                        f"positive int or null, got {type(_v).__name__} {_v!r}"
+                    )
+        for _col in ("event_id", "interaction_id", "phase"):
+            _v = int_row[_col]
+            if isinstance(_v, bool) or not isinstance(_v, str):
+                raise KernelCorruptionError(
+                    f"load_and_validate_bundle: interactions.{_col} must be string, "
+                    f"got {type(_v).__name__}"
+                )
+        _ts_val = int_row["terminal_status"]
+        if _ts_val is not None and (isinstance(_ts_val, bool) or not isinstance(_ts_val, str)):
             raise KernelCorruptionError(
-                f"load_and_validate_bundle: reducer reconstruction mismatch for {event_id}"
+                f"load_and_validate_bundle: interactions.terminal_status must be string or null, "
+                f"got {type(_ts_val).__name__}"
+            )
+        _pol_raw = int_row["interaction_policy_json"]
+        if isinstance(_pol_raw, bool) or not isinstance(_pol_raw, str):
+            raise KernelCorruptionError(
+                f"load_and_validate_bundle: interaction_policy_json must be string, "
+                f"got {type(_pol_raw).__name__}"
             )
 
-        # --- 6. Validate SQL-derived owner columns ---
-        if int_row["event_id"] != aggregate.get("event_id"):
-            raise KernelCorruptionError(f"load_and_validate_bundle: event_id mismatch for {event_id}")
-        if int_row["phase"] != aggregate.get("phase"):
-            raise KernelCorruptionError(
-                f"load_and_validate_bundle: phase mismatch for {event_id}: "
-                f"{int_row['phase']} != {aggregate.get('phase')}"
+        # --- 2. Decode policy and aggregate (inside safety net) ---
+        try:
+            policy = _interaction_policy_from_json(int_row["interaction_policy_json"])
+            aggregate = _agg_from_db(int_row["aggregate_json"], source=f"interaction {event_id}")
+         
+            # --- 3. Structural and preparatory validators ---
+            _validate_aggregate_structure(aggregate, row_event_id=event_id)
+            _validate_revision_contiguity(aggregate)
+    
+            card_rows = conn.execute(
+                "SELECT * FROM card_index WHERE event_id = ? ORDER BY revision",
+                (event_id,),
+            ).fetchall()
+            _validate_card_index_correspondence(aggregate, card_rows)
+            _validate_aggregate_v1(aggregate, int_row)
+            _validate_terminal_state_v1(aggregate, int_row)
+            _validate_revision_v1(aggregate, policy=policy)
+            _validate_response_evidence_v1(aggregate)
+            _validate_message_set_v1(self, conn, event_id, aggregate)
+    
+            # --- 4. Load reconstruction inputs ---
+            stuck_row = conn.execute(
+                "SELECT * FROM messages WHERE kind='stuck' AND event_id=?",
+                (event_id,),
+            ).fetchone()
+            if stuck_row is None:
+                raise KernelCorruptionError(f"load_and_validate_bundle: missing Stuck message for {event_id}")
+    
+            resp_rows = conn.execute(
+                "SELECT * FROM messages WHERE kind='response' AND event_id=? ORDER BY message_id",
+                (event_id,),
+            ).fetchall()
+            resp_msg_map: dict[str, sqlite3.Row] = {}
+            superseding: sqlite3.Row | None = None
+            accepted_ids: set[str] = set()
+            for rev in aggregate.get("revisions", []):
+                rev_resp = rev.get("response")
+                if rev_resp is not None and isinstance(rev_resp, dict):
+                    accepted_ids.add(rev_resp.get("response_id", ""))
+            for rr in resp_rows:
+                rid = rr["message_id"]
+                try:
+                    rpay = c._strict_json_loads(rr["payload_json"])
+                except (json.JSONDecodeError, ValueError):
+                    raise KernelCorruptionError(f"load_and_validate_bundle: invalid response payload for {rid}")
+                if isinstance(rpay, dict):
+                    actual_rid = rpay.get("response_id", rid)
+                    if actual_rid in accepted_ids:
+                        resp_msg_map[actual_rid] = rr
+                    else:
+                        superseding = rr
+    
+            # --- 5. Reducer reconstruction + canonical comparison ---
+            resolved_task = aggregate.get("resolved_task", {})
+            if not isinstance(resolved_task, dict):
+                raise KernelCorruptionError(f"load_and_validate_bundle: resolved_task not a dict for {event_id}")
+    
+            reconstructed = reconstruct_expected_aggregate_v1(
+                stuck_row=stuck_row,
+                resolved_task=resolved_task,
+                revisions=aggregate.get("revisions", []),
+                response_messages=resp_msg_map,
+                superseding_msg=superseding,
+                terminal_at_epoch=aggregate.get("terminal_at_epoch"),
+                interaction_policy=policy,
             )
-        stored_status = _require_terminal_status(int_row["terminal_status"], f"int_row.terminal_status {event_id}")
-        if stored_status != aggregate.get("terminal_status"):
+            if _agg_to_db(reconstructed) != _agg_to_db(aggregate):
+                raise KernelCorruptionError(
+                    f"load_and_validate_bundle: reducer reconstruction mismatch for {event_id}"
+                )
+    
+            # --- 6. Validate SQL-derived owner columns ---
+            if int_row["event_id"] != aggregate.get("event_id"):
+                raise KernelCorruptionError(f"load_and_validate_bundle: event_id mismatch for {event_id}")
+            if int_row["phase"] != aggregate.get("phase"):
+                raise KernelCorruptionError(
+                    f"load_and_validate_bundle: phase mismatch for {event_id}: "
+                    f"{int_row['phase']} != {aggregate.get('phase')}"
+                )
+            stored_status = _require_terminal_status(int_row["terminal_status"], f"int_row.terminal_status {event_id}")
+            if stored_status != aggregate.get("terminal_status"):
+                raise KernelCorruptionError(
+                    f"load_and_validate_bundle: terminal_status mismatch for {event_id}"
+                )
+    
+            # --- 7. Validate all owner message results ---
+            validated_payload = None
+            validated_result = None
+            all_messages: list[sqlite3.Row] = [stuck_row] + list(resp_rows)
+            for msg_row in all_messages:
+                pl, res = self._validate_replay_against_bundle(conn, msg_row, reconstructed)
+                if (message_row is not None
+                        and msg_row["kind"] == message_row["kind"]
+                        and msg_row["message_id"] == message_row["message_id"]
+                        and msg_row["event_id"] == message_row["event_id"]):
+                    validated_payload = pl
+                    validated_result = res
+    
+            if message_row is not None and validated_result is None:
+                raise KernelCorruptionError(
+                    f"load_and_validate_bundle: selected message {message_row['message_id']} "
+                    f"does not belong to owner {event_id}"
+                )
+    
+    
+        except (TypeError, ValueError, KeyError, AttributeError, c.TaskInitiationContractError) as _exc:
             raise KernelCorruptionError(
-                f"load_and_validate_bundle: terminal_status mismatch for {event_id}"
-            )
-
-        # --- 7. Validate all owner message results ---
-        validated_payload = None
-        validated_result = None
-        all_messages: list[sqlite3.Row] = [stuck_row] + list(resp_rows)
-        for msg_row in all_messages:
-            pl, res = self._validate_replay_against_bundle(conn, msg_row, reconstructed)
-            if (message_row is not None
-                    and msg_row["kind"] == message_row["kind"]
-                    and msg_row["message_id"] == message_row["message_id"]
-                    and msg_row["event_id"] == message_row["event_id"]):
-                validated_payload = pl
-                validated_result = res
-
-        if message_row is not None and validated_result is None:
-            raise KernelCorruptionError(
-                f"load_and_validate_bundle: selected message {message_row['message_id']} "
-                f"does not belong to owner {event_id}"
-            )
-
+                f"load_and_validate_bundle: {event_id}: malformed persistence: "
+                f"{type(_exc).__name__}: {_exc}"
+            ) from _exc
         return ValidatedBundle(
             int_row=int_row,
             aggregate=aggregate,
