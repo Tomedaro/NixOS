@@ -286,6 +286,103 @@ def _interaction_policy_from_json(raw: str) -> InteractionPolicy:
     return result
 
 
+
+
+def _make_distinct_resolved_task_for_supersession(
+    original: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Return a structurally valid resolved task whose fingerprint differs from original.
+
+    Used only by reconstruction to reproduce a persisted superseded/task_changed
+    state.  Does not mutate *original*.  Raises KernelCorruptionError when the
+    source is unsupported or the resolved-task shape is malformed.
+    """
+    import copy
+
+
+    def _require_valid_string(value: Any, field: str) -> str:
+        """Require a non-NUL, non-empty, normalized string; raise KernelCorruptionError."""
+        if isinstance(value, bool) or not isinstance(value, str):
+            raise KernelCorruptionError(
+                f"_make_distinct_resolved_task_for_supersession: {field} must be a string, "
+                f"got {type(value).__name__}"
+            )
+        if "\x00" in value:
+            raise KernelCorruptionError(
+                f"_make_distinct_resolved_task_for_supersession: {field} contains NUL"
+            )
+        if c._normalize_text(value) != value or not value:
+            raise KernelCorruptionError(
+                f"_make_distinct_resolved_task_for_supersession: {field} is not normalized or empty"
+            )
+        if len(value) > 500:
+            raise KernelCorruptionError(
+                f"_make_distinct_resolved_task_for_supersession: {field} exceeds 500 chars"
+            )
+        return value
+
+    task = copy.deepcopy(dict(original))
+    source = task.get("source")
+    if source not in _RESOLVED_TASK_VARIANTS:
+        raise KernelCorruptionError(
+            f"_make_distinct_resolved_task_for_supersession: unknown source {source!r}"
+        )
+
+    # Validate required keys per source
+    expected_keys = _RESOLVED_TASK_VARIANTS[source]
+    actual_keys = set(task.keys())
+    if actual_keys != expected_keys:
+        extra = actual_keys - expected_keys
+        missing = expected_keys - actual_keys
+        parts = []
+        if extra:
+            parts.append(f"extra: {sorted(extra)}")
+        if missing:
+            parts.append(f"missing: {sorted(missing)}")
+        raise KernelCorruptionError(
+            f"_make_distinct_resolved_task_for_supersession: key mismatch for {source}: "
+            + "; ".join(parts)
+        )
+
+    original_fp = c.task_fingerprint(task)
+
+    if source == "explicit_task_ref":
+        _require_valid_string(task.get("task_ref"), "task_ref")
+        _require_valid_string(task.get("label"), "label")
+        old_rev = task.get("source_revision")
+        if not isinstance(old_rev, str) or len(old_rev) != 64 or not all(c in "0123456789abcdef" for c in old_rev):
+            raise KernelCorruptionError(
+                f"_make_distinct_resolved_task_for_supersession: invalid source_revision {old_rev!r}"
+            )
+        # XOR the first byte of the hex revision with 0xff to produce a different valid sha256
+        first_byte = int(old_rev[:2], 16)
+        new_byte = first_byte ^ 0xFF
+        task["source_revision"] = f"{new_byte:02x}{old_rev[2:]}"
+    elif source == "active_session":
+        task["session_id"] = _require_valid_string(task.get("session_id"), "session_id")
+        task["label"] = _require_valid_string(task.get("label"), "label")
+        # Replace first character to guarantee difference within length bounds
+        old_sid = task["session_id"]
+        task["session_id"] = ("b" if old_sid[0] == "a" else "a") + old_sid[1:]
+    elif source == "fallback_description":
+        task["label"] = _require_valid_string(task.get("label"), "label")
+        # Replace first character to guarantee difference within length bounds
+        old_label = task["label"]
+        task["label"] = ("b" if old_label[0] == "a" else "a") + old_label[1:]
+    else:
+        raise KernelCorruptionError(
+            f"_make_distinct_resolved_task_for_supersession: unsupported source {source!r}"
+        )
+
+    new_fp = c.task_fingerprint(task)
+    if new_fp == original_fp:
+        raise KernelCorruptionError(
+            f"_make_distinct_resolved_task_for_supersession: fingerprint unchanged "
+            f"for source {source}"
+        )
+    return task
+
+
 # ---------------------------------------------------------------------------
 # ValidatedBundle
 # ---------------------------------------------------------------------------

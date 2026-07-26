@@ -2786,10 +2786,7 @@ def reconstruct_expected_aggregate_v1(
                     "reconstruct_aggregate: superseding_msg but terminal_at_epoch is None"
                 )
             # Construct a different task (different fingerprint) to trigger supersession.
-            # task_fingerprint uses source_revision (not label) for explicit_task_ref,
-            # so we must change the source_revision.
-            different_task = dict(resolved_task)
-            different_task["source_revision"] = different_task.get("source_revision", "") + "_changed"
+            different_task = p._make_distinct_resolved_task_for_supersession(resolved_task)
             state = c._apply_response(
                 state, superseding_payload, received_at_epoch=terminal_at_epoch,
                 resolved_task=different_task, policy=policy_dict,

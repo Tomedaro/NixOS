@@ -2220,6 +2220,301 @@ raises(ValueError, InteractionPolicy, card_ttl_seconds=0)
 
 
 
+
+print("=== 27. task-change supersession ===")
+
+# --- Test 1: active-session ID and task change ---
+sd27_1 = _mk_state_dir()
+k27_1 = _mk_kernel(sd27_1, clock=lambda: FIXED_NOW_BASE)
+k27_1.initialize()
+_res_a_path = sd27_1 / "r_a.json"
+_res_a_path.write_text(json.dumps({"active_session":{"status":"active","session_id":"session-A","task":"Task A"}}))
+_res_a = load_resolution_input(_res_a_path, policy=KernelPolicy())
+_stuck27_1 = _stuck()
+op27_1 = k27_1.ingest_stuck(_stuck27_1, resolution=_res_a)
+eid27_1 = op27_1.result["event_id"]
+card27_1 = op27_1.result["card"]
+_res_b_path = sd27_1 / "r_b.json"
+_res_b_path.write_text(json.dumps({"active_session":{"status":"active","session_id":"session-B","task":"Task B"}}))
+_res_b = load_resolution_input(_res_b_path, policy=KernelPolicy())
+_resp27_1 = _resp(card27_1, "start")
+r27_1 = k27_1.respond(_resp27_1, resolution=_res_b)
+check("27.1 session+label change: superseded", r27_1.result["status"] == "superseded")
+check("27.1 terminal superseded", r27_1.result.get("terminal_status") == "superseded")
+check("27.1 reason task_changed", r27_1.result.get("resolution_reason") == "task_changed")
+check("27.1 no next_card", r27_1.result.get("next_card") is None)
+db27_1 = k27_1.check_database()
+check("27.1 check_database ok", db27_1["status"] == "ok")
+del k27_1
+k27_1b = _mk_kernel(sd27_1, clock=lambda: FIXED_NOW_BASE+10)
+show27_1 = k27_1b.show(eid27_1, include_sensitive=True)
+check("27.1 show superseded", show27_1["aggregate"]["terminal_status"] == "superseded")
+check("27.1 show task_changed", show27_1["aggregate"]["resolution_reason"] == "task_changed")
+replay27_1 = k27_1b.respond(_resp27_1, resolution=_res_b)
+check("27.1 replay is replay", replay27_1.replay)
+check("27.1 replay result matches", replay27_1.result == r27_1.result)
+
+# --- Test 2: active-session label-only change ---
+sd27_2 = _mk_state_dir()
+k27_2 = _mk_kernel(sd27_2, clock=lambda: FIXED_NOW_BASE)
+k27_2.initialize()
+_r2a_path = sd27_2 / "r2a.json"
+_r2a_path.write_text(json.dumps({"active_session":{"status":"active","session_id":"session-A","task":"Task A"}}))
+_r2a = load_resolution_input(_r2a_path, policy=KernelPolicy())
+op27_2 = k27_2.ingest_stuck(_stuck(), resolution=_r2a)
+eid27_2 = op27_2.result["event_id"]
+card27_2 = op27_2.result["card"]
+_r2b_path = sd27_2 / "r2b.json"
+_r2b_path.write_text(json.dumps({"active_session":{"status":"active","session_id":"session-A","task":"Task B"}}))
+_r2b = load_resolution_input(_r2b_path, policy=KernelPolicy())
+_resp27_2 = _resp(card27_2, "start")
+r27_2 = k27_2.respond(_resp27_2, resolution=_r2b)
+check("27.2 label-only change: superseded", r27_2.result["status"] == "superseded")
+check("27.2 terminal superseded", r27_2.result.get("terminal_status") == "superseded")
+check("27.2 reason task_changed", r27_2.result.get("resolution_reason") == "task_changed")
+check("27.2 check_database ok", k27_2.check_database()["status"] == "ok")
+del k27_2
+k27_2b = _mk_kernel(sd27_2, clock=lambda: FIXED_NOW_BASE+10)
+show27_2 = k27_2b.show(eid27_2, include_sensitive=True)
+check("27.2 show superseded", show27_2["aggregate"]["terminal_status"] == "superseded")
+replay27_2 = k27_2b.respond(_resp27_2, resolution=_r2b)
+check("27.2 replay is replay", replay27_2.replay)
+check("27.2 replay result matches", replay27_2.result == r27_2.result)
+
+# --- Test 3: fallback-origin task superseded by active session ---
+sd27_3 = _mk_state_dir()
+k27_3 = _mk_kernel(sd27_3, clock=lambda: FIXED_NOW_BASE)
+k27_3.initialize()
+_r3_empty_path = sd27_3 / "r3e.json"
+_r3_empty_path.write_text(json.dumps({}))
+_r3_empty = load_resolution_input(_r3_empty_path, policy=KernelPolicy())
+_stuck27_3 = _stuck(task_description="Fallback Task")
+op27_3 = k27_3.ingest_stuck(_stuck27_3, resolution=_r3_empty)
+eid27_3 = op27_3.result["event_id"]
+card27_3 = op27_3.result["card"]
+_r3_session_path = sd27_3 / "r3s.json"
+_r3_session_path.write_text(json.dumps({"active_session":{"status":"active","session_id":"s-X","task":"Different"}}))
+_r3_session = load_resolution_input(_r3_session_path, policy=KernelPolicy())
+_resp27_3 = _resp(card27_3, "start")
+r27_3 = k27_3.respond(_resp27_3, resolution=_r3_session)
+check("27.3 fallback superseded: superseded", r27_3.result["status"] == "superseded")
+check("27.3 terminal superseded", r27_3.result.get("terminal_status") == "superseded")
+check("27.3 reason task_changed", r27_3.result.get("resolution_reason") == "task_changed")
+db27_3 = k27_3.check_database()
+check("27.3 check_database ok", db27_3["status"] == "ok")
+del k27_3
+k27_3b = _mk_kernel(sd27_3, clock=lambda: FIXED_NOW_BASE+10)
+show27_3 = k27_3b.show(eid27_3, include_sensitive=True)
+check("27.3 show superseded", show27_3["aggregate"]["terminal_status"] == "superseded")
+check("27.3 stored source is fallback_description", show27_3["aggregate"].get("resolved_task", {}).get("source") == "fallback_description")
+replay27_3 = k27_3b.respond(_resp27_3, resolution=_r3_session)
+check("27.3 replay is replay", replay27_3.replay)
+check("27.3 replay result matches", replay27_3.result == r27_3.result)
+
+# --- Test 4: explicit TaskRef still working ---
+sd27_4 = _mk_state_dir()
+_REV_A = hashlib.sha256(b"rev-a").hexdigest()
+_REV_B = hashlib.sha256(b"rev-b").hexdigest()
+k27_4 = _mk_kernel(sd27_4, clock=lambda: FIXED_NOW_BASE)
+k27_4.initialize()
+_res4a = _make_res_tasks(sd27_4, {"Tasks/test.md":{"label":"Orig","revision":_REV_A}})
+_stuck27_4 = _stuck(task_ref={"source":"tasknotes","ref":"Tasks/test.md"})
+op27_4 = k27_4.ingest_stuck(_stuck27_4, resolution=_res4a)
+eid27_4 = op27_4.result["event_id"]
+card27_4 = op27_4.result["card"]
+_res4b = _make_res_tasks(sd27_4, {"Tasks/test.md":{"label":"Changed","revision":_REV_B}})
+_resp27_4 = _resp(card27_4, "start")
+r27_4 = k27_4.respond(_resp27_4, resolution=_res4b)
+check("27.4 explicit: superseded", r27_4.result["status"] == "superseded")
+check("27.4 terminal superseded", r27_4.result.get("terminal_status") == "superseded")
+check("27.4 reason task_changed", r27_4.result.get("resolution_reason") == "task_changed")
+check("27.4 check_database ok", k27_4.check_database()["status"] == "ok")
+del k27_4
+k27_4b = _mk_kernel(sd27_4, clock=lambda: FIXED_NOW_BASE+10)
+show27_4 = k27_4b.show(eid27_4, include_sensitive=True)
+check("27.4 show superseded", show27_4["aggregate"]["terminal_status"] == "superseded")
+replay27_4 = k27_4b.respond(_resp27_4, resolution=_res4b)
+check("27.4 replay is replay", replay27_4.replay)
+check("27.4 replay result matches", replay27_4.result == r27_4.result)
+# Verify synthetic explicit task revision is valid SHA-256 hex
+_t4_src = show27_4["aggregate"].get("resolved_task", {})
+check("27.4 resolved_task is explicit", _t4_src.get("source") == "explicit_task_ref")
+check("27.4 source_revision is valid sha256 hex", isinstance(_t4_src.get("source_revision"), str) and len(_t4_src.get("source_revision", "")) == 64 and all(c in "0123456789abcdef" for c in _t4_src["source_revision"]))
+from ai_system.task_initiation_private import _make_distinct_resolved_task_for_supersession
+# Verify helper produces valid SHA-256 revision, not "_changed" suffix
+_t4_distinct = _make_distinct_resolved_task_for_supersession(_t4_src)
+_t4_syn_rev = _t4_distinct.get("source_revision", "")
+check("27.4 synthetic revision is 64-char hex", isinstance(_t4_syn_rev, str) and len(_t4_syn_rev) == 64 and all(c in "0123456789abcdef" for c in _t4_syn_rev))
+check("27.4 synthetic revision differs from original", _t4_syn_rev != _t4_src["source_revision"])
+check("27.4 synthetic revision has no _changed suffix", "_changed" not in _t4_syn_rev)
+# --- Test 5: unchanged active session is not superseded ---
+sd27_5 = _mk_state_dir()
+k27_5 = _mk_kernel(sd27_5, clock=lambda: FIXED_NOW_BASE)
+k27_5.initialize()
+_r5_path = sd27_5 / "r5.json"
+_r5_path.write_text(json.dumps({"active_session":{"status":"active","session_id":"s-A","task":"Task A"}}))
+_r5 = load_resolution_input(_r5_path, policy=KernelPolicy())
+op27_5 = k27_5.ingest_stuck(_stuck(), resolution=_r5)
+card27_5 = op27_5.result["card"]
+r27_5 = k27_5.respond(_resp(card27_5, "start"), resolution=_r5)
+check("27.5 unchanged session: accepted", r27_5.result["status"] == "accepted")
+check("27.5 phase observing", r27_5.result.get("phase") == "observing")
+check("27.5 terminal is null", r27_5.result.get("terminal_status") is None)
+
+# --- Test 6: unchanged fallback task is not superseded ---
+sd27_6 = _mk_state_dir()
+k27_6 = _mk_kernel(sd27_6, clock=lambda: FIXED_NOW_BASE)
+k27_6.initialize()
+_r6_empty_path = sd27_6 / "r6e.json"
+_r6_empty_path.write_text(json.dumps({}))
+_r6_empty = load_resolution_input(_r6_empty_path, policy=KernelPolicy())
+_stuck27_6 = _stuck(task_description="Same Task")
+op27_6 = k27_6.ingest_stuck(_stuck27_6, resolution=_r6_empty)
+card27_6 = op27_6.result["card"]
+r27_6 = k27_6.respond(_resp(card27_6, "start"), resolution=_r6_empty)
+check("27.6 unchanged fallback: accepted", r27_6.result["status"] == "accepted")
+check("27.6 phase observing", r27_6.result.get("phase") == "observing")
+check("27.6 terminal is null", r27_6.result.get("terminal_status") is None)
+
+# --- Test 7: superseding Response persistence ---
+sd27_7 = _mk_state_dir()
+k27_7 = _mk_kernel(sd27_7, clock=lambda: FIXED_NOW_BASE)
+k27_7.initialize()
+_r7a_path = sd27_7 / "r7a.json"
+_r7a_path.write_text(json.dumps({"active_session":{"status":"active","session_id":"s-A","task":"A"}}))
+_r7a = load_resolution_input(_r7a_path, policy=KernelPolicy())
+op27_7 = k27_7.ingest_stuck(_stuck(), resolution=_r7a)
+card27_7 = op27_7.result["card"]
+_r7b_path = sd27_7 / "r7b.json"
+_r7b_path.write_text(json.dumps({"active_session":{"status":"active","session_id":"s-B","task":"B"}}))
+_r7b = load_resolution_input(_r7b_path, policy=KernelPolicy())
+_resp27_7 = _resp(card27_7, "start")
+r27_7 = k27_7.respond(_resp27_7, resolution=_r7b)
+_show7a = k27_7.show(op27_7.result["event_id"], include_sensitive=True)
+check("27.7a revision response is null", all(rev.get("response") is None for rev in _show7a["aggregate"]["revisions"]))
+check("27.7a accepted_responses unchanged", len(_show7a["aggregate"].get("accepted_responses", [])) == 0)
+with k27_7._store.read_connection() as _conn_a:
+    _cnt_a = _conn_a.execute("SELECT COUNT(*) FROM messages WHERE kind='response' AND message_id=?", (_resp27_7["response_id"],)).fetchone()[0]
+check("27.7a exactly one SQL message", _cnt_a == 1)
+_dup7a = k27_7.respond(_resp27_7, resolution=_r7b)
+check("27.7a replay is replay", _dup7a.replay)
+check("27.7a replay matches", _dup7a.result == r27_7.result)
+with k27_7._store.read_connection() as _conn_a:
+    _cnt_a2 = _conn_a.execute("SELECT COUNT(*) FROM messages WHERE kind='response' AND message_id=?", (_resp27_7["response_id"],)).fetchone()[0]
+check("27.7a duplicate: still one SQL message", _cnt_a2 == 1)
+
+# 7b: fallback-origin persistence
+sd27_7b = _mk_state_dir()
+k27_7b = _mk_kernel(sd27_7b, clock=lambda: FIXED_NOW_BASE)
+k27_7b.initialize()
+_r7b_empty_path = sd27_7b / "r7be.json"
+_r7b_empty_path.write_text(json.dumps({}))
+_r7b_empty = load_resolution_input(_r7b_empty_path, policy=KernelPolicy())
+with k27_7._store.read_connection() as _conn_a:
+    _cnt_a_after = _conn_a.execute("SELECT COUNT(*) FROM messages WHERE kind='response' AND message_id=?", (_resp27_7["response_id"],)).fetchone()[0]
+check("27.7a duplicate: still one SQL message", _cnt_a_after == 1)
+op27_7b = k27_7b.ingest_stuck(_stuck(task_description="FB"), resolution=_r7b_empty)
+card27_7b = op27_7b.result["card"]
+_r7b_s_path = sd27_7b / "r7bs.json"
+_r7b_s_path.write_text(json.dumps({"active_session":{"status":"active","session_id":"fb-s","task":"Changed"}}))
+_r7b_s = load_resolution_input(_r7b_s_path, policy=KernelPolicy())
+_resp27_7b = _resp(card27_7b, "start")
+r27_7b = k27_7b.respond(_resp27_7b, resolution=_r7b_s)
+check("27.7b fallback: superseded", r27_7b.result["status"] == "superseded")
+with k27_7b._store.read_connection() as _conn:
+    _cnt = _conn.execute("SELECT COUNT(*) FROM messages WHERE kind='response' AND message_id=?", (_resp27_7b["response_id"],)).fetchone()[0]
+check("27.7b fallback: exactly one SQL message", _cnt == 1)
+_show7b = k27_7b.show(op27_7b.result["event_id"], include_sensitive=True)
+check("27.7b revision response is null", all(rev.get("response") is None for rev in _show7b["aggregate"]["revisions"]))
+check("27.7b accepted_responses unchanged", len(_show7b["aggregate"].get("accepted_responses", [])) == 0)
+_dup7b = k27_7b.respond(_resp27_7b, resolution=_r7b_s)
+check("27.7b fallback: replay is replay", _dup7b.replay)
+check("27.7b fallback: replay matches", _dup7b.result == r27_7b.result)
+with k27_7b._store.read_connection() as _conn:
+    _cnt2 = _conn.execute("SELECT COUNT(*) FROM messages WHERE kind='response' AND message_id=?", (_resp27_7b["response_id"],)).fetchone()[0]
+check("27.7b duplicate: still one SQL message", _cnt2 == 1)
+del k27_7b
+k27_7b2 = _mk_kernel(sd27_7b, clock=lambda: FIXED_NOW_BASE+10)
+check("27.7b fallback: check_database", k27_7b2.check_database()["status"] == "ok")
+
+# 7c: explicit TaskRef persistence
+sd27_7c = _mk_state_dir()
+_REV_7C_A = hashlib.sha256(b"rev-7c-a").hexdigest()
+_REV_7C_B = hashlib.sha256(b"rev-7c-b").hexdigest()
+k27_7c = _mk_kernel(sd27_7c, clock=lambda: FIXED_NOW_BASE)
+k27_7c.initialize()
+_res7ca = _make_res_tasks(sd27_7c, {"Tasks/t7c.md":{"label":"T7C","revision":_REV_7C_A}})
+op27_7c = k27_7c.ingest_stuck(_stuck(task_ref={"source":"tasknotes","ref":"Tasks/t7c.md"}), resolution=_res7ca)
+card27_7c = op27_7c.result["card"]
+_res7cb = _make_res_tasks(sd27_7c, {"Tasks/t7c.md":{"label":"Changed","revision":_REV_7C_B}})
+_resp27_7c = _resp(card27_7c, "start")
+r27_7c = k27_7c.respond(_resp27_7c, resolution=_res7cb)
+check("27.7c explicit: superseded", r27_7c.result["status"] == "superseded")
+with k27_7c._store.read_connection() as _conn:
+    _cnt = _conn.execute("SELECT COUNT(*) FROM messages WHERE kind='response' AND message_id=?", (_resp27_7c["response_id"],)).fetchone()[0]
+check("27.7c explicit: exactly one SQL message", _cnt == 1)
+_show7c = k27_7c.show(op27_7c.result["event_id"], include_sensitive=True)
+check("27.7c revision response is null", all(rev.get("response") is None for rev in _show7c["aggregate"]["revisions"]))
+check("27.7c accepted_responses unchanged", len(_show7c["aggregate"].get("accepted_responses", [])) == 0)
+_dup7c = k27_7c.respond(_resp27_7c, resolution=_res7cb)
+check("27.7c explicit: replay is replay", _dup7c.replay)
+check("27.7c explicit: replay matches", _dup7c.result == r27_7c.result)
+with k27_7c._store.read_connection() as _conn:
+    _cnt2 = _conn.execute("SELECT COUNT(*) FROM messages WHERE kind='response' AND message_id=?", (_resp27_7c["response_id"],)).fetchone()[0]
+check("27.7c duplicate: still one SQL message", _cnt2 == 1)
+del k27_7c
+
+# --- Test 8: failed transaction no longer occurs ---
+# This test is implicitly covered by Tests 1-3 which would have raised
+# KernelCorruptionError with the old code.
+check("27.8 former active-session failure no longer occurs", r27_1.result["status"] == "superseded")
+check("27.8 former fallback failure no longer occurs", r27_3.result["status"] == "superseded")
+
+# --- Test 9: helper source coverage ---
+from ai_system.task_initiation_private import _make_distinct_resolved_task_for_supersession, KernelCorruptionError as _KCE27
+# 9a: explicit_task_ref
+_t9a = {"source":"explicit_task_ref","task_ref":"Tasks/x.md","label":"X","source_revision":"a"*64}
+_d9a = _make_distinct_resolved_task_for_supersession(_t9a)
+check("27.9a explicit: fingerprint differs", c.task_fingerprint(_t9a) != c.task_fingerprint(_d9a))
+check("27.9a explicit: original unchanged", _t9a["source_revision"] == "a"*64)
+# 9b: active_session
+_t9b = {"source":"active_session","session_id":"session-A","label":"Task A"}
+_d9b = _make_distinct_resolved_task_for_supersession(_t9b)
+check("27.9b active: fingerprint differs", c.task_fingerprint(_t9b) != c.task_fingerprint(_d9b))
+check("27.9b active: original unchanged", _t9b["session_id"] == "session-A")
+# 9c: fallback_description
+_t9c = {"source":"fallback_description","label":"Task X"}
+_d9c = _make_distinct_resolved_task_for_supersession(_t9c)
+check("27.9c fallback: fingerprint differs", c.task_fingerprint(_t9c) != c.task_fingerprint(_d9c))
+check("27.9c fallback: original unchanged", _t9c["label"] == "Task X")
+# 9d: unsupported source
+raises(_KCE27, _make_distinct_resolved_task_for_supersession, {"source":"bad"})
+# 9e: malformed active_session (bool session_id)
+raises(_KCE27, _make_distinct_resolved_task_for_supersession, {"source":"active_session","session_id":True,"label":"x"})
+# 9f: max-length session_id
+_t9f = {"source":"active_session","session_id":"x"*500,"label":"Test"}
+_d9f = _make_distinct_resolved_task_for_supersession(_t9f)
+check("27.9f max-length session_id: differs", c.task_fingerprint(_t9f) != c.task_fingerprint(_d9f))
+check("27.9f max-length: original unchanged", _t9f["session_id"] == "x"*500)
+# 9h: non-64-char explicit revision
+raises(_KCE27, _make_distinct_resolved_task_for_supersession, {"source":"explicit_task_ref","task_ref":"Tasks/x.md","label":"X","source_revision":"short"})
+# 9i: blank fallback label
+raises(_KCE27, _make_distinct_resolved_task_for_supersession, {"source":"fallback_description","label":""})
+# 9j: non-normalized label (leading space)
+raises(_KCE27, _make_distinct_resolved_task_for_supersession, {"source":"fallback_description","label":" has space"})
+# 9k: explicit missing task_ref
+raises(_KCE27, _make_distinct_resolved_task_for_supersession, {"source":"explicit_task_ref","label":"X","source_revision":"a"*64,"extra":"x"})
+# Assert original mapping not mutated
+_t9m_orig = {"source":"active_session","session_id":"orig-id","label":"Orig Label"}
+import copy as _cp; _t9m_copy = _cp.deepcopy(_t9m_orig)
+_make_distinct_resolved_task_for_supersession(_t9m_orig)
+check("27.9m original not mutated", _t9m_orig == _t9m_copy)
+# 9g: max-length fallback label
+_t9g = {"source":"fallback_description","label":"y"*500}
+_d9g = _make_distinct_resolved_task_for_supersession(_t9g)
+check("27.9g max-length label: differs", c.task_fingerprint(_t9g) != c.task_fingerprint(_d9g))
+check("27.9g max-length: original unchanged", _t9g["label"] == "y"*500)
+
 print(f"=== {PASSED} passed, {FAILED} failed ===")
 if FAILED:
     raise SystemExit(1)
