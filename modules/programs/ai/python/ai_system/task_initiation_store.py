@@ -850,7 +850,6 @@ def _validate_revision_v1(aggregate: dict[str, Any], *, policy: InteractionPolic
             if srs is not None:
                 if aggregate.get("task_fingerprint") is not None and srs != aggregate["task_fingerprint"]:
                     raise KernelCorruptionError(
-                        f"interaction {event_id} r{rev_num}: context.source_ref_sha256 != task_fingerprint"
                     )
             # No absolute source paths in context
             try:
@@ -1152,36 +1151,125 @@ def _validate_revision_v1(aggregate: dict[str, Any], *, policy: InteractionPolic
                 )
             ctx_ids.append(cid)
 
-    # Defect 8: Followup lineage across revisions
+    # Defect 8: Followup lineage (validated in _validate_preparation_lineage_v1)
+
+def _validate_preparation_lineage_v1(
+    aggregate: dict[str, Any],
+    *,
+    policy: InteractionPolicy,
+) -> None:
+    """Validate deterministic-preparation lineage invariants."""
+    event_id = aggregate["event_id"]
+    revisions = aggregate.get("revisions", [])
+    task_fp = aggregate.get("task_fingerprint")
+    ctx_ttl = policy.context_ttl_seconds
+    card_ttl = policy.card_ttl_seconds
+
     for i, rev in enumerate(revisions):
         rev_num = rev["revision"]
         ctx = rev.get("context")
+        card_obj = rev.get("card")
+
+        # --- Context/Card TTL binding ---
         if ctx is not None and isinstance(ctx, dict):
-            df = ctx.get("disclosed_facts", {})
-            followup = df.get("followup")
-            if i == 0:
-                # Initial revision: followup must be null
-                if followup is not None:
+            gen = ctx.get("generated_at_epoch")
+            exp_ep = ctx.get("expires_at_epoch")
+            if isinstance(gen, int) and not isinstance(gen, bool) and isinstance(exp_ep, int) and not isinstance(exp_ep, bool):
+                if exp_ep != gen + ctx_ttl:
                     raise KernelCorruptionError(
-                        f"interaction {event_id} r{rev_num}: initial revision followup must be null"
+                        f"interaction {event_id} r{rev_num}: context expiry mismatch"
                     )
-            else:
-                prev_resp = revisions[i - 1].get("response")
-                if prev_resp is not None:
-                    # followup.action must match previous response action
-                    if isinstance(followup, dict):
-                        if followup.get("action") != prev_resp.get("action"):
-                            raise KernelCorruptionError(
-                                f"interaction {event_id} r{rev_num}: followup.action "
-                                f"{followup.get('action')} != previous response action "
-                                f"{prev_resp.get('action')}"
-                            )
-                        # followup.detail must match previous response detail
-                        if followup.get("detail") != prev_resp.get("detail"):
-                            raise KernelCorruptionError(
-                                f"interaction {event_id} r{rev_num}: followup.detail != "
-                                f"previous response.detail"
-                            )
+            cv = ctx.get("policy_version")
+            if cv != c.CONTEXT_POLICY_VERSION:
+                raise KernelCorruptionError(
+                    f"interaction {event_id} r{rev_num}: context policy_version mismatch"
+                )
+
+        if card_obj is not None and isinstance(card_obj, dict):
+            issued = card_obj.get("issued_at_epoch")
+            expires = card_obj.get("expires_at_epoch")
+            if isinstance(issued, int) and not isinstance(issued, bool) and isinstance(expires, int) and not isinstance(expires, bool):
+                if expires != issued + card_ttl:
+                    raise KernelCorruptionError(
+                        f"interaction {event_id} r{rev_num}: card expiry mismatch"
+                    )
+
+        # --- Provenance binding ---
+        if ctx is not None and isinstance(ctx, dict):
+            provenance = ctx.get("provenance")
+            if not isinstance(provenance, list) or len(provenance) != 1:
+                raise KernelCorruptionError(
+                    f"interaction {event_id} r{rev_num}: provenance must be list of 1"
+                )
+            entry = provenance[0]
+            if not isinstance(entry, dict):
+                raise KernelCorruptionError(
+                    f"interaction {event_id} r{rev_num}: provenance[0] not dict"
+                )
+            if entry.get("category") != "task":
+                raise KernelCorruptionError(
+                    f"interaction {event_id} r{rev_num}: provenance category not task"
+                )
+            entry_srs = entry.get("source_ref_sha256")
+            ctx_tf = ctx.get("task_fingerprint")
+            if entry_srs != ctx_tf:
+                raise KernelCorruptionError(
+                    f"interaction {event_id} r{rev_num}: provenance source_ref mismatch"
+                )
+            if task_fp is not None and entry_srs != task_fp:
+                raise KernelCorruptionError(
+                    f"interaction {event_id} r{rev_num}: provenance source_ref != aggregate fp"
+                )
+            gen_val = ctx.get("generated_at_epoch")
+            exp_val = ctx.get("expires_at_epoch")
+            if isinstance(gen_val, int) and not isinstance(gen_val, bool):
+                if entry.get("observed_at_epoch") != gen_val:
+                    raise KernelCorruptionError(
+                        f"interaction {event_id} r{rev_num}: provenance observed_at_epoch mismatch"
+                    )
+            if isinstance(exp_val, int) and not isinstance(exp_val, bool):
+                if entry.get("fresh_until_epoch") != exp_val:
+                    raise KernelCorruptionError(
+                        f"interaction {event_id} r{rev_num}: provenance fresh_until_epoch mismatch"
+                    )
+
+        # --- Follow-up lineage ---
+        df = ctx.get("disclosed_facts", {}) if (ctx is not None and isinstance(ctx, dict)) else {}
+        followup = df.get("followup")
+        if i == 0:
+            if followup is not None:
+                raise KernelCorruptionError(
+                    f"interaction {event_id} r{rev_num}: initial followup must be null"
+                )
+        else:
+            prev_resp = revisions[i - 1].get("response")
+            if prev_resp is None:
+                raise KernelCorruptionError(
+                    f"interaction {event_id} r{rev_num}: no preceding response"
+                )
+            prev_action = prev_resp.get("action")
+            if prev_action not in ("shrink", "blocked"):
+                raise KernelCorruptionError(
+                    f"interaction {event_id} r{rev_num}: preceding action not shrink/blocked"
+                )
+            if not isinstance(followup, dict):
+                raise KernelCorruptionError(
+                    f"interaction {event_id} r{rev_num}: followup must be dict"
+                )
+            if followup.get("action") != prev_action:
+                raise KernelCorruptionError(
+                    f"interaction {event_id} r{rev_num}: followup.action mismatch"
+                )
+            if followup.get("detail") != prev_resp.get("detail"):
+                raise KernelCorruptionError(
+                    f"interaction {event_id} r{rev_num}: followup.detail mismatch"
+                )
+            prev_card = revisions[i - 1].get("card")
+            expected_pts = prev_card.get("tiny_start", {}).get("instruction") if isinstance(prev_card, dict) else None
+            if followup.get("prior_tiny_start") != expected_pts:
+                raise KernelCorruptionError(
+                    f"interaction {event_id} r{rev_num}: followup.prior_tiny_start mismatch"
+                )
 
 def _validate_response_evidence_v1(aggregate: dict[str, Any]) -> None:
     """Validate accepted_responses, evidence issues, and derived timestamps."""
@@ -2391,6 +2479,7 @@ class TaskInitiationStore:
             _validate_aggregate_v1(aggregate, int_row)
             _validate_terminal_state_v1(aggregate, int_row)
             _validate_revision_v1(aggregate, policy=policy)
+            _validate_preparation_lineage_v1(aggregate, policy=policy)
             _validate_response_evidence_v1(aggregate)
             _validate_message_set_v1(self, conn, event_id, aggregate)
     

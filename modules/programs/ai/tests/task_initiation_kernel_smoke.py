@@ -3339,6 +3339,190 @@ op = _k.ingest_stuck(_stuck(), resolution=_r)
 check("32.10 ingest succeeds", op.result["status"] == "card_published")
 check("32.10 respond succeeds", _k.respond(_resp(op.result["card"], "start"), resolution=_r).result["status"] == "accepted")
 
+
+print("=== 33. preparation lineage ===")
+
+# --- 33.1: initial custom TTLs ---
+_sd = _mk_state_dir()
+_k = _mk_kernel(_sd, policy=KernelPolicy(context_ttl_seconds=37, card_ttl_seconds=91))
+_k.initialize()
+_r = _make_res_tasks(_sd, {"Tasks/t33.md":{"label":"T33","revision":_REV_FIXTURE}})
+op = _k.ingest_stuck(_stuck(), resolution=_r)
+_eid = op.result["event_id"]
+show = _k.show(_eid, include_sensitive=True)
+_ctx = show["aggregate"]["revisions"][0]["context"]
+_cd = show["aggregate"]["revisions"][0]["card"]
+check("33.1 context ttl 37", _ctx["expires_at_epoch"] - _ctx["generated_at_epoch"] == 37)
+check("33.1 card ttl 91", _cd["expires_at_epoch"] - _cd["issued_at_epoch"] == 91)
+check("33.1 check_database ok", _k.check_database()["status"] == "ok")
+del _k
+_k2 = _mk_kernel(_sd, policy=KernelPolicy(context_ttl_seconds=37, card_ttl_seconds=91))
+check("33.1 show after restart", _k2.show(_eid, include_sensitive=True)["aggregate"]["revisions"][0]["context"]["expires_at_epoch"] - _ctx["generated_at_epoch"] == 37)
+check("33.1 replay ok", _k2.ingest_stuck(_stuck(event_id=_eid), resolution=_r).replay)
+
+# --- 33.2: persisted TTLs survive runtime-policy drift ---
+_sd = _mk_state_dir()
+_k = _mk_kernel(_sd, policy=KernelPolicy(context_ttl_seconds=37, card_ttl_seconds=91, max_card_revisions=3))
+_k.initialize()
+_r = _make_res_tasks(_sd, {"Tasks/t33b.md":{"label":"T33B","revision":_REV_FIXTURE}})
+op = _k.ingest_stuck(_stuck(), resolution=_r)
+cd1 = op.result["card"]; _eid = op.result["event_id"]
+del _k
+# Reopen with different runtime policy
+_k2 = _mk_kernel(_sd, policy=KernelPolicy(context_ttl_seconds=300, card_ttl_seconds=900, max_card_revisions=3))
+shr_op = _k2.respond(_resp(cd1, "shrink"), resolution=_r)
+check("33.2 shrink accepted", shr_op.result["status"] == "accepted")
+nc = shr_op.result["next_card"]
+check("33.2 next card ttl 91", nc["expires_at_epoch"] - nc["issued_at_epoch"] == 91)
+show = _k2.show(_eid, include_sensitive=True)
+_ctx2 = show["aggregate"]["revisions"][1]["context"]
+check("33.2 rev2 context ttl 37", _ctx2["expires_at_epoch"] - _ctx2["generated_at_epoch"] == 37)
+
+# --- 33.3: corrupt Context lifetime ---
+_sd = _mk_state_dir(); _k = _mk_kernel(_sd); _k.initialize()
+_r = _make_res_tasks(_sd, {"Tasks/t33c.md":{"label":"T33C","revision":_REV_FIXTURE}})
+op = _k.ingest_stuck(_stuck(), resolution=_r); _eid = op.result["event_id"]; del _k
+_c = sqlite3_module.connect(str(_sd / "kernel.sqlite3")); _c.row_factory = sqlite3_module.Row
+_row = _c.execute("SELECT * FROM interactions WHERE event_id=?", (_eid,)).fetchone()
+_agg = _agg_from_db(_row["aggregate_json"], source="corrupt")
+_agg["revisions"][0]["context"]["expires_at_epoch"] += 1
+_rewrite_aggregate_canonically(_c, _eid, _agg); _c.close()
+raises_msg(KernelCorruptionError, "context expiry mismatch", _mk_kernel(_safe_db_copy(_sd)).check_database)
+raises_msg(KernelCorruptionError, "context expiry mismatch", _mk_kernel(_safe_db_copy(_sd)).show, _eid)
+raises_msg(KernelCorruptionError, "context expiry mismatch", _mk_kernel(_safe_db_copy(_sd)).respond, _resp(op.result["card"], "start", response_id=str(uuid.uuid4())), resolution=_r)
+
+# --- 33.4: corrupt Card lifetime coherently ---
+_sd = _mk_state_dir(); _k = _mk_kernel(_sd); _k.initialize()
+_r = _make_res_tasks(_sd, {"Tasks/t33d.md":{"label":"T33D","revision":_REV_FIXTURE}})
+op = _k.ingest_stuck(_stuck(), resolution=_r); _eid = op.result["event_id"]; del _k
+_c = sqlite3_module.connect(str(_sd / "kernel.sqlite3")); _c.row_factory = sqlite3_module.Row
+_row = _c.execute("SELECT * FROM interactions WHERE event_id=?", (_eid,)).fetchone()
+_agg = _agg_from_db(_row["aggregate_json"], source="corrupt")
+_agg["revisions"][0]["card"]["expires_at_epoch"] += 1
+_agg["revisions"][0]["card_expires_at_epoch"] += 1
+_rewrite_aggregate_canonically(_c, _eid, _agg)
+_c.execute("UPDATE interactions SET next_deadline_epoch=? WHERE event_id=?", (_agg["revisions"][0]["card_expires_at_epoch"], _eid))
+_c.commit(); _c.close()
+raises_msg(KernelCorruptionError, "card expiry", _mk_kernel(_safe_db_copy(_sd)).check_database)
+
+# --- 33.5: wrong Context policy version ---
+_sd = _mk_state_dir(); _k = _mk_kernel(_sd); _k.initialize()
+_r = _make_res_tasks(_sd, {"Tasks/t33e.md":{"label":"T33E","revision":_REV_FIXTURE}})
+op = _k.ingest_stuck(_stuck(), resolution=_r); _eid = op.result["event_id"]; del _k
+_c = sqlite3_module.connect(str(_sd / "kernel.sqlite3")); _c.row_factory = sqlite3_module.Row
+_row = _c.execute("SELECT * FROM interactions WHERE event_id=?", (_eid,)).fetchone()
+_agg = _agg_from_db(_row["aggregate_json"], source="corrupt")
+_agg["revisions"][0]["context"]["policy_version"] = "wrong_version"
+_rewrite_aggregate_canonically(_c, _eid, _agg); _c.close()
+raises_msg(KernelCorruptionError, "policy_version", _mk_kernel(_safe_db_copy(_sd)).check_database)
+
+# --- 33.9: later follow-up null ---
+_sd = _mk_state_dir(); _k = _mk_kernel(_sd, policy=KernelPolicy(max_card_revisions=3)); _k.initialize()
+_r = _make_res_tasks(_sd, {"Tasks/t33f.md":{"label":"T33F","revision":_REV_FIXTURE}})
+op = _k.ingest_stuck(_stuck(), resolution=_r); cd = op.result["card"]; _eid = op.result["event_id"]
+shr_op = _k.respond(_resp(cd, "shrink"), resolution=_r)
+check("33.9 shrink accepted", shr_op.result["status"] == "accepted")
+del _k
+_c = sqlite3_module.connect(str(_sd / "kernel.sqlite3")); _c.row_factory = sqlite3_module.Row
+_row = _c.execute("SELECT * FROM interactions WHERE event_id=?", (_eid,)).fetchone()
+_agg = _agg_from_db(_row["aggregate_json"], source="corrupt")
+_agg["revisions"][1]["context"]["disclosed_facts"]["followup"] = None
+# Recompute content hash
+_ctx2_9 = _agg["revisions"][1]["context"]
+_ctx2_9["model_content_sha256"] = hashlib.sha256(c._canonical_json(c.api_payload_from_context(_ctx2_9))).hexdigest()
+_rewrite_aggregate_canonically(_c, _eid, _agg); _c.close()
+raises_msg(KernelCorruptionError, "followup must be", _mk_kernel(_safe_db_copy(_sd)).check_database)
+
+# --- 33.12: initial follow-up non-null ---
+_sd = _mk_state_dir(); _k = _mk_kernel(_sd); _k.initialize()
+_r = _make_res_tasks(_sd, {"Tasks/t33g.md":{"label":"T33G","revision":_REV_FIXTURE}})
+op = _k.ingest_stuck(_stuck(), resolution=_r); _eid = op.result["event_id"]; del _k
+_c = sqlite3_module.connect(str(_sd / "kernel.sqlite3")); _c.row_factory = sqlite3_module.Row
+_row = _c.execute("SELECT * FROM interactions WHERE event_id=?", (_eid,)).fetchone()
+_agg = _agg_from_db(_row["aggregate_json"], source="corrupt")
+_agg["revisions"][0]["context"]["disclosed_facts"]["followup"] = {"action":"shrink","detail":"test","prior_tiny_start":"x"}
+_ctx12 = _agg["revisions"][0]["context"]
+_ctx12["model_content_sha256"] = hashlib.sha256(c._canonical_json(c.api_payload_from_context(_ctx12))).hexdigest()
+_rewrite_aggregate_canonically(_c, _eid, _agg); _c.close()
+raises_msg(KernelCorruptionError, "initial followup", _mk_kernel(_safe_db_copy(_sd)).check_database)
+
+
+# --- 33.6: provenance source mismatch ---
+_sd = _mk_state_dir(); _k = _mk_kernel(_sd); _k.initialize()
+_r = _make_res_tasks(_sd, {"Tasks/t33i.md":{"label":"T33I","revision":_REV_FIXTURE}})
+op = _k.ingest_stuck(_stuck(), resolution=_r); _eid = op.result["event_id"]; del _k
+_c = sqlite3_module.connect(str(_sd / "kernel.sqlite3")); _c.row_factory = sqlite3_module.Row
+_row = _c.execute("SELECT * FROM interactions WHERE event_id=?", (_eid,)).fetchone()
+_agg = _agg_from_db(_row["aggregate_json"], source="corrupt")
+_agg["revisions"][0]["context"]["provenance"][0]["source_ref_sha256"] = hashlib.sha256(b"wrong").hexdigest()
+_ctx = _agg["revisions"][0]["context"]
+_ctx["model_content_sha256"] = hashlib.sha256(c._canonical_json(c.api_payload_from_context(_ctx))).hexdigest()
+_rewrite_aggregate_canonically(_c, _eid, _agg); _c.close()
+raises_msg(KernelCorruptionError, "source_ref", _mk_kernel(_safe_db_copy(_sd)).check_database)
+
+# --- 33.7: provenance timing mismatch ---
+_sd = _mk_state_dir(); _k = _mk_kernel(_sd); _k.initialize()
+_r = _make_res_tasks(_sd, {"Tasks/t33j.md":{"label":"T33J","revision":_REV_FIXTURE}})
+op = _k.ingest_stuck(_stuck(), resolution=_r); _eid = op.result["event_id"]; del _k
+_c = sqlite3_module.connect(str(_sd / "kernel.sqlite3")); _c.row_factory = sqlite3_module.Row
+_row = _c.execute("SELECT * FROM interactions WHERE event_id=?", (_eid,)).fetchone()
+_agg = _agg_from_db(_row["aggregate_json"], source="corrupt")
+_agg["revisions"][0]["context"]["provenance"][0]["observed_at_epoch"] += 1
+_ctx = _agg["revisions"][0]["context"]
+_ctx["model_content_sha256"] = hashlib.sha256(c._canonical_json(c.api_payload_from_context(_ctx))).hexdigest()
+_rewrite_aggregate_canonically(_c, _eid, _agg); _c.close()
+raises_msg(KernelCorruptionError, "observed_at_epoch", _mk_kernel(_safe_db_copy(_sd)).check_database)
+
+# --- 33.8: provenance cardinality ---
+_sd = _mk_state_dir(); _k = _mk_kernel(_sd); _k.initialize()
+_r = _make_res_tasks(_sd, {"Tasks/t33k.md":{"label":"T33K","revision":_REV_FIXTURE}})
+op = _k.ingest_stuck(_stuck(), resolution=_r); _eid = op.result["event_id"]; del _k
+_c = sqlite3_module.connect(str(_sd / "kernel.sqlite3")); _c.row_factory = sqlite3_module.Row
+_row = _c.execute("SELECT * FROM interactions WHERE event_id=?", (_eid,)).fetchone()
+_agg = _agg_from_db(_row["aggregate_json"], source="corrupt")
+_agg["revisions"][0]["context"]["provenance"] = []
+_ctx = _agg["revisions"][0]["context"]
+_ctx["model_content_sha256"] = hashlib.sha256(c._canonical_json(c.api_payload_from_context(_ctx))).hexdigest()
+_rewrite_aggregate_canonically(_c, _eid, _agg); _c.close()
+raises_msg(KernelCorruptionError, "provenance must be", _mk_kernel(_safe_db_copy(_sd)).check_database)
+
+# --- 33.10: followup action mismatch ---
+_sd = _mk_state_dir(); _k = _mk_kernel(_sd, policy=KernelPolicy(max_card_revisions=3)); _k.initialize()
+_r = _make_res_tasks(_sd, {"Tasks/t33l.md":{"label":"T33L","revision":_REV_FIXTURE}})
+op = _k.ingest_stuck(_stuck(), resolution=_r); cd = op.result["card"]; _eid = op.result["event_id"]
+shr_op = _k.respond(_resp(cd, "shrink"), resolution=_r)
+del _k
+_c = sqlite3_module.connect(str(_sd / "kernel.sqlite3")); _c.row_factory = sqlite3_module.Row
+_row = _c.execute("SELECT * FROM interactions WHERE event_id=?", (_eid,)).fetchone()
+_agg = _agg_from_db(_row["aggregate_json"], source="corrupt")
+_agg["revisions"][1]["context"]["disclosed_facts"]["followup"]["action"] = "blocked"
+_ctx = _agg["revisions"][1]["context"]
+_ctx["model_content_sha256"] = hashlib.sha256(c._canonical_json(c.api_payload_from_context(_ctx))).hexdigest()
+_rewrite_aggregate_canonically(_c, _eid, _agg); _c.close()
+raises_msg(KernelCorruptionError, "followup.action", _mk_kernel(_safe_db_copy(_sd)).check_database)
+
+# --- 33.11: wrong prior tiny start ---
+_sd = _mk_state_dir(); _k = _mk_kernel(_sd, policy=KernelPolicy(max_card_revisions=3)); _k.initialize()
+_r = _make_res_tasks(_sd, {"Tasks/t33m.md":{"label":"T33M","revision":_REV_FIXTURE}})
+op = _k.ingest_stuck(_stuck(), resolution=_r); cd = op.result["card"]; _eid = op.result["event_id"]
+shr_op = _k.respond(_resp(cd, "shrink"), resolution=_r)
+del _k
+_c = sqlite3_module.connect(str(_sd / "kernel.sqlite3")); _c.row_factory = sqlite3_module.Row
+_row = _c.execute("SELECT * FROM interactions WHERE event_id=?", (_eid,)).fetchone()
+_agg = _agg_from_db(_row["aggregate_json"], source="corrupt")
+_agg["revisions"][1]["context"]["disclosed_facts"]["followup"]["prior_tiny_start"] = "wrong instruction"
+_ctx = _agg["revisions"][1]["context"]
+_ctx["model_content_sha256"] = hashlib.sha256(c._canonical_json(c.api_payload_from_context(_ctx))).hexdigest()
+_rewrite_aggregate_canonically(_c, _eid, _agg); _c.close()
+raises_msg(KernelCorruptionError, "prior_tiny_start", _mk_kernel(_safe_db_copy(_sd)).check_database)
+
+# --- 33.14: healthy lifecycle matrix ---
+_sd = _mk_state_dir(); _k = _mk_kernel(_sd); _k.initialize()
+_r = _make_res_tasks(_sd, {"Tasks/t33h.md":{"label":"T33H","revision":_REV_FIXTURE}})
+op = _k.ingest_stuck(_stuck(), resolution=_r)
+check("33.14 initial card ok", op.result["status"] == "card_published")
+check("33.14 check_database ok", _k.check_database()["status"] == "ok")
+
 if FAILED:
     raise SystemExit(1)
 print("ALL PASS")
