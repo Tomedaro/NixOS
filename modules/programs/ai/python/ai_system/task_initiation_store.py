@@ -15,11 +15,12 @@ import hashlib
 import json
 import os
 import re
+import functools
 import sqlite3
 import stat
 import uuid
 from contextlib import contextmanager
-from typing import Any, Iterator, Mapping
+from typing import Any, Iterator, Mapping, NamedTuple
 
 from ai_system import task_initiation_contracts as c
 from ai_system import task_initiation_private as p
@@ -189,6 +190,320 @@ _SCHEMA_DDL_STATEMENTS = [
     ON interactions(terminal_status, next_deadline_epoch, event_id)""",
 ]
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Schema signature types (immutable, cache-safe)
+# ---------------------------------------------------------------------------
+
+class IndexColumnSignature(NamedTuple):
+    seqno: int
+    cid: int
+    name: str | None
+    desc: bool
+    coll: str
+    key: bool
+
+class NamedIndexSignature(NamedTuple):
+    table_name: str
+    index_name: str
+    sql_normalized: str | None
+    unique: bool
+    origin: str
+    partial: bool
+    columns: tuple[IndexColumnSignature, ...]
+
+class AutoIndexSignature(NamedTuple):
+    table_name: str
+    unique: bool
+    origin: str
+    partial: bool
+    columns: tuple[IndexColumnSignature, ...]
+
+class ForeignKeySignature(NamedTuple):
+    id: int
+    seq: int
+    table: str
+    from_: str
+    to: str
+    on_update: str
+    on_delete: str
+    match: str
+
+class TableSignature(NamedTuple):
+    table_name: str
+    sql_normalized: str | None
+    columns: tuple[tuple, ...]  # (cid, name, type, notnull, dflt_value, pk, hidden)
+    foreign_keys: tuple[ForeignKeySignature, ...]
+    named_indexes: tuple[NamedIndexSignature, ...]
+    auto_indexes: tuple[AutoIndexSignature, ...]
+
+class TableOptionsSignature(NamedTuple):
+    table_list_supported: bool
+    entries: tuple[tuple, ...]  # ((name, type, ncol, wr, strict), ...) or ()
+
+class SchemaSignature(NamedTuple):
+    user_version: int
+    user_objects: tuple[tuple[str, str, str, str | None], ...]  # (type, name, tbl_name, sql_normalized)
+    tables: tuple[TableSignature, ...]
+    table_options: TableOptionsSignature
+
+# ---------------------------------------------------------------------------
+# SQL helpers
+# ---------------------------------------------------------------------------
+
+def _sql_string_literal(value: str) -> str:
+    """Return *value* as a safe single-quoted SQL string literal."""
+    if not isinstance(value, str):
+        raise KernelCorruptionError(f"_sql_string_literal: expected string, got {type(value).__name__}")
+    if "\x00" in value:
+        raise KernelCorruptionError("_sql_string_literal: contains NUL")
+    escaped = value.replace("'", "''")
+    return f"'{escaped}'"
+
+def _normalize_schema_sql(sql: str | None) -> str | None:
+    """Normalize schema SQL whitespace outside quotes and comments.
+    Returns None for None input. Collapses whitespace runs to one space.
+    """
+    if sql is None:
+        return None
+    if not isinstance(sql, str):
+        raise KernelCorruptionError(f"_normalize_schema_sql: expected string or None, got {type(sql).__name__}")
+    result = []
+    i = 0
+    n = len(sql)
+    while i < n:
+        ch = sql[i]
+        # Line comment
+        if ch == '-' and i + 1 < n and sql[i + 1] == '-':
+            result.append('--')
+            i += 2
+            while i < n and sql[i] != '\n':
+                result.append(sql[i])
+                i += 1
+            if i < n:
+                result.append('\n')
+                i += 1
+            continue
+        # Block comment
+        if ch == '/' and i + 1 < n and sql[i + 1] == '*':
+            j = sql.find('*/', i + 2)
+            if j == -1:
+                raise KernelCorruptionError("_normalize_schema_sql: unterminated block comment")
+            result.append(sql[i:j+2])
+            i = j + 2
+            continue
+        # Single-quoted literal
+        if ch == "'":
+            start = i
+            i += 1
+            while i < n:
+                if sql[i] == "'":
+                    if i + 1 < n and sql[i + 1] == "'":
+                        i += 2  # escaped quote
+                    else:
+                        i += 1
+                        break
+                else:
+                    i += 1
+            else:
+                raise KernelCorruptionError("_normalize_schema_sql: unterminated single-quoted literal")
+            result.append(sql[start:i])
+            continue
+        # Double-quoted identifier
+        if ch == '"':
+            start = i
+            i += 1
+            while i < n:
+                if sql[i] == '"':
+                    if i + 1 < n and sql[i + 1] == '"':
+                        i += 2
+                    else:
+                        i += 1
+                        break
+                else:
+                    i += 1
+            else:
+                raise KernelCorruptionError("_normalize_schema_sql: unterminated double-quoted identifier")
+            result.append(sql[start:i])
+            continue
+        # Backtick identifier
+        if ch == '`':
+            start = i
+            i += 1
+            while i < n:
+                if sql[i] == '`':
+                    if i + 1 < n and sql[i + 1] == '`':
+                        i += 2
+                    else:
+                        i += 1
+                        break
+                else:
+                    i += 1
+            else:
+                raise KernelCorruptionError("_normalize_schema_sql: unterminated backtick identifier")
+            result.append(sql[start:i])
+            continue
+        # Bracket identifier
+        if ch == '[':
+            j = sql.find(']', i + 1)
+            if j == -1:
+                raise KernelCorruptionError("_normalize_schema_sql: unterminated bracket identifier")
+            result.append(sql[i:j+1])
+            i = j + 1
+            continue
+        # Whitespace
+        if ch.isspace():
+            if result and result[-1] != ' ':
+                result.append(' ')
+            i += 1
+            continue
+        result.append(ch)
+        i += 1
+    normalized = ''.join(result).strip()
+    return normalized if normalized else None
+
+# ---------------------------------------------------------------------------
+# Schema signature extraction
+# ---------------------------------------------------------------------------
+
+def _auto_idx_sort_key(ai: AutoIndexSignature) -> tuple:
+    """Stable sort key safe for None, bool, int, str values."""
+    def _safe(v):
+        if v is None: return (0, '')
+        if isinstance(v, bool): return (1, int(v))
+        if isinstance(v, int): return (2, v)
+        return (3, str(v))
+    return (
+        _safe(ai.table_name), _safe(ai.unique), _safe(ai.origin), _safe(ai.partial),
+        tuple((_safe(c.seqno), _safe(c.cid), _safe(c.name), _safe(c.desc), _safe(c.coll), _safe(c.key)) for c in ai.columns)
+    )
+
+def _schema_signature(conn: sqlite3.Connection) -> SchemaSignature:
+    """Extract the canonical private schema signature from *conn*.
+    Queries main schema only.  *conn* must already have row_factory set.
+    """
+    # User version
+    uv_row = conn.execute("PRAGMA main.user_version").fetchone()
+    user_version = uv_row[0] if uv_row else 0
+
+    # User object inventory (non-sqlite_ objects)
+    obj_rows = conn.execute(
+        "SELECT type, name, tbl_name, sql FROM main.sqlite_schema "
+        "WHERE name NOT LIKE 'sqlite_%' "
+        "ORDER BY type, name"
+    ).fetchall()
+    user_objects: list[tuple[str, str, str | None]] = []
+    for r in obj_rows:
+        user_objects.append((r["type"], r["name"], r["tbl_name"], _normalize_schema_sql(r["sql"])))
+
+    # Table signatures
+    tables: list[TableSignature] = []
+    for r in obj_rows:
+        if r["type"] != "table":
+            continue
+        tbl = r["name"]
+        # Columns
+        cols = conn.execute(f"PRAGMA main.table_xinfo({_sql_string_literal(tbl)})").fetchall()
+        col_tup = tuple(
+            (c["cid"], c["name"], c["type"], c["notnull"], c["dflt_value"], c["pk"], c["hidden"])
+            for c in cols
+        )
+        # Foreign keys
+        fks = conn.execute(f"PRAGMA main.foreign_key_list({_sql_string_literal(tbl)})").fetchall()
+        fk_tup = tuple(
+            ForeignKeySignature(f["id"], f["seq"], f["table"], f["from"], f["to"],
+                               f["on_update"], f["on_delete"], f["match"])
+            for f in fks
+        )
+        # Named indexes
+        idxs = conn.execute(f"PRAGMA main.index_list({_sql_string_literal(tbl)})").fetchall()
+        named_indexes: list[NamedIndexSignature] = []
+        auto_indexes: list[AutoIndexSignature] = []
+        for idx in idxs:
+            idx_name = idx["name"]
+            idx_cols_raw = conn.execute(f"PRAGMA main.index_xinfo({_sql_string_literal(idx_name)})").fetchall()
+            idx_cols = tuple(
+                IndexColumnSignature(ic["seqno"], ic["cid"], ic["name"],
+                                     bool(ic["desc"]), ic["coll"], bool(ic["key"]))
+                for ic in idx_cols_raw
+            )
+            if idx_name.startswith("sqlite_autoindex_") or idx["origin"] in ("pk", "u"):
+                auto_indexes.append(AutoIndexSignature(
+                    tbl, bool(idx["unique"]), idx["origin"], bool(idx["partial"]), idx_cols))
+            else:
+                # Find the index SQL from user_objects
+                idx_sql = None
+                for ot, on, otbl, osql in user_objects:
+                    if ot == "index" and on == idx_name:
+                        idx_sql = osql
+                        break
+                named_indexes.append(NamedIndexSignature(
+                    tbl, idx_name, idx_sql, bool(idx["unique"]), idx["origin"],
+                    bool(idx["partial"]), idx_cols))
+        named_indexes.sort(key=lambda x: x.index_name)
+        auto_indexes.sort(key=lambda x: _auto_idx_sort_key(x))
+        tables.append(TableSignature(
+            tbl, _normalize_schema_sql(r["sql"]), col_tup, fk_tup,
+            tuple(named_indexes), tuple(auto_indexes)))
+    tables.sort(key=lambda t: t.table_name)
+
+    # Table options (PRAGMA table_list)
+    table_list_supported = False
+    tl_entries: list[tuple] = []
+    try:
+        cur = conn.execute("PRAGMA main.table_list")
+        desc = cur.description
+        if desc is not None:
+            col_names = [d[0] for d in desc]
+            if 'strict' in col_names or 'ncol' in col_names:
+                table_list_supported = True
+                tl_rows = cur.fetchall()
+                private_names = {t.table_name for t in tables}
+                for tl in tl_rows:
+                    if tl["name"] in private_names:
+                        tl_entries.append((
+                            tl["name"], tl["type"],
+                            tl["ncol"] if "ncol" in col_names else None,
+                            tl["wr"] if "wr" in col_names else None,
+                            tl["strict"] if "strict" in col_names else None,
+                        ))
+                # Require exactly one row per private table
+                found_names = {e[0] for e in tl_entries}
+                if found_names != private_names:
+                    raise KernelCorruptionError(
+                        "table_list: private table rows mismatch: "
+                        f"expected {sorted(private_names)}, got {sorted(found_names)}"
+                    )
+    except KernelCorruptionError:
+        raise
+    except Exception:
+        pass  # table_list not supported; signature records this
+    table_options = TableOptionsSignature(table_list_supported, tuple(sorted(tl_entries)))
+
+    return SchemaSignature(user_version, tuple(user_objects), tuple(tables), table_options)
+
+# ---------------------------------------------------------------------------
+# Expected schema signature builder (cached)
+# ---------------------------------------------------------------------------
+
+def _build_expected_schema_signature() -> SchemaSignature:
+    """Build the canonical private schema in :memory: and extract its signature."""
+    _mem = sqlite3.connect(":memory:")
+    _mem.row_factory = sqlite3.Row
+    _mem.execute("PRAGMA foreign_keys = ON")
+    try:
+        for _stmt in _SCHEMA_DDL_STATEMENTS:
+            _mem.execute(_stmt)
+        _mem.execute("PRAGMA user_version = 1")
+        return _schema_signature(_mem)
+    finally:
+        _mem.close()
+
+@functools.lru_cache(maxsize=1)
+def _expected_schema_signature() -> SchemaSignature:
+    """Cached canonical schema signature."""
+    return _build_expected_schema_signature()
+
 # Helpers
 # ---------------------------------------------------------------------------
 
