@@ -3194,125 +3194,150 @@ check("31.9 diagnostic includes original", "original write failure" in str(_tr9)
 
 print("=== 32. sqlite cleanup failures ===")
 
-# --- Fault injection helpers ---
 _orig_connect = sqlite3_module.connect
-_safe_close_called = [0]
+_close_count = [0]; _exec_count = [0]
 
-class _CloseFailingConn:
-    """Wraps a real sqlite connection; close() and/or execute() can be faulted."""
+class _FaultConn:
+    """Wraps a real connection; faults on close and execute independently."""
     def __init__(self, real, close_err=None, exec_fail_on=None, exec_err=None):
-        object.__setattr__(self, '_real', real)
-        object.__setattr__(self, '_close_err', close_err)
-        object.__setattr__(self, '_exec_fail_on', exec_fail_on)
-        object.__setattr__(self, '_exec_err', exec_err)
-        object.__setattr__(self, '_exec_count', [0])
+        object.__setattr__(self, '_r', real)
+        object.__setattr__(self, '_ce', close_err)
+        object.__setattr__(self, '_ef', exec_fail_on)
+        object.__setattr__(self, '_ee', exec_err)
     def _close(self):
-        _safe_close_called[0] += 1
-        _err = object.__getattribute__(self, '_close_err')
-        if _err:
-            raise _err
-        return object.__getattribute__(self, '_real').close()
-    def _execute(self, sql, *args):
-        _ec = object.__getattribute__(self, '_exec_count')
-        _ec[0] += 1
-        _on = object.__getattribute__(self, '_exec_fail_on')
-        if _on is not None and _on in str(sql).upper():
-            _err = object.__getattribute__(self, '_exec_err') or sqlite3_module.DatabaseError("injected")
-            raise _err
-        return object.__getattribute__(self, '_real').execute(sql, *args)
-    def __getattr__(self, name):
-        if name == 'close': return self._close
-        if name == 'execute': return self._execute
-        return getattr(object.__getattribute__(self, '_real'), name)
-    def __setattr__(self, name, value):
-        if name.startswith('_'):
-            object.__setattr__(self, name, value)
-        else:
-            setattr(object.__getattribute__(self, '_real'), name, value)
+        _close_count[0] += 1
+        _e = object.__getattribute__(self, '_ce')
+        if _e is not None: raise _e
+        return object.__getattribute__(self, '_r').close()
+    def _execute(self, sql, *a):
+        _exec_count[0] += 1
+        _on = object.__getattribute__(self, '_ef')
+        if _on and _on.upper() in str(sql).upper():
+            raise object.__getattribute__(self, '_ee') or sqlite3_module.DatabaseError("injected")
+        return object.__getattribute__(self, '_r').execute(sql, *a)
+    def __getattr__(self, n):
+        if n == 'close': return self._close
+        if n == 'execute': return self._execute
+        return getattr(object.__getattribute__(self, '_r'), n)
+    def __setattr__(self, n, v):
+        if n.startswith('_'): object.__setattr__(self, n, v)
+        else: setattr(object.__getattribute__(self, '_r'), n, v)
 
-# --- 1: successful writer, close fails ---
-_ioerr = sqlite3_module.DatabaseError("close IOERR")
-_ioerr.sqlite_errorcode = sqlite3_module.SQLITE_IOERR
-_safe_close_called[0] = 0
-_sd32_1 = _mk_state_dir()
-_k32_1 = _mk_kernel(_sd32_1)
-_k32_1.initialize()
-_r32_1 = _make_res_tasks(_sd32_1, {"Tasks/t32a.md":{"label":"T32A","revision":_REV_FIXTURE}})
-op32_1 = _k32_1.ingest_stuck(_stuck(), resolution=_r32_1)
-del _k32_1
-def _fc32_1(*a, **kw):
-    return _CloseFailingConn(_orig_connect(*a, **kw), close_err=_ioerr)
-sqlite3_module.connect = _fc32_1
+_IOERR = sqlite3_module.DatabaseError("close IOERR"); _IOERR.sqlite_errorcode = sqlite3_module.SQLITE_IOERR
+_BUSY = sqlite3_module.DatabaseError("BUSY"); _BUSY.sqlite_errorcode = sqlite3_module.SQLITE_BUSY
+_CORRUPT = sqlite3_module.DatabaseError("read corrupt"); _CORRUPT.sqlite_errorcode = sqlite3_module.SQLITE_CORRUPT
+_READONLY = sqlite3_module.DatabaseError("rollback fail"); _READONLY.sqlite_errorcode = sqlite3_module.SQLITE_READONLY
+
+# --- 32.1: successful read, close fails ---
+_sd = _mk_state_dir(); _k = _mk_kernel(_sd); _k.initialize(); del _k
+_close_count[0] = 0
+def _f1(*a, **kw): return _FaultConn(_orig_connect(*a, **kw), close_err=_IOERR)
+sqlite3_module.connect = _f1
 try:
-    _k32_1b = _mk_kernel(_sd32_1)
-    raises(KernelStorageError, _k32_1b.check_database)
-    check("32.1 close called", _safe_close_called[0] >= 1)
-finally:
-    sqlite3_module.connect = _orig_connect
+    _k2 = TaskInitiationKernel(_sd, clock=_fixed_clock, busy_timeout_seconds=0.2)
+    raises(KernelStorageError, _k2.check_database)
+    check("32.1 close attempted exactly once", _close_count[0] == 1)
+finally: sqlite3_module.connect = _orig_connect
 
-# --- 2: writer body fails, rollback succeeds, close clean ---
-_busy = sqlite3_module.DatabaseError("BUSY")
-_busy.sqlite_errorcode = sqlite3_module.SQLITE_BUSY
-_sd32_2 = _mk_state_dir()
-_k32_2 = _mk_kernel(_sd32_2)
-_k32_2.initialize()
-_r32_2 = _make_res_tasks(_sd32_2, {"Tasks/t32b.md":{"label":"T32B","revision":_REV_FIXTURE}})
-op32_2 = _k32_2.ingest_stuck(_stuck(), resolution=_r32_2)
-card32_2 = op32_2.result["card"]
-del _k32_2
-def _fc32_2(*a, **kw):
-    return _CloseFailingConn(_orig_connect(*a, **kw), exec_fail_on="INSERT INTO", exec_err=_busy)
-sqlite3_module.connect = _fc32_2
+# --- 32.2: writer body fails, rollback succeeds ---
+_sd = _mk_state_dir(); _k = _mk_kernel(_sd); _k.initialize()
+_r = _make_res_tasks(_sd, {"Tasks/t32b.md":{"label":"T","revision":_REV_FIXTURE}})
+op = _k.ingest_stuck(_stuck(), resolution=_r); cd = op.result["card"]; del _k
+_close_count[0] = 0
+def _f2(*a, **kw): return _FaultConn(_orig_connect(*a, **kw), exec_fail_on="INSERT INTO", exec_err=_BUSY)
+sqlite3_module.connect = _f2
 try:
-    _k32_2b = _mk_kernel(_sd32_2)
-    raises(KernelBusyError, _k32_2b.respond, _resp(card32_2, "start", response_id=str(uuid.uuid4())), resolution=_r32_2)
-finally:
-    sqlite3_module.connect = _orig_connect
+    _k2 = _mk_kernel(_sd)
+    raises(KernelBusyError, _k2.respond, _resp(cd, "start", response_id=str(uuid.uuid4())), resolution=_r)
+    check("32.2 close attempted exactly once", _close_count[0] == 1)
+finally: sqlite3_module.connect = _orig_connect
 
-# --- 10: ordinary real SQLite paths unchanged ---
-_sd32_10 = _mk_state_dir()
-_k32_10 = _mk_kernel(_sd32_10)
-_k32_10.initialize()
-check("32.10 init succeeds", _k32_10.check_database()["status"] == "ok")
-_r32_10 = _make_res_tasks(_sd32_10, {"Tasks/t32c.md":{"label":"T32C","revision":_REV_FIXTURE}})
-op32_10 = _k32_10.ingest_stuck(_stuck(), resolution=_r32_10)
-check("32.10 ingest succeeds", op32_10.result["status"] == "card_published")
-card32_10 = op32_10.result["card"]
-r32_10 = _k32_10.respond(_resp(card32_10, "start"), resolution=_r32_10)
-check("32.10 respond succeeds", r32_10.result["status"] == "accepted")
-# --- 2: writer body fails, rollback succeeds, close succeeds ---
-_sd32_2 = _mk_state_dir()
-_k32_2 = _mk_kernel(_sd32_2)
-_k32_2.initialize()
-_r32_2 = _make_res_tasks(_sd32_2, {"Tasks/t32b.md":{"label":"T32B","revision":_REV_FIXTURE}})
-op32_2 = _k32_2.ingest_stuck(_stuck(), resolution=_r32_2)
-card32_2 = op32_2.result["card"]
-del _k32_2
-_busy = sqlite3_module.DatabaseError("BUSY")
-_busy.sqlite_errorcode = sqlite3_module.SQLITE_BUSY
-def _fc32_2(*a, **kw):
-    _c = _CloseFailingConn(_orig_connect(*a, **kw))
-    _c._execute_fail_on = "INSERT INTO card_index"
-    _c._close_err = _busy
-    return _c
-sqlite3_module.connect = _fc32_2
+# --- 32.3: writer body and rollback fail ---
+_sd = _mk_state_dir(); _k = _mk_kernel(_sd); _k.initialize()
+_r = _make_res_tasks(_sd, {"Tasks/t32c.md":{"label":"T","revision":_REV_FIXTURE}})
+op = _k.ingest_stuck(_stuck(), resolution=_r); cd = op.result["card"]; del _k
+_close_count[0] = 0
+_body_fail = sqlite3_module.DatabaseError("body fail"); _body_fail.sqlite_errorcode = sqlite3_module.SQLITE_IOERR
+class _FaultConn3(_FaultConn):
+    def _execute(self, sql, *a):
+        _exec_count[0] += 1
+        if 'INSERT INTO' in str(sql).upper(): raise _body_fail
+        if 'ROLLBACK' in str(sql).upper(): raise _READONLY
+        return object.__getattribute__(self, '_r').execute(sql, *a)
+def _f3(*a, **kw): return _FaultConn3(_orig_connect(*a, **kw))
+sqlite3_module.connect = _f3
 try:
-    _k32_2b = _mk_kernel(_sd32_2)
-    raises(KernelBusyError, _k32_2b.respond, _resp(card32_2, "start", response_id=str(uuid.uuid4())), resolution=_r32_2)
-finally:
-    sqlite3_module.connect = _orig_connect
+    _k2 = _mk_kernel(_sd)
+    _e3_ok = False
+    try: _k2.respond(_resp(cd, "start", response_id=str(uuid.uuid4())), resolution=_r)
+    except KernelStorageError as _e3:
+        _s3 = str(_e3)
+        _e3_ok = "body fail" in _s3 and "rollback fail" in _s3
+    check("32.3 body+rollback -> KernelStorageError with both", _e3_ok)
+    check("32.3 close attempted", _close_count[0] >= 1)
+finally: sqlite3_module.connect = _orig_connect
 
-# --- 10: ordinary real SQLite paths unchanged ---
-_sd32_10 = _mk_state_dir()
-_k32_10 = _mk_kernel(_sd32_10)
-_k32_10.initialize()
-check("32.10 init succeeds", _k32_10.check_database()["status"] == "ok")
-_r32_10 = _make_res_tasks(_sd32_10, {"Tasks/t32c.md":{"label":"T32C","revision":_REV_FIXTURE}})
-op32_10 = _k32_10.ingest_stuck(_stuck(), resolution=_r32_10)
-check("32.10 ingest succeeds", op32_10.result["status"] == "card_published")
-card32_10 = op32_10.result["card"]
-r32_10 = _k32_10.respond(_resp(card32_10, "start"), resolution=_r32_10)
-check("32.10 respond succeeds", r32_10.result["status"] == "accepted")
+# --- 32.5: read body and close fail ---
+_sd = _mk_state_dir(); _k = _mk_kernel(_sd); _k.initialize(); del _k
+_close_count[0] = 0; _exec_count[0] = 0
+class _FaultConn5(_FaultConn):
+    def _execute(self, sql, *a):
+        _exec_count[0] += 1
+        if 'PRAGMA QUERY_ONLY' in str(sql).upper(): raise _CORRUPT
+        return object.__getattribute__(self, '_r').execute(sql, *a)
+def _f5(*a, **kw): return _FaultConn5(_orig_connect(*a, **kw), close_err=_IOERR)
+sqlite3_module.connect = _f5
+try:
+    _k2 = TaskInitiationKernel(_sd, clock=_fixed_clock, busy_timeout_seconds=0.2)
+    _e5_ok = False
+    try: _k2.check_database()
+    except KernelStorageError as _e5:
+        _s5 = str(_e5)
+        _e5_ok = "read corrupt" in _s5 and "close IOERR" in _s5
+    check("32.5 read+close -> KernelStorageError with both", _e5_ok)
+    check("32.5 close attempted", _close_count[0] >= 1)
+finally: sqlite3_module.connect = _orig_connect
+
+# --- 32.8: actual read-timeout capture ---
+_sd = _mk_state_dir()
+_captured_timeout = [None]; _captured_busy = [None]
+def _trap_connect(*a, **kw):
+    _captured_timeout[0] = kw.get('timeout')
+    return _orig_connect(*a, **kw)
+sqlite3_module.connect = _trap_connect
+try:
+    _st = TaskInitiationStore(_sd, busy_timeout_seconds=0.123)
+    _st.initialize()
+    with _st.read_connection() as _rc:
+        _captured_busy[0] = _rc.execute("PRAGMA busy_timeout").fetchone()[0]
+finally: sqlite3_module.connect = _orig_connect
+check("32.8 connect timeout == 0.123", _captured_timeout[0] == 0.123)
+check("32.8 PRAGMA busy_timeout == 123", _captured_busy[0] == 123)
+
+# --- 32.9: negative user version ---
+_sd = _mk_state_dir()
+import sqlite3 as _sq3, os as _os
+_c = _sq3.connect(str(_sd / "kernel.sqlite3"))
+_c.execute("PRAGMA user_version = -1")
+_c.close()
+_os.chmod(str(_sd / "kernel.sqlite3"), 0o600)
+_k32_9 = TaskInitiationKernel(_sd, clock=_fixed_clock, busy_timeout_seconds=0.2)
+raises(KernelCorruptionError, _k32_9.initialize)
+_cli9 = [sys.executable, "-m", "ai_system.task_initiation_cli", "--state-dir", str(_sd)]
+_r9 = subprocess.run([*_cli9, "init"], capture_output=True, text=True, env=_env)
+check("32.9 CLI init exit 5", _r9.returncode == 5)
+_c2 = _sq3.connect(str(_sd / "kernel.sqlite3"))
+_v = _c2.execute("PRAGMA user_version").fetchone()[0]
+_c2.close()
+check("32.9 user_version remains -1", _v == -1)
+
+# --- 32.10: ordinary real SQLite paths unchanged ---
+_sd = _mk_state_dir(); _k = _mk_kernel(_sd); _k.initialize()
+check("32.10 init succeeds", _k.check_database()["status"] == "ok")
+_r = _make_res_tasks(_sd, {"Tasks/t32j.md":{"label":"T","revision":_REV_FIXTURE}})
+op = _k.ingest_stuck(_stuck(), resolution=_r)
+check("32.10 ingest succeeds", op.result["status"] == "card_published")
+check("32.10 respond succeeds", _k.respond(_resp(op.result["card"], "start"), resolution=_r).result["status"] == "accepted")
 
 if FAILED:
     raise SystemExit(1)

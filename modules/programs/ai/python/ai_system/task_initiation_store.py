@@ -1773,6 +1773,8 @@ class TaskInitiationStore:
                     f"unsupported database version {version}; "
                     f"this kernel supports only version 1"
                 )
+            else:
+                raise KernelCorruptionError(f"unexpected user_version: {version}")
 
             # Final integrity check
             integrity = conn.execute("PRAGMA integrity_check").fetchall()
@@ -1799,8 +1801,29 @@ class TaskInitiationStore:
                 conn.execute(statement)
             conn.execute("PRAGMA user_version = 1")
             conn.execute("COMMIT")
-        except Exception:
-            conn.execute("ROLLBACK")
+        except (KernelBusyError, KernelCorruptionError, KernelStorageError) as exc:
+            try: conn.execute("ROLLBACK")
+            except sqlite3.Error as _re:
+                raise KernelStorageError(
+                    f"migration rollback failed after {type(exc).__name__}({exc}): "
+                    f"rollback error {type(_re).__name__}: {_re}"
+                ) from exc
+            raise
+        except sqlite3.Error as exc:
+            try: conn.execute("ROLLBACK")
+            except sqlite3.Error as _re:
+                raise KernelStorageError(
+                    f"migration rollback failed after sqlite3.Error({exc}): "
+                    f"rollback error {type(_re).__name__}: {_re}"
+                ) from exc
+            raise _translate_sqlite_error(exc)
+        except Exception as exc:
+            try: conn.execute("ROLLBACK")
+            except sqlite3.Error as _re:
+                raise KernelStorageError(
+                    f"migration rollback failed after {type(exc).__name__}({exc}): "
+                    f"rollback error {type(_re).__name__}: {_re}"
+                ) from exc
             raise
 
 
