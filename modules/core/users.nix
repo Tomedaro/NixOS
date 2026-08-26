@@ -1,4 +1,5 @@
 {
+  choices,
   config,
   pkgs,
   inputs,
@@ -12,36 +13,49 @@
     browser
     shell
     ;
+
+  editorCommand = choices.editors.${editor}.command;
+  browserCommand = choices.browsers.${browser}.command;
+  terminalCommand = choices.terminals.${terminal}.command;
+  shellPackageName = choices.shells.${shell}.packageName;
+  homeManagerUsers = builtins.attrNames config.home-manager.users;
 in {
   imports = [inputs.home-manager.nixosModules.home-manager];
-  programs.dconf.enable = true; # Enable dconf for home-manager
+
+  assertions = [
+    {
+      assertion = homeManagerUsers == [username];
+      message = ''
+        This workstation intentionally uses home-manager.sharedModules under a
+        single-user Home Manager contract. Expected exactly the primary user
+        '${username}', but found: ${builtins.concatStringsSep ", " homeManagerUsers}
+      '';
+    }
+  ];
+
+  programs.dconf.enable = true;
+
   home-manager = {
     useGlobalPkgs = true;
     useUserPackages = true;
     overwriteBackup = true;
     backupFileExtension = "backup";
     users.${username} = {
-      # Let Home Manager install and manage itself.
       programs.home-manager.enable = true;
       xdg.enable = true;
 
       home = {
-        username = "${username}";
-        homeDirectory = "/home/${username}";
         stateVersion = "26.05"; # Intentionally migrated from 23.11; see docs/state-version-26.05.md
         sessionVariables = {
-          EDITOR =
-            if (editor == "nixvim" || editor == "neovim" || editor == "nvchad")
-            then "nvim"
-            else if editor == "vscode"
-            then "code"
-            else "nano";
-          BROWSER = "${browser}";
-          TERMINAL = "${terminal}";
+          EDITOR = editorCommand;
+          VISUAL = editorCommand;
+          BROWSER = browserCommand;
+          TERMINAL = terminalCommand;
         };
       };
     };
   };
+
   users = {
     mutableUsers = true;
     users.${username} = {
@@ -62,9 +76,10 @@ in {
         "scanner"
         "vboxusers" # Virtual Box
       ];
-      shell = pkgs.${shell};
+      shell = pkgs.${shellPackageName};
       ignoreShellProgramCheck = true;
     };
   };
-  nix.settings.allowed-users = ["${username}"];
+
+  nix.settings.allowed-users = [username];
 }

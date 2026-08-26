@@ -56,6 +56,7 @@
             unsetopt flowcontrol
 
             setopt prompt_subst
+            setopt interactive_comments
             setopt always_to_end
             setopt append_history
             setopt auto_menu

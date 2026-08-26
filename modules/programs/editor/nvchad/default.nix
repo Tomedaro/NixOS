@@ -5,7 +5,7 @@
 }: {
   home-manager.sharedModules = [
     (_: {
-      imports = [inputs.nvchad4nix.homeManagerModule];
+      imports = [inputs.nvchad4nix.homeManagerModules.default];
       programs.nvchad = {
         enable = true;
         extraPlugins = ''

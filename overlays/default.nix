@@ -1,43 +1,24 @@
 {inputs, ...}: {
-  additions = final: _prev:
-    import ../pkgs {
-      pkgs = final;
+  default = final: prev:
+    (import ../pkgs {pkgs = final;})
+    // {
+      vesktop = prev.vesktop.override {
+        withSystemVencord = false;
+        withMiddleClickScroll = true;
+      };
+      discord = prev.discord.override {
+        withVencord = true;
+        withOpenASAR = true;
+        enableAutoscroll = true;
+      };
+      lact = prev.lact.overrideAttrs (old: {
+        postPatch =
+          (old.postPatch or "")
+          + ''
+            # libdisplay-info 0.4.0 breaks the vendored libdisplay-info-sys 0.3.0 version constraint.
+            # Keep this compatibility patch only while the pinned package still needs it.
+            sed -i 's|< 0.4.0|< 0.5.0|g' "$cargoDepsCopy/source-registry-0/libdisplay-info-sys-0.3.0/Cargo.toml"
+          '';
+      });
     };
-
-  modifications = final: prev: {
-    nur = inputs.nur.overlays.default;
-    stable = import inputs.nixpkgs-stable {
-      system = final.stdenv.hostPlatform.system;
-      config.allowUnfree = true;
-    };
-    vesktop = prev.vesktop.override {
-      withSystemVencord = false;
-      withMiddleClickScroll = true;
-    };
-    discord = prev.discord.override {
-      withVencord = true;
-      withOpenASAR = true;
-      enableAutoscroll = true;
-    };
-    hyprland = prev.hyprland.overrideAttrs (old: {
-      postPatch =
-        (old.postPatch or "")
-        + ''
-          # Accept undersized shm fds from libwayshot (screenpipe resets fd size on retry)
-          for f in $(grep -rl "st_size >= size" src/ 2>/dev/null); do
-            substituteInPlace "$f" \
-              --replace 'return (size_t)st.st_size >= size;' \
-              'if ((size_t)st.st_size < (size_t)size) ftruncate(fd, size); return 1;'
-          done
-        '';
-    });
-    lact = prev.lact.overrideAttrs (old: {
-      postPatch =
-        (old.postPatch or "")
-        + ''
-          # libdisplay-info 0.4.0 breaks the vendored libdisplay-info-sys 0.3.0 version constraint
-          sed -i 's|< 0.4.0|< 0.5.0|g' "$cargoDepsCopy/source-registry-0/libdisplay-info-sys-0.3.0/Cargo.toml"
-        '';
-    });
-  };
 }

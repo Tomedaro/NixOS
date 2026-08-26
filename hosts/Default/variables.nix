@@ -1,28 +1,28 @@
 {
-  username = "daniil"; # auto-set with install.sh, live-install.sh, and rebuild scripts.
+  username = "daniil"; # Temporary host settings interface; composed only by flake.nix.
 
   # Desktop Environment
-  desktop = "hyprland"; # hyprland, gnome, i3, plasma6
+  desktop = "hyprland"; # supported: hyprland, gnome, i3; pending: plasma6
 
   # Theme & Appearance
-  bar = "waybar"; # waybar, hyprpanel, noctalia, caelestia
-  waybarTheme = "minimal"; # stylish, minimal
+  bar = "waybar"; # supported: waybar; legacy: hyprpanel, noctalia; experimental: caelestia
+  waybarTheme = "minimal"; # supported: minimal, stylish
   sddmTheme = "astronaut"; # astronaut, black_hole, purple_leaves, jake_the_dog, hyprland_kath
   defaultWallpaper = "galaxy.webp"; # Change with SUPER + SHIFT + W (Hyprland)
   hyprlockWallpaper = "galaxy.webp";
 
   # Default Applications
-  terminal = "kitty"; # kitty, alacritty, wezterm
-  editor = "nixvim"; # nixvim, neovim, nvchad, vscode, helix, emacs, doom-emacs
-  browser = "zen-beta"; # zen-beta, firefox, floorp
-  fileManager = "yazi"; # yazi, lf
-  shell = "zsh"; # zsh, bash
-  games = true; # Enable/Disable gaming module
+  terminal = "kitty"; # supported: kitty, alacritty, wezterm
+  editor = "nixvim"; # supported: nixvim, nvchad, vscode, helix, emacs; pending: neovim, doom-emacs
+  browser = "zen-beta"; # supported: zen-beta; pending: firefox, floorp
+  fileManager = "yazi"; # supported: yazi, lf
+  shell = "zsh"; # supported: zsh, bash
+  games = true; # Enable/disable gaming applications and services.
 
   # Hardware
   hostname = "Singularity";
-  videoDriver = "intel"; # intel, amdgpu, nvidia, nvk
-  bluetoothSupport = true; # Whether your motherboard supports bluetooth
+  videoDriver = "intel"; # supported: intel, amdgpu, nvidia; pending: nvk
+  bluetoothSupport = true;
 
   # Localization
   timezone = "Europe/Paris";

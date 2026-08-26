@@ -1,7 +1,8 @@
 {lib, ...}: let
   inherit (lib) mkOption types;
   choices = import ../../lib/choices.nix;
-  choiceNames = set: builtins.attrNames set;
+  supportedChoiceNames = set:
+    builtins.attrNames (lib.filterAttrs (_: choice: choice.status == "supported") set);
 in {
   options.workstation = {
     user.name = mkOption {
@@ -16,17 +17,17 @@ in {
 
     desktop = {
       environment = mkOption {
-        type = types.enum (choiceNames choices.desktops);
+        type = types.enum (supportedChoiceNames choices.desktops);
         description = "Supported desktop/window-manager selection.";
       };
 
       bar = mkOption {
-        type = types.enum (choiceNames choices.hyprlandBars);
+        type = types.enum (supportedChoiceNames choices.hyprlandBars);
         description = "Hyprland shell/bar selection.";
       };
 
       waybarTheme = mkOption {
-        type = types.enum (choiceNames choices.waybarThemes);
+        type = types.enum (supportedChoiceNames choices.waybarThemes);
         description = "Waybar configuration variant.";
       };
     };
@@ -56,27 +57,27 @@ in {
 
     apps = {
       terminal = mkOption {
-        type = types.enum (choiceNames choices.terminals);
+        type = types.enum (supportedChoiceNames choices.terminals);
         description = "Default terminal selection.";
       };
 
       editor = mkOption {
-        type = types.enum (choiceNames choices.editors);
+        type = types.enum (supportedChoiceNames choices.editors);
         description = "Default editor selection.";
       };
 
       browser = mkOption {
-        type = types.enum (choiceNames choices.browsers);
+        type = types.enum (supportedChoiceNames choices.browsers);
         description = "Default browser selection.";
       };
 
       fileManager = mkOption {
-        type = types.enum (choiceNames choices.fileManagers);
+        type = types.enum (supportedChoiceNames choices.fileManagers);
         description = "Default terminal file manager selection.";
       };
 
       shell = mkOption {
-        type = types.enum (choiceNames choices.shells);
+        type = types.enum (supportedChoiceNames choices.shells);
         description = "Login shell selection.";
       };
     };
@@ -88,7 +89,7 @@ in {
 
     hardware = {
       videoDriver = mkOption {
-        type = types.enum (choiceNames choices.videoDrivers);
+        type = types.enum (supportedChoiceNames choices.videoDrivers);
         description = "GPU driver module selection.";
       };
 

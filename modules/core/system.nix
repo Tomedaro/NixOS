@@ -98,7 +98,7 @@ in {
 
   console.keyMap = "${consoleKeymap}";
   nixpkgs = {
-    overlays = builtins.attrValues overlays;
+    overlays = [overlays.default];
     config = {
       allowUnfree = true;
       # allowUnfreePredicate = _: true;

@@ -38,7 +38,7 @@ in {
         rofi
         polybar
         cava
-        xorg.xrandr
+        xrandr
         edid-decode
         vim.xxd
       ];

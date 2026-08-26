@@ -3,7 +3,6 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-25.11"; # upstream: updated from 24.11
     hyprland.url = "github:hyprwm/Hyprland";
 
     home-manager = {
@@ -39,7 +38,6 @@
       url = "github:Gerg-L/spicetify-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    nur.url = "github:nix-community/NUR";
     betterfox = {
       url = "github:yokoffing/Betterfox";
       flake = false;
@@ -75,11 +73,13 @@
     ...
   } @ inputs: let
     inherit (self) outputs;
+    lib = nixpkgs.lib;
+    choices = import ./lib/choices.nix;
     systems = [
       "x86_64-linux"
       "aarch64-linux"
     ];
-    forAllSystems = nixpkgs.lib.genAttrs systems;
+    forAllSystems = lib.genAttrs systems;
 
     templates = import ./dev-shells;
     devShellEntries = builtins.readDir ./dev-shells;
@@ -91,7 +91,7 @@
         && builtins.pathExists (./dev-shells + "/${name}/flake.nix"))
       (builtins.attrNames devShellEntries);
     registeredTemplateDirectories =
-      nixpkgs.lib.unique
+      lib.unique
       (map
         (template: builtins.baseNameOf (toString template.path))
         (builtins.attrValues templates));
@@ -99,62 +99,184 @@
       builtins.sort builtins.lessThan templateDirectories
       == builtins.sort builtins.lessThan registeredTemplateDirectories;
 
-    mkHost = host: let
-      workstationSettings = import ./hosts/${host}/variables.nix;
-      choices = import ./lib/choices.nix;
+    supportedNames = set:
+      builtins.attrNames (lib.filterAttrs (_: choice: choice.status == "supported") set);
+
+    mkHost = {
+      host,
+      settingsOverride ? {},
+    }: let
+      baseWorkstationSettings = import ./hosts/${host}/variables.nix;
+      workstationSettings = lib.recursiveUpdate baseWorkstationSettings settingsOverride;
     in
-      nixpkgs.lib.nixosSystem {
+      lib.nixosSystem {
         system = "x86_64-linux";
-        modules = [
-          ./hosts/${host}/configuration.nix
-        ];
+        modules = [./hosts/${host}/configuration.nix];
         specialArgs = {
           overlays = import ./overlays {inherit inputs;};
           inherit self inputs outputs host workstationSettings choices;
         };
       };
+
+    variantsFor = {
+      prefix,
+      set,
+      override,
+    }:
+      lib.listToAttrs (
+        map
+        (name: lib.nameValuePair "${prefix}-${name}" (override name))
+        (supportedNames set)
+      );
+
+    supportedVariantOverrides =
+      variantsFor {
+        prefix = "desktop";
+        set = choices.desktops;
+        override = desktop: {inherit desktop;};
+      }
+      // variantsFor {
+        prefix = "bar";
+        set = choices.hyprlandBars;
+        override = bar: {
+          desktop = "hyprland";
+          inherit bar;
+        };
+      }
+      // variantsFor {
+        prefix = "waybar-theme";
+        set = choices.waybarThemes;
+        override = waybarTheme: {
+          desktop = "hyprland";
+          bar = "waybar";
+          inherit waybarTheme;
+        };
+      }
+      // variantsFor {
+        prefix = "terminal";
+        set = choices.terminals;
+        override = terminal: {inherit terminal;};
+      }
+      // variantsFor {
+        prefix = "editor";
+        set = choices.editors;
+        override = editor: {inherit editor;};
+      }
+      // variantsFor {
+        prefix = "file-manager";
+        set = choices.fileManagers;
+        override = fileManager: {inherit fileManager;};
+      }
+      // variantsFor {
+        prefix = "shell";
+        set = choices.shells;
+        override = shell: {inherit shell;};
+      }
+      // variantsFor {
+        prefix = "video";
+        set = choices.videoDrivers;
+        override = videoDriver: {inherit videoDriver;};
+      }
+      // {
+        gaming-disabled = {games = false;};
+      };
+
+    validChoiceStatuses = [
+      "supported"
+      "pending"
+      "legacy"
+      "experimental"
+    ];
+    choiceSets = [
+      choices.desktops
+      choices.hyprlandBars
+      choices.waybarThemes
+      choices.terminals
+      choices.editors
+      choices.browsers
+      choices.fileManagers
+      choices.shells
+      choices.videoDrivers
+    ];
+    choiceCatalogIsValid =
+      lib.all
+      (set:
+        lib.all
+        (choice:
+          choice ? module
+          && choice ? status
+          && builtins.elem choice.status validChoiceStatuses
+          && (choice.status == "supported" || choice ? reason))
+        (builtins.attrValues set))
+      choiceSets
+      && lib.all (choice: choice ? command) (builtins.attrValues choices.terminals)
+      && lib.all (choice: choice ? command) (builtins.attrValues choices.editors)
+      && lib.all (choice: choice ? command) (builtins.attrValues choices.browsers)
+      && lib.all (choice: choice ? packageName) (builtins.attrValues choices.shells);
   in {
     templates = templates;
     overlays = import ./overlays {inherit inputs;};
     formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.alejandra);
 
     nixosConfigurations = {
-      Default = mkHost "Default";
+      Default = mkHost {host = "Default";};
     };
 
     checks.x86_64-linux = let
       pkgs = nixpkgs.legacyPackages.x86_64-linux;
-    in {
-      system = self.nixosConfigurations.Default.config.system.build.toplevel;
+      mkVariantEvaluationCheck = name: settingsOverride: let
+        configuration = mkHost {
+          host = "Default";
+          inherit settingsOverride;
+        };
+      in
+        builtins.seq configuration.config.system.build.toplevel.drvPath (
+          pkgs.runCommand "variant-${name}-evaluation" {} ''
+            touch "$out"
+          ''
+        );
+    in
+      {
+        system = self.nixosConfigurations.Default.config.system.build.toplevel;
 
-      formatting =
-        pkgs.runCommand "nix-formatting-check" {
-          nativeBuildInputs = [pkgs.alejandra pkgs.findutils];
-          src = ./.;
-        } ''
-          cd "$src"
-          find . -type f -name '*.nix' -print0 \
-            | xargs -0 -r alejandra --check
-          touch "$out"
-        '';
+        formatting =
+          pkgs.runCommand "nix-formatting-check" {
+            nativeBuildInputs = [pkgs.alejandra pkgs.findutils];
+            src = ./.;
+          } ''
+            cd "$src"
+            find . -type f -name '*.nix' -print0 \
+              | xargs -0 -r alejandra --check
+            touch "$out"
+          '';
 
-      template-registry = assert templateRegistryIsComplete;
-        pkgs.runCommand "template-registry-check" {} ''
-          touch "$out"
-        '';
+        template-registry = assert templateRegistryIsComplete;
+          pkgs.runCommand "template-registry-check" {} ''
+            touch "$out"
+          '';
 
-      workstation-boundary =
-        pkgs.runCommand "workstation-boundary-check" {
-          nativeBuildInputs = [pkgs.ripgrep];
-          src = ./.;
-        } ''
-          if rg -n 'hosts/.*/variables\.nix' "$src/modules" --glob '*.nix'; then
-            echo "ordinary modules must consume config.workstation, not host variables.nix" >&2
-            exit 1
-          fi
-          touch "$out"
-        '';
-    };
+        workstation-boundary =
+          pkgs.runCommand "workstation-boundary-check" {
+            nativeBuildInputs = [pkgs.ripgrep];
+            src = ./.;
+          } ''
+            if rg -n 'hosts/.*/variables\.nix' "$src/modules" --glob '*.nix'; then
+              echo "ordinary modules must consume config.workstation, not host variables.nix" >&2
+              exit 1
+            fi
+            touch "$out"
+          '';
+
+        choice-catalog = assert choiceCatalogIsValid;
+          pkgs.runCommand "workstation-choice-catalog-check" {} ''
+            touch "$out"
+          '';
+      }
+      // lib.mapAttrs' (
+        name: settingsOverride:
+          lib.nameValuePair "variant-${name}" (mkVariantEvaluationCheck name settingsOverride)
+      )
+      supportedVariantOverrides;
 
     devShells = forAllSystems (system: let
       pkgs = import nixpkgs {
@@ -164,7 +286,12 @@
       };
     in {
       default = pkgs.mkShellNoCC {
-        packages = with pkgs; [git nix figlet lolcat];
+        packages = with pkgs; [
+          git
+          nix
+          figlet
+          lolcat
+        ];
         NIX_CONFIG = "experimental-features = nix-command flakes";
       };
     });

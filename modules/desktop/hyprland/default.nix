@@ -8,7 +8,11 @@
 }: let
   inherit (lib) optional;
   bar = workstationSettings.bar;
-  barModule = choices.hyprlandBars.${bar} or (throw "Unsupported Hyprland bar choice: ${bar}");
+  barChoice = choices.hyprlandBars.${bar} or (throw "Unknown Hyprland bar choice: ${bar}");
+  barModule =
+    if barChoice.status == "supported"
+    then barChoice.module
+    else throw "Hyprland bar choice '${bar}' is ${barChoice.status}: ${barChoice.reason}";
 in {
   imports =
     [
@@ -20,7 +24,7 @@ in {
       ./programs/hypridle
       ./programs/hyprlock
     ]
-    ++ optional (bar != "hyprpanel") ./programs/swaync;
+    ++ optional (!barChoice.providesNotifications) ./programs/swaync;
 
   environment.systemPackages = with pkgs; [
     pavucontrol

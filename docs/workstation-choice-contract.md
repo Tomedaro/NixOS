@@ -1,38 +1,82 @@
 # Workstation choice contract
 
-The repository intentionally supports multiple workstation variants while keeping
-host-specific values out of reusable modules.
+The repository intentionally supports more than the currently selected `Default`
+configuration, but a module existing in the tree is not by itself a support claim.
 
-## Source of truth
+## Choice states
 
-`hosts/Default/variables.nix` remains the editable host selection file during the
-installer transition. It is imported only by `flake.nix` and passed to the host
-composition as `workstationSettings`.
+Every selectable family is catalogued in `lib/choices.nix` with one of four states:
 
-`hosts/Default/configuration.nix` maps those raw selections into typed
-`workstation.*` NixOS options from `modules/options/workstation.nix`.
-Reusable modules consume `config.workstation.*`; they must not import a host
-`variables.nix` directly.
+- `supported`: selectable through `hosts/Default/variables.nix` and covered by a
+  one-factor NixOS evaluation check.
+- `pending`: retained source with a known integration gap. It is deliberately not
+  accepted by the typed workstation options until repaired.
+- `experimental`: a current integration that needs an explicit compatibility/runtime
+  validation before it becomes a normal choice.
+- `legacy`: an integration for an upstream generation that is no longer the current
+  product/configuration model.
 
-## Module selection
+Only `supported` values appear in the `workstation.*` option enums. The composition
+layer also rejects a raw host setting whose catalogue entry is not supported, so a
+stale or experimental module cannot be enabled accidentally by bypassing option
+validation.
 
-`lib/choices.nix` is the explicit registry from stable selector names to module
-paths. Composition modules may use the raw settings only when Nix requires an
-import choice before the module fixed point is available. Currently those
-composition points are the host, Hyprland bar selection, and Waybar theme
-selection.
+## Current exceptions
 
-This deliberately avoids filesystem conventions such as
-`../../modules/desktop/${desktop}`. A selector name is a public configuration
-interface; a module directory may be renamed without changing that interface.
+- Plasma 6 is pending until its Plasma Manager integration is refreshed against the
+  current upstream Home Manager module.
+- HyprPanel is legacy: upstream archived the project on 2026-04-27 in favor of
+  Wayle. The checked-in HyprPanel module remains historical source; a future Wayle
+  integration should be added independently rather than pretending HyprPanel is
+  maintained.
+- Noctalia is legacy: the checked-in module targets Noctalia Shell v4. A future v5
+  integration is a migration, not an in-place dependency bump.
+- Caelestia is experimental until the checked-in settings are validated against a
+  pinned stable upstream release.
+- The standalone Neovim choice is pending. Its historical external personal-config
+  input is not restored merely to preserve an old selector; the replacement should
+  be self-contained or use a current maintained integration.
+- Doom Emacs is pending until its external configuration/dependency ownership is
+  redesigned deliberately.
+- Firefox and Floorp are pending until browser package/profile ownership is migrated
+  without overwriting existing mutable browser state.
+- NVK is pending even though Mesa NVK itself is mature: the repository module still
+  contains old experimental-era Nouveau/Zink overrides and must be modernized first.
 
-## Support policy
+Pending, experimental, and legacy choices do not add root flake inputs. External
+inputs are added only when a choice is deliberately promoted to supported status.
+This keeps the lock graph aligned with functionality the repository actually promises.
 
-A choice is not considered supported merely because a directory exists. The
-registry states the intended choices, and follow-up variant checks must prove
-that every registered alternative evaluates with the current input graph.
+## Variant checks
 
-The current `Default` host remains the behavioral baseline. Browser package and
-profile ownership is intentionally unchanged in this tranche; the browser
-selector is typed, but the browser module remains disabled until that ownership
-migration can be tested independently.
+`flake.nix` generates one-factor evaluation checks for every supported choice.
+Context-dependent choices carry their prerequisites explicitly: bar checks force
+Hyprland, and Waybar-theme checks force Hyprland + Waybar. This means the checks keep
+exercising the intended module even if the active Default selection changes later.
+The matrix covers supported desktops, bars, Waybar themes, terminals, editors, file
+managers, shells, GPU modules, and gaming disabled.
+
+These checks intentionally force `system.build.toplevel.drvPath` evaluation without
+making every alternative system closure a CI build dependency. They catch missing
+inputs, removed/renamed options, module conflicts, and selector rot. They do not claim
+that every alternate desktop or hardware configuration has been runtime-tested on
+this laptop. A real switch to an alternative still requires its own smoke test.
+
+## Home Manager ownership
+
+The configuration intentionally has exactly one Home Manager user. Modules may use
+`home-manager.sharedModules`; this is Home Manager's native mechanism for applying a
+module to every configured Home Manager user and avoids routing dozens of modules
+through a custom accumulator.
+
+`modules/core/users.nix` asserts the single-user invariant so `sharedModules` cannot
+silently start configuring a future second user. `home-manager.useGlobalPkgs = true`
+is retained so NixOS and Home Manager share the same `pkgs` instance and overlays.
+
+## Commands versus selector names
+
+Choice names are configuration identities, not necessarily executable names.
+Terminal, editor, browser, and shell entries therefore carry command/package metadata
+in `lib/choices.nix`. Session variables such as `EDITOR`, `VISUAL`, `BROWSER`, and
+`TERMINAL` are derived from that metadata rather than guessing that a selector string
+is also the correct command.

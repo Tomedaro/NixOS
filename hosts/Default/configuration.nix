@@ -6,8 +6,12 @@
   ...
 }: let
   vars = workstationSettings;
-  select = kind: set: name:
-    set.${name} or (throw "Unsupported ${kind} choice: ${name}");
+  select = kind: set: name: let
+    choice = set.${name} or (throw "Unknown ${kind} choice: ${name}");
+  in
+    if choice.status == "supported"
+    then choice.module
+    else throw "${kind} choice '${name}' is ${choice.status}: ${choice.reason}";
 in {
   imports =
     [
@@ -18,8 +22,6 @@ in {
       # Core modules
       ../../modules/scripts
       ../../modules/core/boot.nix
-      ../../modules/core/bash.nix
-      ../../modules/core/zsh.nix
       ../../modules/core/starship.nix
       ../../modules/core/fonts.nix
       ../../modules/core/hardware.nix
@@ -43,6 +45,7 @@ in {
       (select "terminal" choices.terminals vars.terminal)
       (select "editor" choices.editors vars.editor)
       (select "file manager" choices.fileManagers vars.fileManager)
+      (select "shell" choices.shells vars.shell)
 
       ../../modules/programs/cli/tmux
       ../../modules/programs/cli/pi
