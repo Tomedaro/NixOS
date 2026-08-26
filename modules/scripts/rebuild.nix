@@ -125,6 +125,8 @@ pkgs.writeShellScriptBin "rebuild" ''
     printf '\n%b[3/6] Build gate%b\n' "$BOLD" "$NC"
     if [[ "$full" -eq 1 ]]; then
       ${pkgs.nix}/bin/nix flake check "$flake_ref"
+      printf '\n%bSupported variant matrix%b\n' "$BOLD" "$NC"
+      ${pkgs.nix}/bin/nix run "$flake_ref#check-variants" -- --flake "$flake_ref"
     fi
 
     system_path="$(${pkgs.nix}/bin/nix build --no-link --print-out-paths \

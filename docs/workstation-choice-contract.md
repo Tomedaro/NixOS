@@ -49,18 +49,32 @@ This keeps the lock graph aligned with functionality the repository actually pro
 
 ## Variant checks
 
-`flake.nix` generates one-factor evaluation checks for every supported choice.
-Context-dependent choices carry their prerequisites explicitly: bar checks force
-Hyprland, and Waybar-theme checks force Hyprland + Waybar. This means the checks keep
-exercising the intended module even if the active Default selection changes later.
-The matrix covers supported desktops, bars, Waybar themes, terminals, editors, file
-managers, shells, GPU modules, and gaming disabled.
+Routine `nix flake check` validates the real `Default` host plus cheap structural
+invariants. Alternate full-system configurations deliberately do not live under
+`checks.*`: `nix flake check --no-build` still evaluates every check derivation, so a
+large matrix there makes ordinary validation slow and memory-heavy.
 
-These checks intentionally force `system.build.toplevel.drvPath` evaluation without
-making every alternative system closure a CI build dependency. They catch missing
-inputs, removed/renamed options, module conflicts, and selector rot. They do not claim
-that every alternate desktop or hardware configuration has been runtime-tested on
-this laptop. A real switch to an alternative still requires its own smoke test.
+Supported non-default choices are instead exposed lazily under `lib.workstation.variantDrvPaths`
+and evaluated with:
+
+```console
+nix run .#check-variants
+```
+
+The app starts a fresh `nix eval` process for each selected variant so evaluator
+memory is released between configurations. `--list` shows the matrix, and individual
+names can be supplied when a change affects only one integration. `rebuild --full`
+runs the complete serial matrix in addition to the normal flake checks.
+
+The matrix is one-factor-at-a-time. Context-dependent choices carry their
+prerequisites explicitly: bar checks force Hyprland, and Waybar-theme checks force
+Hyprland + Waybar. Choices already exercised by the current `Default` configuration
+are omitted from the alternate matrix, avoiding redundant evaluation.
+
+Variant evaluation catches missing inputs, removed or renamed options, module
+conflicts, and selector rot. It does not claim runtime validation of every alternate
+desktop or hardware configuration; actually switching to an alternative still
+requires its own smoke test.
 
 ## Home Manager ownership
 

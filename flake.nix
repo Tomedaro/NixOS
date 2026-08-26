@@ -75,10 +75,7 @@
     inherit (self) outputs;
     lib = nixpkgs.lib;
     choices = import ./lib/choices.nix;
-    systems = [
-      "x86_64-linux"
-      "aarch64-linux"
-    ];
+    systems = ["x86_64-linux"];
     forAllSystems = lib.genAttrs systems;
 
     templates = import ./dev-shells;
@@ -181,6 +178,18 @@
         gaming-disabled = {games = false;};
       };
 
+    defaultWorkstationSettings = import ./hosts/Default/variables.nix;
+    isDefaultOverride = settingsOverride:
+      lib.all
+      (name:
+        builtins.hasAttr name defaultWorkstationSettings
+        && defaultWorkstationSettings.${name} == settingsOverride.${name})
+      (builtins.attrNames settingsOverride);
+    supportedAlternativeOverrides =
+      lib.filterAttrs (_: settingsOverride: !isDefaultOverride settingsOverride)
+      supportedVariantOverrides;
+    supportedAlternativeNames = builtins.attrNames supportedAlternativeOverrides;
+
     validChoiceStatuses = [
       "supported"
       "pending"
@@ -222,21 +231,41 @@
       Default = mkHost {host = "Default";};
     };
 
-    checks.x86_64-linux = let
-      pkgs = nixpkgs.legacyPackages.x86_64-linux;
-      mkVariantEvaluationCheck = name: settingsOverride: let
-        configuration = mkHost {
+    # Variant configurations are deliberately lazy and live outside `checks`.
+    # Routine `nix flake check` therefore validates the real Default host and
+    # cheap structural invariants without evaluating every alternate full system.
+    # `nix run .#check-variants` evaluates these paths serially on demand.
+    lib.workstation.variantDrvPaths =
+      lib.mapAttrs
+      (_: settingsOverride:
+        (mkHost {
           host = "Default";
           inherit settingsOverride;
-        };
-      in
-        builtins.seq configuration.config.system.build.toplevel.drvPath (
-          pkgs.runCommand "variant-${name}-evaluation" {} ''
-            touch "$out"
-          ''
-        );
-    in
-      {
+        }).config.system.build.toplevel.drvPath)
+      supportedAlternativeOverrides;
+
+    apps.x86_64-linux.check-variants = let
+      pkgs = nixpkgs.legacyPackages.x86_64-linux;
+      variantNamesFile =
+        pkgs.writeText "workstation-supported-variants"
+        (lib.concatStringsSep "\n" supportedAlternativeNames + "\n");
+      checkVariants = pkgs.writeShellApplication {
+        name = "check-variants";
+        runtimeInputs = [pkgs.git pkgs.nix];
+        text = ''
+          export WORKSTATION_VARIANTS_FILE=${variantNamesFile}
+          ${builtins.readFile ./scripts/check-variants.sh}
+        '';
+      };
+    in {
+      type = "app";
+      program = "${checkVariants}/bin/check-variants";
+      meta.description = "Evaluate supported non-default workstation variants serially";
+    };
+
+    checks.x86_64-linux = let
+      pkgs = nixpkgs.legacyPackages.x86_64-linux;
+    in {
         system = self.nixosConfigurations.Default.config.system.build.toplevel;
 
         formatting =
@@ -271,12 +300,7 @@
           pkgs.runCommand "workstation-choice-catalog-check" {} ''
             touch "$out"
           '';
-      }
-      // lib.mapAttrs' (
-        name: settingsOverride:
-          lib.nameValuePair "variant-${name}" (mkVariantEvaluationCheck name settingsOverride)
-      )
-      supportedVariantOverrides;
+      };
 
     devShells = forAllSystems (system: let
       pkgs = import nixpkgs {
