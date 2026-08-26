@@ -39,3 +39,13 @@ consolidated-memory.md
 memory-consolidation.md
 *.zip
 tmp/
+
+# Python/test runtime state
+.pytest_cache/
+.hypothesis/
+.coverage
+.coverage.*
+
+# Generated verification artifacts
+/artifacts/
+/modules/programs/ai/artifacts/
