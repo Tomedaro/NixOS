@@ -69,6 +69,7 @@ in
         localsend
         onlyoffice-desktopeditors
         libreoffice-qt-fresh
+        signal-desktop
 
         # Terminal tools
         fuzzel
