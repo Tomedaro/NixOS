@@ -1,0 +1,440 @@
+{
+  "generated_at": "2026-07-25",
+  "generator": "reducer-derived",
+  "policy": {
+    "stuck_ttl_seconds": 7200,
+    "max_future_skew_seconds": 300,
+    "max_card_revisions": 3,
+    "observation_seconds": 600,
+    "card_ttl_seconds": 900,
+    "context_ttl_seconds": 300,
+    "start_countdown_seconds_cap": 600
+  },
+  "traces": [
+    {
+      "trace_id": "TRACE_M2_C01_stuck_ingestion",
+      "description": "M2-C01: Valid Stuck ingestion produces card_published, phase=awaiting_response, replay idempotent",
+      "policy": {"stuck_ttl_seconds": 7200, "max_card_revisions": 3},
+      "inputs": [
+        {
+          "kind": "stuck",
+          "payload": {
+            "schema_version": "task_initiation_stuck.v1",
+            "event_id": "00000000-0000-4000-8000-000000000001",
+            "source": "tasker",
+            "occurred_at_epoch": 1700000000,
+            "task_ref": {"source": "tasknotes", "ref": "Tasks/test.md"},
+            "task_description": "Test task"
+          }
+        }
+      ],
+      "expected_snapshots": [
+        {"stage": "after_ingest", "phase": "awaiting_response", "terminal_status": null}
+      ],
+      "expected_results": [
+        {"stage": "ingest_stuck", "status": "card_published", "replay": false}
+      ]
+    },
+    {
+      "trace_id": "TRACE_M2_C02_start_response",
+      "description": "M2-C02: Start response transitions to observing",
+      "policy": {"stuck_ttl_seconds": 7200, "observation_seconds": 600},
+      "inputs": [
+        {
+          "kind": "stuck",
+          "payload": {
+            "schema_version": "task_initiation_stuck.v1",
+            "event_id": "00000000-0000-4000-8000-000000000002",
+            "source": "tasker",
+            "occurred_at_epoch": 1700000000,
+            "task_ref": {"source": "tasknotes", "ref": "Tasks/test.md"},
+            "task_description": "Test task"
+          }
+        },
+        {
+          "kind": "response",
+          "payload": {
+            "schema_version": "task_initiation_response.v1",
+            "response_id": "00000000-0000-4000-8000-0000000000a1",
+            "card_id": "00000000-0000-4000-b000-000000000002",
+            "action": "start",
+            "detail": null,
+            "occurred_at_epoch": 1700000000
+          }
+        }
+      ],
+      "expected_snapshots": [
+        {"stage": "after_stuck", "phase": "awaiting_response", "terminal_status": null},
+        {"stage": "after_response", "phase": "observing", "terminal_status": null}
+      ],
+      "expected_results": [
+        {"stage": "ingest_stuck", "status": "card_published", "replay": false},
+        {"stage": "respond", "status": "accepted", "replay": false}
+      ]
+    },
+    {
+      "trace_id": "TRACE_M2_C03_shrink_response",
+      "description": "M2-C03: Shrink response produces next_card, stays awaiting_response",
+      "policy": {"stuck_ttl_seconds": 7200, "max_card_revisions": 3},
+      "inputs": [
+        {
+          "kind": "stuck",
+          "payload": {
+            "schema_version": "task_initiation_stuck.v1",
+            "event_id": "00000000-0000-4000-8000-000000000003",
+            "source": "tasker",
+            "occurred_at_epoch": 1700000000,
+            "task_ref": {"source": "tasknotes", "ref": "Tasks/test.md"},
+            "task_description": "Test task"
+          }
+        },
+        {
+          "kind": "response",
+          "payload": {
+            "schema_version": "task_initiation_response.v1",
+            "response_id": "00000000-0000-4000-8000-0000000000b1",
+            "card_id": "00000000-0000-4000-b000-000000000003",
+            "action": "shrink",
+            "detail": "Too big",
+            "occurred_at_epoch": 1700000000
+          }
+        }
+      ],
+      "expected_snapshots": [
+        {"stage": "after_stuck", "phase": "awaiting_response", "terminal_status": null},
+        {"stage": "after_shrink", "phase": "awaiting_response", "terminal_status": null}
+      ],
+      "expected_results": [
+        {"stage": "ingest_stuck", "status": "card_published", "replay": false},
+        {"stage": "respond", "status": "accepted", "replay": false, "has_next_card": true}
+      ]
+    },
+    {
+      "trace_id": "TRACE_M2_C04_blocked_response",
+      "description": "M2-C04: Blocked response produces next_card, stays awaiting_response",
+      "policy": {"stuck_ttl_seconds": 7200, "max_card_revisions": 3},
+      "inputs": [
+        {
+          "kind": "stuck",
+          "payload": {
+            "schema_version": "task_initiation_stuck.v1",
+            "event_id": "00000000-0000-4000-8000-000000000004",
+            "source": "tasker",
+            "occurred_at_epoch": 1700000000,
+            "task_ref": {"source": "tasknotes", "ref": "Tasks/test.md"},
+            "task_description": "Blocked task"
+          }
+        },
+        {
+          "kind": "response",
+          "payload": {
+            "schema_version": "task_initiation_response.v1",
+            "response_id": "00000000-0000-4000-8000-0000000000c1",
+            "card_id": "00000000-0000-4000-b000-000000000004",
+            "action": "blocked",
+            "detail": "External dependency",
+            "occurred_at_epoch": 1700000000
+          }
+        }
+      ],
+      "expected_snapshots": [
+        {"stage": "after_stuck", "phase": "awaiting_response", "terminal_status": null},
+        {"stage": "after_blocked", "phase": "awaiting_response", "terminal_status": null}
+      ],
+      "expected_results": [
+        {"stage": "ingest_stuck", "status": "card_published", "replay": false},
+        {"stage": "respond", "status": "accepted", "replay": false, "has_next_card": true}
+      ]
+    },
+    {
+      "trace_id": "TRACE_M2_C05_defer_response",
+      "description": "M2-C05: Defer response produces terminal_status=completed, phase=observing",
+      "policy": {"stuck_ttl_seconds": 7200, "observation_seconds": 600},
+      "inputs": [
+        {
+          "kind": "stuck",
+          "payload": {
+            "schema_version": "task_initiation_stuck.v1",
+            "event_id": "00000000-0000-4000-8000-000000000005",
+            "source": "tasker",
+            "occurred_at_epoch": 1700000000,
+            "task_ref": {"source": "tasknotes", "ref": "Tasks/test.md"},
+            "task_description": "Deferred task"
+          }
+        },
+        {
+          "kind": "response",
+          "payload": {
+            "schema_version": "task_initiation_response.v1",
+            "response_id": "00000000-0000-4000-8000-0000000000d1",
+            "card_id": "00000000-0000-4000-b000-000000000005",
+            "action": "defer",
+            "detail": null,
+            "occurred_at_epoch": 1700000000
+          }
+        }
+      ],
+      "expected_snapshots": [
+        {"stage": "after_stuck", "phase": "awaiting_response", "terminal_status": null},
+        {"stage": "after_defer", "phase": "observing", "terminal_status": "completed"}
+      ],
+      "expected_results": [
+        {"stage": "ingest_stuck", "status": "card_published", "replay": false},
+        {"stage": "respond", "status": "accepted", "replay": false}
+      ]
+    },
+    {
+      "trace_id": "TRACE_M2_C06_dismiss_response",
+      "description": "M2-C06: Dismiss response produces terminal_status=completed",
+      "policy": {"stuck_ttl_seconds": 7200, "observation_seconds": 600},
+      "inputs": [
+        {
+          "kind": "stuck",
+          "payload": {
+            "schema_version": "task_initiation_stuck.v1",
+            "event_id": "00000000-0000-4000-8000-000000000006",
+            "source": "tasker",
+            "occurred_at_epoch": 1700000000,
+            "task_ref": {"source": "tasknotes", "ref": "Tasks/test.md"},
+            "task_description": "Dismissed task"
+          }
+        },
+        {
+          "kind": "response",
+          "payload": {
+            "schema_version": "task_initiation_response.v1",
+            "response_id": "00000000-0000-4000-8000-0000000000e1",
+            "card_id": "00000000-0000-4000-b000-000000000006",
+            "action": "dismiss",
+            "detail": null,
+            "occurred_at_epoch": 1700000000
+          }
+        }
+      ],
+      "expected_snapshots": [
+        {"stage": "after_stuck", "phase": "awaiting_response", "terminal_status": null},
+        {"stage": "after_dismiss", "phase": "observing", "terminal_status": "completed"}
+      ],
+      "expected_results": [
+        {"stage": "ingest_stuck", "status": "card_published", "replay": false},
+        {"stage": "respond", "status": "accepted", "replay": false}
+      ]
+    },
+    {
+      "trace_id": "TRACE_M2_C07_revision_ceiling",
+      "description": "M2-C07: Three shrinks hit max_card_revisions=3, terminal after reaching ceiling",
+      "policy": {"stuck_ttl_seconds": 7200, "max_card_revisions": 3, "card_ttl_seconds": 900},
+      "inputs": [
+        {
+          "kind": "stuck",
+          "payload": {
+            "schema_version": "task_initiation_stuck.v1",
+            "event_id": "00000000-0000-4000-8000-000000000007",
+            "source": "tasker",
+            "occurred_at_epoch": 1700000000,
+            "task_ref": {"source": "tasknotes", "ref": "Tasks/test.md"},
+            "task_description": "Revision ceiling task"
+          }
+        },
+        {
+          "kind": "response",
+          "payload": {
+            "schema_version": "task_initiation_response.v1",
+            "response_id": "00000000-0000-4000-8000-0000000000f1",
+            "card_id": "00000000-0000-4000-b000-000000000007",
+            "action": "shrink",
+            "detail": "Shrink 1",
+            "occurred_at_epoch": 1700000000
+          }
+        },
+        {
+          "kind": "response",
+          "payload": {
+            "schema_version": "task_initiation_response.v1",
+            "response_id": "00000000-0000-4000-8000-0000000000f2",
+            "card_id": "00000000-0000-4000-b000-000000000007",
+            "action": "shrink",
+            "detail": "Shrink 2",
+            "occurred_at_epoch": 1700000000
+          }
+        },
+        {
+          "kind": "response",
+          "payload": {
+            "schema_version": "task_initiation_response.v1",
+            "response_id": "00000000-0000-4000-8000-0000000000f3",
+            "card_id": "00000000-0000-4000-b000-000000000007",
+            "action": "shrink",
+            "detail": "Shrink 3",
+            "occurred_at_epoch": 1700000000
+          }
+        }
+      ],
+      "expected_snapshots": [
+        {"stage": "after_stuck", "phase": "awaiting_response", "terminal_status": null},
+        {"stage": "after_shrink1", "phase": "awaiting_response", "terminal_status": null},
+        {"stage": "after_shrink2", "phase": "awaiting_response", "terminal_status": null},
+        {"stage": "after_shrink3", "phase": "awaiting_response", "terminal_status": "expired"}
+      ],
+      "expected_results": [
+        {"stage": "ingest_stuck", "status": "card_published"},
+        {"stage": "respond_1", "status": "accepted"},
+        {"stage": "respond_2", "status": "accepted"},
+        {"stage": "respond_3", "status": "accepted"}
+      ]
+    },
+    {
+      "trace_id": "TRACE_M2_C08_card_expiry",
+      "description": "M2-C08: Card past expires_at_epoch rejects respond with KernelRefusalError",
+      "policy": {"stuck_ttl_seconds": 7200, "card_ttl_seconds": 10},
+      "inputs": [
+        {
+          "kind": "stuck",
+          "payload": {
+            "schema_version": "task_initiation_stuck.v1",
+            "event_id": "00000000-0000-4000-8000-000000000008",
+            "source": "tasker",
+            "occurred_at_epoch": 1700000000,
+            "task_ref": {"source": "tasknotes", "ref": "Tasks/test.md"},
+            "task_description": "Expiring task"
+          }
+        }
+      ],
+      "expected_snapshots": [
+        {"stage": "after_stuck", "phase": "awaiting_response", "terminal_status": null}
+      ],
+      "expected_results": [
+        {"stage": "ingest_stuck", "status": "card_published"},
+        {"stage": "respond_after_expiry", "error": "KernelRefusalError"}
+      ]
+    },
+    {
+      "trace_id": "TRACE_M2_C09_observation_completion",
+      "description": "M2-C09: reconcile() transitions overdue observing to terminal",
+      "policy": {"stuck_ttl_seconds": 7200, "observation_seconds": 10, "card_ttl_seconds": 900},
+      "inputs": [
+        {
+          "kind": "stuck",
+          "payload": {
+            "schema_version": "task_initiation_stuck.v1",
+            "event_id": "00000000-0000-4000-8000-000000000009",
+            "source": "tasker",
+            "occurred_at_epoch": 1700000000,
+            "task_ref": {"source": "tasknotes", "ref": "Tasks/test.md"},
+            "task_description": "Observation task"
+          }
+        },
+        {
+          "kind": "response",
+          "payload": {
+            "schema_version": "task_initiation_response.v1",
+            "response_id": "00000000-0000-4000-8000-0000000000a9",
+            "card_id": "00000000-0000-4000-b000-000000000009",
+            "action": "start",
+            "detail": null,
+            "occurred_at_epoch": 1700000000
+          }
+        }
+      ],
+      "expected_snapshots": [
+        {"stage": "after_stuck", "phase": "awaiting_response", "terminal_status": null},
+        {"stage": "after_start", "phase": "observing", "terminal_status": null},
+        {"stage": "after_reconcile_past_deadline", "phase": "observing", "terminal_status": "completed"}
+      ],
+      "expected_results": [
+        {"stage": "ingest_stuck", "status": "card_published"},
+        {"stage": "respond", "status": "accepted"},
+        {"stage": "reconcile", "ok": true, "reconciled": 1}
+      ]
+    },
+    {
+      "trace_id": "TRACE_M2_C10_supersession",
+      "description": "M2-C10: Response with changed task revision supersedes interaction",
+      "policy": {"stuck_ttl_seconds": 7200, "max_card_revisions": 3},
+      "inputs": [
+        {
+          "kind": "stuck",
+          "payload": {
+            "schema_version": "task_initiation_stuck.v1",
+            "event_id": "00000000-0000-4000-8000-00000000000a",
+            "source": "tasker",
+            "occurred_at_epoch": 1700000000,
+            "task_ref": {"source": "tasknotes", "ref": "Tasks/test.md"},
+            "task_description": "Original task"
+          }
+        }
+      ],
+      "expected_snapshots": [
+        {"stage": "after_stuck", "phase": "awaiting_response", "terminal_status": null},
+        {"stage": "after_supersede", "phase": "awaiting_response", "terminal_status": "superseded"}
+      ],
+      "expected_results": [
+        {"stage": "ingest_stuck", "status": "card_published"},
+        {"stage": "respond_with_changed_revision", "status": "superseded"}
+      ]
+    },
+    {
+      "trace_id": "TRACE_M2_C11_idempotent_replay",
+      "description": "M2-C11: Identical Stuck replay returns replay=True with same result",
+      "policy": {"stuck_ttl_seconds": 7200, "max_card_revisions": 3},
+      "inputs": [
+        {
+          "kind": "stuck",
+          "payload": {
+            "schema_version": "task_initiation_stuck.v1",
+            "event_id": "00000000-0000-4000-8000-00000000000b",
+            "source": "tasker",
+            "occurred_at_epoch": 1700000000,
+            "task_ref": {"source": "tasknotes", "ref": "Tasks/test.md"},
+            "task_description": "Replay task"
+          }
+        }
+      ],
+      "expected_snapshots": [
+        {"stage": "after_first_ingest", "phase": "awaiting_response", "terminal_status": null},
+        {"stage": "after_replay", "phase": "awaiting_response", "terminal_status": null}
+      ],
+      "expected_results": [
+        {"stage": "ingest_stuck_1", "status": "card_published", "replay": false},
+        {"stage": "ingest_stuck_2", "status": "card_published", "replay": true}
+      ]
+    },
+    {
+      "trace_id": "TRACE_M2_C12_restart_resilience",
+      "description": "M2-C12: Close/reopen preserves phase, check_database passes, all rows intact",
+      "policy": {"stuck_ttl_seconds": 7200, "observation_seconds": 600, "max_card_revisions": 3},
+      "inputs": [
+        {
+          "kind": "stuck",
+          "payload": {
+            "schema_version": "task_initiation_stuck.v1",
+            "event_id": "00000000-0000-4000-8000-00000000000c",
+            "source": "tasker",
+            "occurred_at_epoch": 1700000000,
+            "task_ref": {"source": "tasknotes", "ref": "Tasks/test.md"},
+            "task_description": "Restart task"
+          }
+        },
+        {
+          "kind": "response",
+          "payload": {
+            "schema_version": "task_initiation_response.v1",
+            "response_id": "00000000-0000-4000-8000-0000000000ac",
+            "card_id": "00000000-0000-4000-b000-00000000000c",
+            "action": "start",
+            "detail": null,
+            "occurred_at_epoch": 1700000000
+          }
+        }
+      ],
+      "expected_snapshots": [
+        {"stage": "before_restart", "phase": "observing", "terminal_status": null},
+        {"stage": "after_restart", "phase": "observing", "terminal_status": null}
+      ],
+      "expected_results": [
+        {"stage": "check_database_before", "status": "ok"},
+        {"stage": "check_database_after", "status": "ok"}
+      ]
+    }
+  ]
+}
