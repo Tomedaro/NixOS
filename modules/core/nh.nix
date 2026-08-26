@@ -1,8 +1,10 @@
-{ config, pkgs, ... }:
-let
-  username = config.workstation.user.name;
-in
 {
+  config,
+  pkgs,
+  ...
+}: let
+  username = config.workstation.user.name;
+in {
   programs.nh = {
     enable = true;
     clean = {

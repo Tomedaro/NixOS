@@ -1,5 +1,4 @@
-{ pkgs, ... }:
-let
+{pkgs, ...}: let
   dreamsofcode-io-catppuccin-tmux = pkgs.tmuxPlugins.mkTmuxPlugin {
     pluginName = "catppuccin";
     version = "unstable-2023-01-06";
@@ -10,8 +9,7 @@ let
       sha256 = "sha256-FJHM6LJkiAwxaLd5pnAoF3a7AE1ZqHWoCpUJE0ncCA8=";
     };
   };
-in
-{
+in {
   home-manager.sharedModules = [
     (_: {
       programs.tmux = {

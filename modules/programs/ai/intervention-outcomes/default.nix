@@ -1,16 +1,18 @@
 # modules/programs/ai/intervention-outcomes/default.nix
-{ config, lib, pkgs, ... }:
-
-let
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}: let
   cfg = config.my.ai.interventionOutcomes;
 
   interventionOutcomesScript = pkgs.writeShellScriptBin "ai-intervention-outcomes" ''
     export PYTHONPATH="${../python}:$PYTHONPATH"
     exec ${pkgs.python3}/bin/python3 ${./intervention_outcomes_reporter.py} "$@"
   '';
-in
-{
-  imports = [ ../core ];
+in {
+  imports = [../core];
   options.my.ai.interventionOutcomes = {
     enable = lib.mkEnableOption "local AI intervention outcome reporter";
 
@@ -75,7 +77,7 @@ in
     systemd.user.timers.ai-intervention-outcomes = lib.mkIf cfg.enableTimer {
       description = "Run local AI intervention outcome reporter";
 
-      wantedBy = [ "timers.target" ];
+      wantedBy = ["timers.target"];
 
       timerConfig = {
         OnCalendar = cfg.timerOnCalendar;

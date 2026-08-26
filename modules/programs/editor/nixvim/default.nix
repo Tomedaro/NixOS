@@ -3,11 +3,9 @@
   inputs,
   pkgs,
   ...
-}:
-let
+}: let
   terminal = config.workstation.apps.terminal;
-in
-{
+in {
   home-manager.sharedModules = [
     (_: {
       home.packages = with pkgs; [

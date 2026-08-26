@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{pkgs, ...}:
 pkgs.writeShellScriptBin "keybinds-show" ''
   ${pkgs.procps}/bin/pkill yad || true
 

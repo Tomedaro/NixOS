@@ -1,10 +1,12 @@
-{ config, pkgs, ... }:
-let
+{
+  config,
+  pkgs,
+  ...
+}: let
   clock24h = config.workstation.localization.clock24h;
   terminal = config.workstation.apps.terminal;
-  gpuinfo = pkgs.callPackage ../../scripts/gpuinfo.nix { };
-in
-{
+  gpuinfo = pkgs.callPackage ../../scripts/gpuinfo.nix {};
+in {
   home-manager.sharedModules = [
     (_: {
       programs.waybar = {
@@ -78,7 +80,7 @@ in
                 "tray"
                 # "wlr/taskbar"
               ];
-              drawer = { };
+              drawer = {};
             };
             "custom/trigger" = {
               format = "󰍜";
@@ -93,7 +95,7 @@ in
             };
             "wlr/taskbar" = {
               on-click = "activate";
-              ignore-list = [ "kitty" ];
+              ignore-list = ["kitty"];
               cursor = true;
             };
 
@@ -198,8 +200,14 @@ in
             };
 
             "clock#time" = {
-              format = if clock24h == true then "{:%R}" else "{:%I:%M}";
-              format-alt = if clock24h == true then "{:%I:%M}" else "{:%R}";
+              format =
+                if clock24h == true
+                then "{:%R}"
+                else "{:%I:%M}";
+              format-alt =
+                if clock24h == true
+                then "{:%I:%M}"
+                else "{:%R}";
               min-length = 5;
               max-length = 5;
               tooltip-format = "Standard Time: {:%I:%M %p}";

@@ -1,5 +1,8 @@
-{ pkgs, lib, ... }:
 {
+  pkgs,
+  lib,
+  ...
+}: {
   home-manager.sharedModules = [
     (_: {
       xdg.configFile."kitty/themes/amber-cathode.conf".source =

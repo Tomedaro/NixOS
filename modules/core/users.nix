@@ -3,18 +3,17 @@
   pkgs,
   inputs,
   ...
-}:
-let
+}: let
   username = config.workstation.user.name;
-  inherit (config.workstation.apps)
+  inherit
+    (config.workstation.apps)
     editor
     terminal
     browser
     shell
     ;
-in
-{
-  imports = [ inputs.home-manager.nixosModules.home-manager ];
+in {
+  imports = [inputs.home-manager.nixosModules.home-manager];
   programs.dconf.enable = true; # Enable dconf for home-manager
   home-manager = {
     useGlobalPkgs = true;
@@ -32,12 +31,11 @@ in
         stateVersion = "26.05"; # Intentionally migrated from 23.11; see docs/state-version-26.05.md
         sessionVariables = {
           EDITOR =
-            if (editor == "nixvim" || editor == "neovim" || editor == "nvchad") then
-              "nvim"
-            else if editor == "vscode" then
-              "code"
-            else
-              "nano";
+            if (editor == "nixvim" || editor == "neovim" || editor == "nvchad")
+            then "nvim"
+            else if editor == "vscode"
+            then "code"
+            else "nano";
           BROWSER = "${browser}";
           TERMINAL = "${terminal}";
         };
@@ -68,5 +66,5 @@ in
       ignoreShellProgramCheck = true;
     };
   };
-  nix.settings.allowed-users = [ "${username}" ];
+  nix.settings.allowed-users = ["${username}"];
 }

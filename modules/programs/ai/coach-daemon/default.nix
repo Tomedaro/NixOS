@@ -1,16 +1,18 @@
 # modules/programs/ai/coach-daemon/default.nix
-{ config, lib, pkgs, ... }:
-
-let
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}: let
   cfg = config.my.ai.coachDaemon;
 
   coachScript = pkgs.writeShellScriptBin "productivity-coach" ''
     export PYTHONPATH="${../python}''${PYTHONPATH:+:$PYTHONPATH}"
     exec ${pkgs.python3}/bin/python3 ${./coach.py} "$@"
   '';
-in
-{
-  imports = [ ../core ];
+in {
+  imports = [../core];
   options.my.ai.coachDaemon = {
     enable = lib.mkEnableOption "rule-based productivity coach daemon";
 
@@ -60,7 +62,7 @@ in
     systemd.user.services.productivity-coach = {
       description = "Rule-based productivity coach daemon";
 
-      wantedBy = [ "default.target" ];
+      wantedBy = ["default.target"];
 
       after = [
         "aw-server-rust.service"

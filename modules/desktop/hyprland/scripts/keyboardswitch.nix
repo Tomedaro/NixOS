@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{pkgs, ...}:
 pkgs.writeShellScriptBin "keyboardswitch" ''
   hyprctl switchxkblayout all next
 

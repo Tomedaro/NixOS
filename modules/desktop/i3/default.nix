@@ -1,13 +1,16 @@
-{ config, lib, pkgs, ... }:
-let
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}: let
   inherit (lib) getExe getExe';
   terminal = config.workstation.apps.terminal;
   browser = config.workstation.apps.browser;
   defaultWallpaper = config.workstation.appearance.wallpaper;
-  monitors = pkgs.callPackage ./scripts/monitors.nix { };
-  wallpaper = pkgs.callPackage ./scripts/wallpaper.nix { };
-in
-{
+  monitors = pkgs.callPackage ./scripts/monitors.nix {};
+  wallpaper = pkgs.callPackage ./scripts/wallpaper.nix {};
+in {
   imports = [
     ../../themes/Catppuccin
     ../hyprland/programs/rofi
@@ -43,12 +46,12 @@ in
   };
   home-manager.sharedModules = [
     (_: {
-      imports = [ ./picom.nix ];
+      imports = [./picom.nix];
       xsession.windowManager.i3 = {
         enable = true;
         package = pkgs.i3;
         config = {
-          floating.criteria = [ { class = "^Mpv$"; } ];
+          floating.criteria = [{class = "^Mpv$";}];
           gaps.smartBorders = "on";
           window.titlebar = false;
           window.hideEdgeBorders = "both";
@@ -82,7 +85,7 @@ in
           keybindings = import ./keybindings.nix {
             inherit pkgs terminal browser;
           };
-          bars = [ ];
+          bars = [];
           startup = [
             {
               command = "${getExe monitors}";

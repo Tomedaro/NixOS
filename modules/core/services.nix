@@ -1,5 +1,8 @@
-{ pkgs, lib, ... }:
 {
+  pkgs,
+  lib,
+  ...
+}: {
   # Services to start
   services = {
     libinput.enable = true; # Input Handling
@@ -17,7 +20,7 @@
 
     openssh = {
       enable = true;
-      ports = [ 22 ];
+      ports = [22];
       settings = {
         PasswordAuthentication = true;
         KbdInteractiveAuthentication = true;
@@ -69,9 +72,8 @@
       };
     };
   };
-systemd.user.services.blueman-applet.serviceConfig.ExecStart = lib.mkForce [
+  systemd.user.services.blueman-applet.serviceConfig.ExecStart = lib.mkForce [
     ""
     "${pkgs.blueman}/bin/blueman-applet"
   ];
-
-  }
+}

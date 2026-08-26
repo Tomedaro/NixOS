@@ -1,5 +1,4 @@
-{ pkgs, ... }:
-{
+{pkgs, ...}: {
   home-manager.sharedModules = [
     (_: {
       programs.btop = {

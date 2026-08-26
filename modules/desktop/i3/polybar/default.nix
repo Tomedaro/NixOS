@@ -1,8 +1,7 @@
-{ pkgs, ... }:
-let
-  cava = pkgs.callPackage ./scripts/cava.nix { };
-  gpu_temp = pkgs.callPackage ./scripts/gpu_temp.nix { };
-  workspaces = pkgs.callPackage ./scripts/workspaces.nix { };
+{pkgs, ...}: let
+  cava = pkgs.callPackage ./scripts/cava.nix {};
+  gpu_temp = pkgs.callPackage ./scripts/gpu_temp.nix {};
+  workspaces = pkgs.callPackage ./scripts/workspaces.nix {};
   colors = {
     rosewater = "#f5e0dc";
     flamingo = "#f2cdcd";
@@ -32,8 +31,7 @@ let
     crust = "#11111b";
     transparent = "#FF00000";
   };
-in
-{
+in {
   home-manager.sharedModules = [
     (_: {
       services.polybar = {

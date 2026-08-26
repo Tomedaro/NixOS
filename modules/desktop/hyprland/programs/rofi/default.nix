@@ -3,12 +3,10 @@
   pkgs,
   lib,
   ...
-}:
-let
+}: let
   terminal = config.workstation.apps.terminal;
   inherit (lib) getExe;
-in
-{
+in {
   home-manager.sharedModules = [
     (_: {
       programs.rofi = {

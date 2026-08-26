@@ -3,11 +3,9 @@
   pkgs,
   config,
   ...
-}:
-let
+}: let
   nvidiaDriverChannel = config.boot.kernelPackages.nvidiaPackages.stable; # stable, latest, beta, etc.
-in
-{
+in {
   environment.sessionVariables = lib.optionalAttrs config.programs.hyprland.enable {
     GBM_BACKEND = "nvidia-drm";
     WLR_NO_HARDWARE_CURSORS = "1";
@@ -21,7 +19,7 @@ in
   };
 
   # Load nvidia driver for Xorg and Wayland
-  services.xserver.videoDrivers = [ "nvidia" ]; # or "nvidiaLegacy470", etc.
+  services.xserver.videoDrivers = ["nvidia"]; # or "nvidiaLegacy470", etc.
   boot.kernelParams = lib.optionals (lib.elem "nvidia" config.services.xserver.videoDrivers) [
     "nvidia-drm.modeset=1"
     "nvidia_drm.fbdev=1"
@@ -52,8 +50,7 @@ in
   };
   nixpkgs.config = {
     nvidia.acceptLicense = true;
-    allowUnfreePredicate =
-      pkg:
+    allowUnfreePredicate = pkg:
       builtins.elem (lib.getName pkg) [
         "cudatoolkit"
         "nvidia-persistenced"

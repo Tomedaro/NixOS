@@ -3,12 +3,10 @@
   lib,
   pkgs,
   ...
-}:
-let
+}: let
   clock24h = config.workstation.localization.clock24h;
   bluetoothSupport = config.workstation.hardware.bluetooth;
-in
-{
+in {
   # Optional Dependencies
   # https://hyprpanel.com/getting_started/astal.html#dependencies
   environment.systemPackages = with pkgs; [
@@ -27,7 +25,7 @@ in
           notifications = {
             timeout = 3500;
             autoDismiss = true;
-            ignore = [ ]; # Class name
+            ignore = []; # Class name
           };
           theme = {
             font.size = "1.1rem";
@@ -47,17 +45,17 @@ in
 
             # Opacities
             /*
-              bar.buttons.opacity = 100;
-              bar.buttons.background_hover_opacity = 100;
-              bar.opacity = 80;
-              bar.menus.opacity = 80;
-              bar.buttons.background_opacity = 80;
-              notification.opacity = 80;
+            bar.buttons.opacity = 100;
+            bar.buttons.background_hover_opacity = 100;
+            bar.opacity = 80;
+            bar.menus.opacity = 80;
+            bar.buttons.background_opacity = 80;
+            notification.opacity = 80;
             */
           };
           bar = {
             autoHide = "fullscreen"; # fullscreen, never
-            systray.ignore = [ ]; # Binary name (e.g. "nm-applet")
+            systray.ignore = []; # Binary name (e.g. "nm-applet")
             launcher = {
               rightClick = "launcher drun";
               autoDetectIcon = true;
@@ -113,7 +111,7 @@ in
                   # "media"
                 ];
                 right =
-                  [ ]
+                  []
                   ++ lib.optionals (bluetoothSupport == true) [
                     "volume"
                     "network"

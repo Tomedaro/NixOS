@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{pkgs, ...}:
 pkgs.writeShellScriptBin "workspaces" ''
   WORKSPACES=(1 2 3 4 5 6 7 8 9 10)
   EXISTING=$(${pkgs.i3}/bin/i3-msg -t get_workspaces | ${pkgs.jq}/bin/jq -r '.[] | .num')

@@ -1,5 +1,4 @@
-{ ... }:
-{
+{...}: {
   home-manager.sharedModules = [
     (_: {
       programs.yazi = {
@@ -33,11 +32,11 @@
         keymap = {
           mgr.prepend_keymap = [
             {
-              on = [ "e" ];
+              on = ["e"];
               run = "open";
             }
             {
-              on = [ "d" ];
+              on = ["d"];
               run = "remove --force";
             }
           ];

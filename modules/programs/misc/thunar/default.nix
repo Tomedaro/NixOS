@@ -1,5 +1,4 @@
-{ pkgs, ... }:
-{
+{pkgs, ...}: {
   programs.thunar = {
     enable = true;
     plugins = with pkgs; [
@@ -9,5 +8,5 @@
     ];
   };
   # Archive manager
-  environment.systemPackages = with pkgs; [ file-roller ];
+  environment.systemPackages = with pkgs; [file-roller];
 }

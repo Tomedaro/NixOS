@@ -1,18 +1,14 @@
-{ pkgs, ... }:
-let
-  fromYAML =
-    f:
-    let
-      jsonFile =
-        pkgs.runCommand "lazygit yaml to attribute set" { nativeBuildInputs = [ pkgs.jc ]; } # bash
-
-          ''
-            jc --yaml < "${f}" > "$out"
-          '';
-    in
+{pkgs, ...}: let
+  fromYAML = f: let
+    jsonFile =
+      pkgs.runCommand "lazygit yaml to attribute set" {nativeBuildInputs = [pkgs.jc];} # bash
+      
+      ''
+        jc --yaml < "${f}" > "$out"
+      '';
+  in
     builtins.elemAt (builtins.fromJSON (builtins.readFile jsonFile)) 0;
-in
-{
+in {
   home-manager.sharedModules = [
     (_: {
       home.shellAliases = {

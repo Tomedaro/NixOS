@@ -1,7 +1,10 @@
 # modules/programs/ai/default.nix
-{ config, lib, pkgs, ... }:
-
 {
+  config,
+  lib,
+  pkgs,
+  ...
+}: {
   imports = [
     ./core
     ./session-manager
@@ -219,7 +222,6 @@
     triggerPlannerOnAnswer = lib.mkDefault true;
   };
 
-
   ###########################################################################
   # Unified action bridge
   ###########################################################################
@@ -233,7 +235,6 @@
     authorityLevel = lib.mkDefault 2;
     triggerHelpNow = lib.mkDefault true;
   };
-
 
   ###########################################################################
   # Recovery nudge trigger
@@ -262,7 +263,6 @@
   my.ai.sessionManager.enable = lib.mkDefault true;
   my.ai.sessionManager.aiDir = lib.mkDefault config.my.ai.core.aiDir;
 
-
   ###########################################################################
   # Recovery lifecycle manager
   ###########################################################################
@@ -270,5 +270,4 @@
   my.ai.recoveryManager = {
     enable = lib.mkDefault true;
   };
-
 }

@@ -1,5 +1,10 @@
-{ lib, stdenv, fetchurl, autoPatchelfHook, libgcc }:
-
+{
+  lib,
+  stdenv,
+  fetchurl,
+  autoPatchelfHook,
+  libgcc,
+}:
 stdenv.mkDerivation rec {
   pname = "lean-ctx";
   version = "3.7.5";
@@ -10,9 +15,9 @@ stdenv.mkDerivation rec {
     hash = "sha256-xYav5kEUFCuuNgtcJ/NhjS++T4K6Sz4GQglvM7Jo5NM=";
   };
 
-  nativeBuildInputs = [ autoPatchelfHook ];
+  nativeBuildInputs = [autoPatchelfHook];
   sourceRoot = ".";
-  buildInputs = [ libgcc ];
+  buildInputs = [libgcc];
 
   installPhase = ''
     install -Dm755 lean-ctx $out/bin/lean-ctx

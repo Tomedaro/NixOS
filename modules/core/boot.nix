@@ -1,10 +1,9 @@
-{ pkgs, ... }:
-{
+{pkgs, ...}: {
   boot = {
-    supportedFilesystems = [ "ntfs" "exfat" "ext4" "fat32" "btrfs" ];
+    supportedFilesystems = ["ntfs" "exfat" "ext4" "fat32" "btrfs"];
     tmp.cleanOnBoot = true;
     kernelPackages = pkgs.linuxPackages_latest;
-    kernelParams = [ "preempt=full" ];
+    kernelParams = ["preempt=full"];
     loader = {
       efi.canTouchEfiVariables = true;
       efi.efiSysMountPoint = "/boot";

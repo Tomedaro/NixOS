@@ -1,5 +1,4 @@
-{ ... }:
-{
+{...}: {
   networking.firewall = {
     allowedTCPPorts = [
       53
@@ -15,8 +14,8 @@
     enable = false;
     settings = {
       Resolve = {
-        Domains = [ "~." ];
-        FallbackDNS = [ ]; # Empty to prevent bypass
+        Domains = ["~."];
+        FallbackDNS = []; # Empty to prevent bypass
         DNSOverTLS = "true";
 
         # github.com/systemd/systemd/issues/10579
@@ -32,7 +31,7 @@
         "network.target"
         "unbound.service"
       ];
-      Requires = [ "unbound.service" ];
+      Requires = ["unbound.service"];
     };
   };
   services = {
@@ -43,7 +42,7 @@
         server = {
           # When only using Unbound as DNS, make sure to replace 127.0.0.1 with your ip address
           # When using Unbound in combination with pi-hole or Adguard, leave 127.0.0.1, and point Adguard to 127.0.0.1:PORT
-          interface = [ "127.0.0.1" ]; # "::1"
+          interface = ["127.0.0.1"]; # "::1"
           port = 5335;
           access-control = [
             "127.0.0.1 allow"
@@ -86,8 +85,8 @@
         dns = {
           bind_host = "0.0.0.0";
           bind_port = 53;
-          upstream_dns = [ "127.0.0.1:5335" ];
-          bootstrap_dns = [ "127.0.0.1:5335" ];
+          upstream_dns = ["127.0.0.1:5335"];
+          bootstrap_dns = ["127.0.0.1:5335"];
         };
         filtering = {
           protection_enabled = true;
@@ -98,60 +97,60 @@
         };
         filters =
           map
-            (url: {
-              enabled = true;
-              url = url;
-            })
-            [
-              "https://adguardteam.github.io/HostlistsRegistry/assets/filter_9.txt"
-              "https://adguardteam.github.io/HostlistsRegistry/assets/filter_11.txt"
-              "https://easylist.to/easylist/easylist.txt" # Base filter
-              "https://easylist.to/easylist/easyprivacy.txt" # Privacy protection
-              "https://osint.digitalside.it/Threat-Intel/lists/latestdomains.txt" # Malware domains
-              "https://raw.githubusercontent.com/Spam404/lists/master/main-blacklist.txt" # Scam protection                                                                                      "https://raw.githubusercontent.com/hoshsadiq/adblock-nocoin-list/master/nocoin.txt"  # Cryptominers
+          (url: {
+            enabled = true;
+            url = url;
+          })
+          [
+            "https://adguardteam.github.io/HostlistsRegistry/assets/filter_9.txt"
+            "https://adguardteam.github.io/HostlistsRegistry/assets/filter_11.txt"
+            "https://easylist.to/easylist/easylist.txt" # Base filter
+            "https://easylist.to/easylist/easyprivacy.txt" # Privacy protection
+            "https://osint.digitalside.it/Threat-Intel/lists/latestdomains.txt" # Malware domains
+            "https://raw.githubusercontent.com/Spam404/lists/master/main-blacklist.txt" # Scam protection                                                                                      "https://raw.githubusercontent.com/hoshsadiq/adblock-nocoin-list/master/nocoin.txt"  # Cryptominers
 
-              # My Lists
-              # "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/pro.txt" # Large
-              "https://raw.githubusercontent.com/yokoffing/filterlists/refs/heads/main/privacy_essentials.txt"
-              "https://raw.githubusercontent.com/DandelionSprout/adfilt/refs/heads/master/LegitimateURLShortener.txt"
-              "https://raw.githubusercontent.com/yokoffing/filterlists/refs/heads/main/annoyance_list.txt"
-              "https://raw.githubusercontent.com/DandelionSprout/adfilt/refs/heads/master/BrowseWebsitesWithoutLoggingIn.txt"
-              "https://raw.githubusercontent.com/hagezi/dns-blocklists/refs/heads/main/adblock/spam-tlds-ublock.txt"
-              "https://raw.githubusercontent.com/iam-py-test/my_filters_001/refs/heads/main/antitypo.txt"
-              # "https://raw.githubusercontent.com/iam-py-test/my_filters_001/refs/heads/main/antimalware.txt"
-              # "https://raw.githubusercontent.com/DandelionSprout/adfilt/refs/heads/master/Dandelion%20Sprout's%20Anti-Malware%20List.txt"
-            ];
+            # My Lists
+            # "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/pro.txt" # Large
+            "https://raw.githubusercontent.com/yokoffing/filterlists/refs/heads/main/privacy_essentials.txt"
+            "https://raw.githubusercontent.com/DandelionSprout/adfilt/refs/heads/master/LegitimateURLShortener.txt"
+            "https://raw.githubusercontent.com/yokoffing/filterlists/refs/heads/main/annoyance_list.txt"
+            "https://raw.githubusercontent.com/DandelionSprout/adfilt/refs/heads/master/BrowseWebsitesWithoutLoggingIn.txt"
+            "https://raw.githubusercontent.com/hagezi/dns-blocklists/refs/heads/main/adblock/spam-tlds-ublock.txt"
+            "https://raw.githubusercontent.com/iam-py-test/my_filters_001/refs/heads/main/antitypo.txt"
+            # "https://raw.githubusercontent.com/iam-py-test/my_filters_001/refs/heads/main/antimalware.txt"
+            # "https://raw.githubusercontent.com/DandelionSprout/adfilt/refs/heads/master/Dandelion%20Sprout's%20Anti-Malware%20List.txt"
+          ];
       };
     };
   };
   /*
-    services.stubby = {
-      enable = true;
-      settings = {
-        # ::1 cause error, use 0::1 instead
-        listen_addresses = [
-          "127.0.0.1@5300"
-          "0::1@5300"
-        ];
-        resolution_type = "GETDNS_RESOLUTION_STUB";
-        dns_transport_list = [ "GETDNS_TRANSPORT_TLS" ];
-        tls_authentication = "GETDNS_AUTHENTICATION_REQUIRED";
-        tls_query_padding_blocksize = 128;
-        idle_timeout = 10000;
-        round_robin_upstreams = 1;
-        tls_min_version = "GETDNS_TLS1_3";
-        dnssec = "GETDNS_EXTENSION_TRUE";
-        upstream_recursive_servers = [
-          {
-            address_data = "1.0.0.2";
-            tls_auth_name = "cloudflare-dns.com";
-          }
-          {
-            address_data = "9.9.9.9";
-            tls_auth_name = "dns.quad9.net";
-          }
-        ];
-      };
+  services.stubby = {
+    enable = true;
+    settings = {
+      # ::1 cause error, use 0::1 instead
+      listen_addresses = [
+        "127.0.0.1@5300"
+        "0::1@5300"
+      ];
+      resolution_type = "GETDNS_RESOLUTION_STUB";
+      dns_transport_list = [ "GETDNS_TRANSPORT_TLS" ];
+      tls_authentication = "GETDNS_AUTHENTICATION_REQUIRED";
+      tls_query_padding_blocksize = 128;
+      idle_timeout = 10000;
+      round_robin_upstreams = 1;
+      tls_min_version = "GETDNS_TLS1_3";
+      dnssec = "GETDNS_EXTENSION_TRUE";
+      upstream_recursive_servers = [
+        {
+          address_data = "1.0.0.2";
+          tls_auth_name = "cloudflare-dns.com";
+        }
+        {
+          address_data = "9.9.9.9";
+          tls_auth_name = "dns.quad9.net";
+        }
+      ];
     };
+  };
   */
 }

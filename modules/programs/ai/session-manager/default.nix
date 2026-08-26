@@ -1,16 +1,18 @@
 # modules/programs/ai/session-manager/default.nix
-{ config, lib, pkgs, ... }:
-
-let
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}: let
   cfg = config.my.ai.sessionManager;
 
   sessionScript = pkgs.writeShellScriptBin "ai-session" ''
     export PYTHONPATH="${../python}''${PYTHONPATH:+:$PYTHONPATH}"
     exec ${pkgs.python3}/bin/python3 ${./session_manager.py} "$@"
   '';
-in
-{
-  imports = [ ../core ];
+in {
+  imports = [../core];
   options.my.ai.sessionManager = {
     enable = lib.mkEnableOption "AI productivity session manager";
 

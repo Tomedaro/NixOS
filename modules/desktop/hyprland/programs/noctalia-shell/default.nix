@@ -3,12 +3,10 @@
   inputs,
   pkgs,
   ...
-}:
-let
+}: let
   clock24h = config.workstation.localization.clock24h;
   bluetoothSupport = config.workstation.hardware.bluetooth;
-in
-{
+in {
   # Optional Dependencies
   environment.systemPackages = with pkgs; [
     wl-clipboard
@@ -84,7 +82,7 @@ in
                   drawerEnabled = true;
                   hidePassive = false;
                   id = "Tray";
-                  pinned = [ ];
+                  pinned = [];
                 }
                 {
                   compactMode = false;
@@ -115,14 +113,14 @@ in
                   textColor = "none";
                 }
                 /*
-                  {
-                    hideWhenZero = false;
-                    hideWhenZeroUnread = false;
-                    iconColor = "none";
-                    id = "NotificationHistory";
-                    showUnreadBadge = true;
-                    unreadBadgeColor = "primary";
-                  }
+                {
+                  hideWhenZero = false;
+                  hideWhenZeroUnread = false;
+                  iconColor = "none";
+                  id = "NotificationHistory";
+                  showUnreadBadge = true;
+                  unreadBadgeColor = "primary";
+                }
                 */
                 {
                   applyToAllMonitors = false;

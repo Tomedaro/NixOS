@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{pkgs, ...}:
 pkgs.writeShellScriptBin "screen-record" ''
   XDG_VIDEOS_DIR="''${XDG_VIDEOS_DIR:-$HOME/Videos}"
   DIR="''${XDG_VIDEOS_DIR}/screen-record"

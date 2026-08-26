@@ -3,13 +3,11 @@
   terminal,
   browser,
   ...
-}:
-let
+}: let
   mod = "Mod4";
   alt = "Mod1";
   menu = "launcher";
-in
-{
+in {
   # Start a terminal
   "${mod}+Return" = "exec --no-startup-id ${terminal}";
 
@@ -134,12 +132,9 @@ in
   "XF86AudioPrev" = "exec --no-startup-id ${pkgs.playerctl}/bin/playerctl previous";
 
   # PulseAudio controls
-  "XF86AudioRaiseVolume" =
-    "exec --no-startup-id ${pkgs.pulseaudio}/bin/pactl set-sink-volume @DEFAULT_SINK@ +5%";
-  "XF86AudioLowerVolume" =
-    "exec --no-startup-id ${pkgs.pulseaudio}/bin/pactl set-sink-volume @DEFAULT_SINK@ -5%";
-  "XF86AudioMute" =
-    "exec --no-startup-id ${pkgs.pulseaudio}/bin/pactl set-sink-mute @DEFAULT_SINK@ toggle";
+  "XF86AudioRaiseVolume" = "exec --no-startup-id ${pkgs.pulseaudio}/bin/pactl set-sink-volume @DEFAULT_SINK@ +5%";
+  "XF86AudioLowerVolume" = "exec --no-startup-id ${pkgs.pulseaudio}/bin/pactl set-sink-volume @DEFAULT_SINK@ -5%";
+  "XF86AudioMute" = "exec --no-startup-id ${pkgs.pulseaudio}/bin/pactl set-sink-mute @DEFAULT_SINK@ toggle";
 
   # Brightness controls
   "XF86MonBrightnessUp" = "exec --no-startup-id ${pkgs.brightnessctl}/bin/brightnessctl set +5%";

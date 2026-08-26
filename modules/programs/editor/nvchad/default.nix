@@ -2,11 +2,10 @@
   inputs,
   pkgs,
   ...
-}:
-{
+}: {
   home-manager.sharedModules = [
     (_: {
-      imports = [ inputs.nvchad4nix.homeManagerModule ];
+      imports = [inputs.nvchad4nix.homeManagerModule];
       programs.nvchad = {
         enable = true;
         extraPlugins = ''
@@ -20,10 +19,11 @@
         extraPackages = with pkgs; [
           nixd
           (python3.withPackages (
-            ps: with ps; [
-              python-lsp-server
-              flake8
-            ]
+            ps:
+              with ps; [
+                python-lsp-server
+                flake8
+              ]
           ))
         ];
         hm-activation = true;

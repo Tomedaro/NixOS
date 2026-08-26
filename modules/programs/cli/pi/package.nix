@@ -1,15 +1,15 @@
 {
   pkgs,
-  inputs ? { },
+  inputs ? {},
   paths,
-}:
-
-let
+}: let
   system = pkgs.stdenv.hostPlatform.system;
   nodejs = pkgs.nodejs_24;
 
   piPackage =
-    if inputs ? piNix then inputs.piNix.packages.${system}.coding-agent else pkgs.pi-coding-agent;
+    if inputs ? piNix
+    then inputs.piNix.packages.${system}.coding-agent
+    else pkgs.pi-coding-agent;
 
   piNpm = pkgs.writeShellScriptBin "pi-npm" ''
     set -euo pipefail
@@ -42,14 +42,14 @@ let
     ++ pkgs.lib.optional (pkgs ? bubblewrap) pkgs.bubblewrap
   );
 
-  engramPackage = pkgs.callPackage ./packages/engram.nix { };
+  engramPackage = pkgs.callPackage ./packages/engram.nix {};
 
   # Build mcp-nixos against this system's nixpkgs instead of using the
   # upstream flake package. The upstream package currently applies its
   # fastmcp3 overlay, which forces fastmcp 3.2.4 onto nixpkgs' split
   # fastmcp/fastmcp-slim packaging and leaves fastmcp-slim with an invalid
   # sourceRoot.
-  mcpNixosPackage = inputs.mcp-nixos.lib.mkMcpNixos { inherit pkgs; };
+  mcpNixosPackage = inputs.mcp-nixos.lib.mkMcpNixos {inherit pkgs;};
 
   mcpNixosWrapper = pkgs.writeShellScriptBin "mcp-nixos" ''
     exec ${mcpNixosPackage}/bin/mcp-nixos "$@"
@@ -61,7 +61,7 @@ let
   ];
   mcpNixosSrv = {
     command = "${mcpNixosWrapper}/bin/mcp-nixos";
-    args = [ ];
+    args = [];
     lifecycle = "lazy";
     directTools = true;
   };
@@ -71,7 +71,7 @@ let
     lifecycle = "lazy";
     directTools = false;
   };
-  mcpJsonFormat = pkgs.formats.json { };
+  mcpJsonFormat = pkgs.formats.json {};
   generatedMcpGlobal = mcpJsonFormat.generate "mcp-global.json" {
     mcpServers = {
       nixos = mcpNixosSrv;
@@ -87,8 +87,8 @@ let
 
   piWrapped = pkgs.symlinkJoin {
     name = "pi-coding-agent";
-    paths = [ piPackage ];
-    buildInputs = [ pkgs.makeWrapper ];
+    paths = [piPackage];
+    buildInputs = [pkgs.makeWrapper];
 
     postBuild = ''
       wrapProgram $out/bin/pi \
@@ -99,8 +99,7 @@ let
         --set PI_CACHE_RETENTION long
     '';
   };
-in
-{
+in {
   inherit
     piWrapped
     piNpm

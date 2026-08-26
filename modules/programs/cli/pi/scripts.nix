@@ -7,9 +7,7 @@
   engramPackage,
   generatedMcpGlobal,
   generatedMcpNixos,
-}:
-
-let
+}: let
   jq = "${pkgs.jq}/bin/jq";
   chmod = "${pkgs.coreutils}/bin/chmod";
   cp = "${pkgs.coreutils}/bin/cp";
@@ -1101,7 +1099,7 @@ let
         fi
   '';
 
-  ankiSafeWriter = (import ./anki-safe-writer { inherit pkgs lib; }).ankiSafeWriter;
+  ankiSafeWriter = (import ./anki-safe-writer {inherit pkgs lib;}).ankiSafeWriter;
 
   piTestAnkiSafeWriter = pkgs.writeShellScriptBin "pi-test-anki-safe-writer" ''
     set -euo pipefail
@@ -1663,9 +1661,14 @@ let
   # Detect Pi's bundled Node by reading the .pi-wrapped wrapper
   piWrappedFile = "${piWrapped}/bin/.pi-wrapped";
   piWrappedContent =
-    if builtins.pathExists piWrappedFile then builtins.readFile piWrappedFile else "";
+    if builtins.pathExists piWrappedFile
+    then builtins.readFile piWrappedFile
+    else "";
   piNodeMatch = builtins.match ''.*exec "([^"]+)" .*'' piWrappedContent;
-  piNode = if piNodeMatch != null then builtins.head piNodeMatch else "${pkgs.nodejs_24}/bin/node";
+  piNode =
+    if piNodeMatch != null
+    then builtins.head piNodeMatch
+    else "${pkgs.nodejs_24}/bin/node";
 
   piHermesDoctor = pkgs.writeShellScriptBin "pi-hermes-doctor" ''
     set -euo pipefail
@@ -2649,9 +2652,7 @@ let
     fi
     exit "$failures"
   '';
-
-in
-{
+in {
   inherit
     piBootstrap
     piStudyInit

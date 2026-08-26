@@ -4,15 +4,13 @@
   inputs,
   pkgs,
   ...
-}:
-let
+}: let
   browser = config.workstation.apps.browser;
   terminal = config.workstation.apps.terminal;
   editor = config.workstation.apps.editor;
   games = config.workstation.features.gaming;
   defaultWallpaper = config.workstation.appearance.wallpaper;
-in
-{
+in {
   programs.thunar.enable = lib.mkForce false;
   services = {
     # xserver.enable = lib.mkForce true;
@@ -31,15 +29,15 @@ in
 
   environment.systemPackages = with pkgs; [
     (catppuccin-kde.override {
-      flavour = [ "mocha" ];
-      accents = [ "mauve" ];
+      flavour = ["mocha"];
+      accents = ["mauve"];
     })
     bibata-cursors
   ];
 
   home-manager.sharedModules = [
     (_: {
-      imports = [ inputs.plasma-manager.homeModules.plasma-manager ];
+      imports = [inputs.plasma-manager.homeModules.plasma-manager];
       programs.plasma = {
         enable = true;
         immutableByDefault = true;
@@ -47,7 +45,7 @@ in
         workspace = {
           clickItemTo = "select"; # select, open
           lookAndFeel = "Catppuccin-Mocha-Mauve"; # Global Theme
-          colorScheme =  "CatppuccinMochaMauve";
+          colorScheme = "CatppuccinMochaMauve";
           theme = "default"; # Plasma Style
           cursor = {
             size = 24;

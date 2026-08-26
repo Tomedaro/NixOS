@@ -1,8 +1,11 @@
-{ config, lib, pkgs, ... }:
-let
-  cfg = config.my.ai.ollama;
-in
 {
+  config,
+  lib,
+  pkgs,
+  ...
+}: let
+  cfg = config.my.ai.ollama;
+in {
   options.my.ai.ollama = {
     enable = lib.mkEnableOption "local Ollama service";
     package = lib.mkOption {
@@ -12,7 +15,7 @@ in
     };
     loadModels = lib.mkOption {
       type = lib.types.listOf lib.types.str;
-      default = [ ];
+      default = [];
       description = "Models to preload";
     };
   };

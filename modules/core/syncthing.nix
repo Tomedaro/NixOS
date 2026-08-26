@@ -1,8 +1,6 @@
-{ config, ... }:
-let
+{config, ...}: let
   username = config.workstation.user.name;
-in
-{
+in {
   services.syncthing = {
     enable = true;
     user = "${username}";

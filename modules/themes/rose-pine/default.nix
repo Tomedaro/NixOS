@@ -1,21 +1,25 @@
-{ host, pkgs, ... }:
-let
+{
+  host,
+  pkgs,
+  ...
+}: let
   # Choose the desired variant: "main", "moon", or "dawn"
   variant = "main";
 
   # Compute base names for themes
-  baseName = if variant == "main" then "rose-pine" else "rose-pine-${variant}";
+  baseName =
+    if variant == "main"
+    then "rose-pine"
+    else "rose-pine-${variant}";
   kvantumThemeName = "${baseName}-iris";
 
   # Fetch the Rose Pine Kvantum repository
   rose-pine-kvantum-pkg = pkgs.rose-pine-kvantum;
   kvantumThemeDir = "${rose-pine-kvantum-pkg}/share/Kvantum/themes/${kvantumThemeName}";
-in
-{
+in {
   home-manager.sharedModules = [
     (
-      { config, ... }:
-      {
+      {config, ...}: {
         # Include Rose Pine GTK and icon themes
         home.packages = [
           rose-pine-kvantum-pkg
@@ -59,10 +63,10 @@ in
         # Kvantum configuration
         xdg.configFile."Kvantum/${kvantumThemeName}".source = kvantumThemeDir;
         xdg.configFile."Kvantum/kvantum.kvconfig".source =
-          (pkgs.formats.ini { }).generate "kvantum.kvconfig"
-            {
-              General.theme = kvantumThemeName;
-            };
+          (pkgs.formats.ini {}).generate "kvantum.kvconfig"
+          {
+            General.theme = kvantumThemeName;
+          };
 
         # GNOME dark mode
         dconf.settings = {
@@ -82,12 +86,9 @@ in
 
         # GTK4 assets for consistency
         xdg.configFile = {
-          "gtk-4.0/assets".source =
-            "${config.gtk.theme.package}/share/themes/${config.gtk.theme.name}/gtk-4.0/assets";
-          "gtk-4.0/gtk.css".source =
-            "${config.gtk.theme.package}/share/themes/${config.gtk.theme.name}/gtk-4.0/gtk.css";
-          "gtk-4.0/gtk-dark.css".source =
-            "${config.gtk.theme.package}/share/themes/${config.gtk.theme.name}/gtk-4.0/gtk-dark.css";
+          "gtk-4.0/assets".source = "${config.gtk.theme.package}/share/themes/${config.gtk.theme.name}/gtk-4.0/assets";
+          "gtk-4.0/gtk.css".source = "${config.gtk.theme.package}/share/themes/${config.gtk.theme.name}/gtk-4.0/gtk.css";
+          "gtk-4.0/gtk-dark.css".source = "${config.gtk.theme.package}/share/themes/${config.gtk.theme.name}/gtk-4.0/gtk-dark.css";
         };
       }
     )

@@ -1,9 +1,6 @@
-{ config, ... }:
-let
+{config, ...}: let
   hostname = config.workstation.hostName;
-in
-{
-
+in {
   services.minidlna = {
     enable = true;
     openFirewall = true;
@@ -23,6 +20,6 @@ in
     };
   };
   users.users.minidlna = {
-    extraGroups = [ "users" ]; # so minidlna can access the files.
+    extraGroups = ["users"]; # so minidlna can access the files.
   };
 }

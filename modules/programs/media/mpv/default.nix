@@ -1,9 +1,7 @@
-{ pkgs, ... }:
-{
+{pkgs, ...}: {
   home-manager.sharedModules = [
     (
-      { config, ... }:
-      {
+      {config, ...}: {
         programs.mpv = {
           enable = true;
           scripts = with pkgs.mpvScripts; [

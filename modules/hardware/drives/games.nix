@@ -1,5 +1,4 @@
-{ lib, ... }:
-{
+{lib, ...}: {
   fileSystems."/mnt/games" = lib.mkForce {
     device = "/dev/disk/by-uuid/01DA12C1CBDE9100";
     fsType = "ntfs-3g";

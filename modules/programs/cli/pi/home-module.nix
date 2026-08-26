@@ -1,19 +1,15 @@
-{
-  inputs ? { },
-}:
-{
+{inputs ? {}}: {
   config,
   pkgs,
   lib,
   ...
-}:
-
-let
-  paths = import ./lib/paths.nix { inherit config; };
-  package = import ./package.nix { inherit pkgs inputs paths; };
+}: let
+  paths = import ./lib/paths.nix {inherit config;};
+  package = import ./package.nix {inherit pkgs inputs paths;};
   scripts = import ./scripts.nix {
     inherit pkgs lib paths;
-    inherit (package)
+    inherit
+      (package)
       piWrapped
       piNpm
       engramPackage
@@ -30,8 +26,7 @@ let
       ;
     inherit (package) piWrapped piNpm engramPackage;
   };
-in
-{
+in {
   home.packages = [
     package.engramPackage
     package.piNpm

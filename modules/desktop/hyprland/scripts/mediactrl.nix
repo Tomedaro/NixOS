@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{pkgs, ...}:
 pkgs.writeShellScriptBin "mediactrl" ''
   music_icon="''${XDG_CONFIG_HOME:-$HOME/.config}/hypr/icons/music.png"
 

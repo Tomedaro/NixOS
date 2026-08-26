@@ -1,10 +1,8 @@
-{ lib, ... }:
-let
+{lib, ...}: let
   inherit (lib) mkOption types;
   choices = import ../../lib/choices.nix;
   choiceNames = set: builtins.attrNames set;
-in
-{
+in {
   options.workstation = {
     user.name = mkOption {
       type = types.str;

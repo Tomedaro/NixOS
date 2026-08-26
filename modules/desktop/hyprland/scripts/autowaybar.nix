@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{pkgs, ...}:
 pkgs.writeShellScriptBin "autowaybar" ''
   UID_VAL=$(${pkgs.coreutils}/bin/id -u)
 

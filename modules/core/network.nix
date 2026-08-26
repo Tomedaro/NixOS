@@ -1,9 +1,10 @@
-{ config, pkgs, ... }:
-
-let
-  hostname = config.workstation.hostName;
-in
 {
+  config,
+  pkgs,
+  ...
+}: let
+  hostname = config.workstation.hostName;
+in {
   networking = {
     hostName = "${hostname}";
     networkmanager.enable = true;
@@ -11,13 +12,13 @@ in
 
     firewall = {
       enable = true;
-      allowedTCPPorts = [ ];
-      allowedUDPPorts = [ ];
+      allowedTCPPorts = [];
+      allowedUDPPorts = [];
     };
   };
 
   boot = {
-    kernelModules = [ "tcp_bbr" ];
+    kernelModules = ["tcp_bbr"];
     kernel.sysctl = {
       # TCP hardening
       "kernel.sysrq" = 0;
@@ -86,5 +87,5 @@ in
   systemd.services.NetworkManager-wait-online.enable = false;
   systemd.network.wait-online.enable = false;
 
-  environment.systemPackages = with pkgs; [ networkmanagerapplet ];
+  environment.systemPackages = with pkgs; [networkmanagerapplet];
 }

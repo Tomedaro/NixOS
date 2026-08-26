@@ -3,11 +3,9 @@
   inputs,
   pkgs,
   ...
-}:
-let
+}: let
   terminal = config.workstation.apps.terminal;
-in
-{
+in {
   environment.systemPackages = with pkgs; [
     gcc # to compile treesitter parsers
     nodejs

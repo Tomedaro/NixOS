@@ -2,12 +2,10 @@
   self,
   pkgs,
   ...
-}:
-{
+}: {
   home-manager.sharedModules = [
     (
-      { config, ... }:
-      {
+      {config, ...}: {
         programs.zsh = {
           enable = true;
           autosuggestion.enable = false; # Loaded lazily via zsh-defer

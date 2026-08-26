@@ -1,18 +1,18 @@
-{ pkgs, inputs, ... }:
-
-let
+{
+  pkgs,
+  inputs,
+  ...
+}: let
   anki-wayland-fixed = pkgs.symlinkJoin {
     name = "anki";
-    paths = [ pkgs.anki-bin ];
-    buildInputs = [ pkgs.makeWrapper ];
+    paths = [pkgs.anki-bin];
+    buildInputs = [pkgs.makeWrapper];
     postBuild = ''
       wrapProgram $out/bin/anki \
         --set QTWEBENGINE_CHROMIUM_FLAGS "--no-sandbox"
     '';
   };
-in
-
-{
+in {
   environment.systemPackages = with pkgs; [
     # Personal tools
     easyeffects
@@ -50,7 +50,7 @@ in
     github-desktop
     firefoxpwa
     (inputs.zen-browser.packages.${stdenv.hostPlatform.system}.beta.override {
-      nativeMessagingHosts = [ pkgs.firefoxpwa ];
+      nativeMessagingHosts = [pkgs.firefoxpwa];
     })
   ];
 

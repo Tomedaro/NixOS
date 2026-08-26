@@ -6,9 +6,7 @@
   piNpm,
   engramPackage,
   scripts,
-}:
-
-let
+}: let
   git = "${pkgs.git}/bin/git";
   date = "${pkgs.coreutils}/bin/date";
   mkdir = "${pkgs.coreutils}/bin/mkdir";
@@ -37,7 +35,7 @@ let
     rev = "0229ddc80b965e4ca11377a9730e46d0bd7701ac";
     hash = "sha256-3V478/NqPlfZcepz+9sMPp2mFOKznJX58h9Q+02Bst4=";
   };
-  analystWorkerOrchestrator = pkgs.runCommand "pi-analyst-worker-orchestrator-patched" { } ''
+  analystWorkerOrchestrator = pkgs.runCommand "pi-analyst-worker-orchestrator-patched" {} ''
         cp -R ${analystWorkerOrchestratorSrc} $out
         chmod -R u+w $out
         substituteInPlace $out/src/index.ts \
@@ -651,8 +649,7 @@ let
             ;;
         esac
   '';
-in
-{
+in {
   inherit
     piSmart
     piRaw

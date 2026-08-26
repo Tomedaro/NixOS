@@ -1,8 +1,6 @@
-{ config, ... }:
-let
+{config, ...}: let
   hyprlockWallpaper = config.workstation.appearance.lockWallpaper;
-in
-{
+in {
   home-manager.sharedModules = [
     (_: {
       programs.hyprlock = {
@@ -81,15 +79,15 @@ in
               valign = "bottom";
             }
             /*
-                 {
-                monitor = "";
-                text = "Enter your password to unlock.";
-                color = "rgb(198, 160, 246)";
-                font_size = 14;
-                position = "0, 60";
-                halign = "center";
-                valign = "bottom";
-              }
+               {
+              monitor = "";
+              text = "Enter your password to unlock.";
+              color = "rgb(198, 160, 246)";
+              font_size = 14;
+              position = "0, 60";
+              halign = "center";
+              valign = "bottom";
+            }
             */
           ];
         };

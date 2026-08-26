@@ -1,7 +1,10 @@
 # ../../modules/services/syncthing.nix
-{ pkgs, config, lib, ... }:
-
-let
+{
+  pkgs,
+  config,
+  lib,
+  ...
+}: let
   # Replace 'your_gui_username' with your desired Syncthing Web UI username
   guiUser = "daniil"; # Or your preferred username
 
@@ -11,14 +14,12 @@ let
   # Make sure `syncthing` is available in your PATH when you run this,
   # e.g., by temporarily adding it with `nix-shell -p syncthing`.
   guiPasswordHash = "$2a$10$yourGeneratedBcryptHashHere"; # <- REPLACE THIS
-
-in
-{
+in {
   # This module will be imported into home-manager's configuration.
   # So, we define home-manager options here.
 
   # Ensure the Syncthing package is available
-  home.packages = with pkgs; [ 
+  home.packages = with pkgs; [
     syncthing
   ];
 
@@ -37,14 +38,14 @@ in
     # user = guiUser;
     # password = guiPasswordHash; # Uses the hash defined above
     # useTLS = false; # Set to true if you plan to expose it via HTTPS, default for localhost is false
-        # address = "127.0.0.1:8384"; # Default listen address, usually fine.
+    # address = "127.0.0.1:8384"; # Default listen address, usually fine.
     # };
-      # You can add other global Syncthing settings here if needed.
-      # For example, to set a device name declaratively:
-      # device = {
-      #   name = "NixOS-Laptop"; # Or your desired device name
-      # };
-      # However, device name and folder sharing are often easier to manage via the UI initially.
+    # You can add other global Syncthing settings here if needed.
+    # For example, to set a device name declaratively:
+    # device = {
+    #   name = "NixOS-Laptop"; # Or your desired device name
+    # };
+    # However, device name and folder sharing are often easier to manage via the UI initially.
     # };
   };
 

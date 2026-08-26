@@ -2,11 +2,9 @@
   config,
   pkgs,
   ...
-}:
-let
+}: let
   browser = config.workstation.apps.browser;
-in
-{
+in {
   home-manager.sharedModules = [
     (_: {
       services.dunst = {

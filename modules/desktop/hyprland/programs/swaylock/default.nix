@@ -1,5 +1,4 @@
-{ ... }:
-{
+{...}: {
   home-manager.sharedModules = [
     (_: {
       xdg.configFile."swaylock/config".text = ''

@@ -3,9 +3,7 @@
   pkgs,
   inputs,
   ...
-}:
-
-let
+}: let
   clock24h = config.workstation.localization.clock24h;
   username = config.workstation.user.name;
   bluetoothSupport = config.workstation.hardware.bluetooth;
@@ -176,8 +174,7 @@ let
   };
 
   caelestiaShellJson = pkgs.writeText "caelestia-shell.json" (builtins.toJSON caelestiaSettings);
-in
-{
+in {
   environment.systemPackages = with pkgs; [
     wl-clipboard
     brightnessctl
@@ -185,8 +182,11 @@ in
 
   home-manager.sharedModules = [
     (
-      { config, lib, ... }:
       {
+        config,
+        lib,
+        ...
+      }: {
         imports = [
           inputs.caelestia-shell.homeManagerModules.default
         ];
@@ -196,7 +196,7 @@ in
           systemd.enable = false;
         };
 
-        home.activation.caelestiaWritableConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        home.activation.caelestiaWritableConfig = lib.hm.dag.entryAfter ["writeBoundary"] ''
           mkdir -p "${config.xdg.configHome}/caelestia"
 
           if [ -L "${config.xdg.configHome}/caelestia/shell.json" ]; then

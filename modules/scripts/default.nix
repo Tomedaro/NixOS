@@ -4,11 +4,9 @@
   host,
   config,
   ...
-}:
-let
+}: let
   terminal = config.workstation.apps.terminal;
-in
-let
+in let
   scriptArgs = {
     inherit host pkgs lib config terminal;
   };
@@ -23,7 +21,6 @@ let
     (import ./driverinfo.nix scriptArgs)
     (import ./underwatt.nix scriptArgs)
   ];
-in
-{
+in {
   environment.systemPackages = scripts;
 }

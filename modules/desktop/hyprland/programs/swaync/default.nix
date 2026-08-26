@@ -1,9 +1,7 @@
-{ pkgs, ... }:
-let
-  gamemode = pkgs.callPackage ../../scripts/gamemode.nix { };
-  togglepowermode = pkgs.callPackage ../../scripts/togglepowermode.nix { };
-in
-{
+{pkgs, ...}: let
+  gamemode = pkgs.callPackage ../../scripts/gamemode.nix {};
+  togglepowermode = pkgs.callPackage ../../scripts/togglepowermode.nix {};
+in {
   #  use later
   home-manager.sharedModules = [
     (_: {

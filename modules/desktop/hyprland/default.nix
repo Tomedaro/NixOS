@@ -5,23 +5,22 @@
   pkgs,
   workstationSettings,
   ...
-}:
-let
+}: let
   inherit (lib) optional;
   bar = workstationSettings.bar;
   barModule = choices.hyprlandBars.${bar} or (throw "Unsupported Hyprland bar choice: ${bar}");
-in
-{
-  imports = [
-    ../../themes/Gruvbox  # Gruvbox GTK and QT themes
-    ./variables.nix
-    barModule
-    ./programs/wlogout
-    ./programs/rofi
-    ./programs/hypridle
-    ./programs/hyprlock
-  ]
-  ++ optional (bar != "hyprpanel") ./programs/swaync;
+in {
+  imports =
+    [
+      ../../themes/Gruvbox # Gruvbox GTK and QT themes
+      ./variables.nix
+      barModule
+      ./programs/wlogout
+      ./programs/rofi
+      ./programs/hypridle
+      ./programs/hyprlock
+    ]
+    ++ optional (bar != "hyprpanel") ./programs/swaync;
 
   environment.systemPackages = with pkgs; [
     pavucontrol
@@ -39,9 +38,9 @@ in
 
   systemd.user.services.hyprpolkitagent = {
     description = "Hyprpolkitagent - Polkit authentication agent";
-    wantedBy = [ "graphical-session.target" ];
-    wants = [ "graphical-session.target" ];
-    after = [ "graphical-session.target" ];
+    wantedBy = ["graphical-session.target"];
+    wants = ["graphical-session.target"];
+    after = ["graphical-session.target"];
     serviceConfig = {
       Type = "simple";
       ExecStart = "${pkgs.hyprpolkitagent}/libexec/hyprpolkitagent";

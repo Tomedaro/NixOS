@@ -5,18 +5,17 @@
   pkgs,
   overlays,
   ...
-}:
-let
-  inherit (config.workstation.localization)
+}: let
+  inherit
+    (config.workstation.localization)
     consoleKeymap
     locale
     ;
   kbdLayout = config.workstation.localization.xkbLayout;
   kbdVariant = config.workstation.localization.xkbVariant;
   timezone = config.workstation.localization.timeZone;
-in
-{
-  imports = [ inputs.nix-index-database.nixosModules.nix-index ];
+in {
+  imports = [inputs.nix-index-database.nixosModules.nix-index];
   programs = {
     nix-index-database.comma.enable = true;
     gnupg.agent = {
@@ -26,7 +25,7 @@ in
   };
   services.xserver = {
     enable = true;
-    excludePackages = with pkgs; [ xterm ];
+    excludePackages = with pkgs; [xterm];
     exportConfiguration = true; # Make sure /etc/X11/xkb is populated so localectl works correctly
     xkb = {
       layout = "${kbdLayout}";
@@ -36,7 +35,7 @@ in
   nix = {
     # Nix Package Manager Settings
     settings = {
-      trusted-users = [ "root" "@wheel" ]; # Required by Cachix to be used as non-root user
+      trusted-users = ["root" "@wheel"]; # Required by Cachix to be used as non-root user
       accept-flake-config = true;
       builders-use-substitutes = true;
       download-buffer-size = 200000000;

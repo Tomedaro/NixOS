@@ -4,71 +4,70 @@
   choices,
   workstationSettings,
   ...
-}:
-let
+}: let
   vars = workstationSettings;
   select = kind: set: name:
     set.${name} or (throw "Unsupported ${kind} choice: ${name}");
-in
-{
-  imports = [
-    ../../modules/options/workstation.nix
-    ./hardware-configuration.nix
-    ./host-packages.nix
+in {
+  imports =
+    [
+      ../../modules/options/workstation.nix
+      ./hardware-configuration.nix
+      ./host-packages.nix
 
-    # Core modules
-    ../../modules/scripts
-    ../../modules/core/boot.nix
-    ../../modules/core/bash.nix
-    ../../modules/core/zsh.nix
-    ../../modules/core/starship.nix
-    ../../modules/core/fonts.nix
-    ../../modules/core/hardware.nix
-    ../../modules/core/network.nix
-    ../../modules/core/dns.nix
-    ../../modules/core/nh.nix
-    ../../modules/core/packages.nix
-    ../../modules/core/printing.nix
-    ../../modules/core/sddm.nix
-    ../../modules/core/security.nix
-    ../../modules/core/services.nix
-    ../../modules/core/syncthing.nix
-    ../../modules/core/system.nix
-    ../../modules/core/users.nix
+      # Core modules
+      ../../modules/scripts
+      ../../modules/core/boot.nix
+      ../../modules/core/bash.nix
+      ../../modules/core/zsh.nix
+      ../../modules/core/starship.nix
+      ../../modules/core/fonts.nix
+      ../../modules/core/hardware.nix
+      ../../modules/core/network.nix
+      ../../modules/core/dns.nix
+      ../../modules/core/nh.nix
+      ../../modules/core/packages.nix
+      ../../modules/core/printing.nix
+      ../../modules/core/sddm.nix
+      ../../modules/core/security.nix
+      ../../modules/core/services.nix
+      ../../modules/core/syncthing.nix
+      ../../modules/core/system.nix
+      ../../modules/core/users.nix
 
-    # Hardware and selected user-facing modules. Choice lookup is explicit so
-    # a typo fails here instead of becoming an accidental filesystem import.
-    (select "video driver" choices.videoDrivers vars.videoDriver)
-    ../../modules/hardware/drives
-    (select "desktop" choices.desktops vars.desktop)
-    (select "terminal" choices.terminals vars.terminal)
-    (select "editor" choices.editors vars.editor)
-    (select "file manager" choices.fileManagers vars.fileManager)
+      # Hardware and selected user-facing modules. Choice lookup is explicit so
+      # a typo fails here instead of becoming an accidental filesystem import.
+      (select "video driver" choices.videoDrivers vars.videoDriver)
+      ../../modules/hardware/drives
+      (select "desktop" choices.desktops vars.desktop)
+      (select "terminal" choices.terminals vars.terminal)
+      (select "editor" choices.editors vars.editor)
+      (select "file manager" choices.fileManagers vars.fileManager)
 
-    ../../modules/programs/cli/tmux
-    ../../modules/programs/cli/pi
-    ../../modules/programs/cli/omp
-    ../../modules/programs/cli/direnv
-    ../../modules/programs/cli/lazygit
-    ../../modules/programs/cli/cava
-    ../../modules/programs/cli/btop
-    ../../modules/programs/media/discord
-    ../../modules/programs/media/spicetify
-    ../../modules/programs/media/thunderbird
-    ../../modules/programs/media/obs-studio
-    ../../modules/programs/media/mpv
-    ../../modules/programs/misc/tlp
-    ../../modules/programs/misc/thunar
-    ../../modules/programs/misc/lact
-    ../../modules/programs/misc/virt-manager
-    ../../modules/programs/anki
+      ../../modules/programs/cli/tmux
+      ../../modules/programs/cli/pi
+      ../../modules/programs/cli/omp
+      ../../modules/programs/cli/direnv
+      ../../modules/programs/cli/lazygit
+      ../../modules/programs/cli/cava
+      ../../modules/programs/cli/btop
+      ../../modules/programs/media/discord
+      ../../modules/programs/media/spicetify
+      ../../modules/programs/media/thunderbird
+      ../../modules/programs/media/obs-studio
+      ../../modules/programs/media/mpv
+      ../../modules/programs/misc/tlp
+      ../../modules/programs/misc/thunar
+      ../../modules/programs/misc/lact
+      ../../modules/programs/misc/virt-manager
+      ../../modules/programs/anki
 
-    # Browser ownership remains in host-packages.nix for this behavior-preserving
-    # tranche. The browser selector is still typed and consumed by desktop/app
-    # defaults; moving package/profile ownership is a separate migration.
-    # (select "browser" choices.browsers vars.browser)
-  ]
-  ++ lib.optional vars.games ../../modules/core/games.nix;
+      # Browser ownership remains in host-packages.nix for this behavior-preserving
+      # tranche. The browser selector is still typed and consumed by desktop/app
+      # defaults; moving package/profile ownership is a separate migration.
+      # (select "browser" choices.browsers vars.browser)
+    ]
+    ++ lib.optional vars.games ../../modules/core/games.nix;
 
   workstation = {
     user.name = vars.username;
@@ -113,7 +112,12 @@ in
   };
 
   # Swap
-  swapDevices = [{ device = "/swapfile"; size = 8192; }];
+  swapDevices = [
+    {
+      device = "/swapfile";
+      size = 8192;
+    }
+  ];
 
   # CPU scheduler
   services.scx = {
@@ -130,15 +134,25 @@ in
   # Firewall
   networking.firewall = {
     enable = lib.mkForce false;
-    allowedTCPPortRanges = [{ from = 1714; to = 1764; }];
-    allowedUDPPortRanges = [{ from = 1714; to = 1764; }];
-    allowedTCPPorts = [ 27701 21027 22000 ];
+    allowedTCPPortRanges = [
+      {
+        from = 1714;
+        to = 1764;
+      }
+    ];
+    allowedUDPPortRanges = [
+      {
+        from = 1714;
+        to = 1764;
+      }
+    ];
+    allowedTCPPorts = [27701 21027 22000];
   };
 
   programs.kdeconnect = {
-      enable = true;
-      package = pkgs.valent;
-    };
+    enable = true;
+    package = pkgs.valent;
+  };
 
   # DLNA media server
   services.minidlna = {
@@ -157,5 +171,5 @@ in
       log_level = "error";
     };
   };
-  users.users.minidlna.extraGroups = [ "users" ];
+  users.users.minidlna.extraGroups = ["users"];
 }

@@ -1,21 +1,25 @@
 # modules/programs/ai/anki-bridge/default.nix
-{ config, lib, pkgs, ... }:
-
-let
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}: let
   cfg = config.my.ai.ankiBridge;
 
   decksJson = builtins.toJSON cfg.decks;
 
   effectiveTaskNoteMode =
-    if cfg.createTaskNote then cfg.taskNoteMode else "off";
+    if cfg.createTaskNote
+    then cfg.taskNoteMode
+    else "off";
 
   ankiBridgeScript = pkgs.writeShellScriptBin "anki-bridge" ''
     export PYTHONPATH="${../python}:$PYTHONPATH"
     exec ${pkgs.python3}/bin/python3 ${./anki_bridge.py} "$@"
   '';
-in
-{
-  imports = [ ../core ];
+in {
+  imports = [../core];
   options.my.ai.ankiBridge = {
     enable = lib.mkEnableOption "read-only Anki status bridge for the productivity system";
 
@@ -39,7 +43,7 @@ in
 
     decks = lib.mkOption {
       type = lib.types.listOf lib.types.str;
-      default = [ "Language" "General" ];
+      default = ["Language" "General"];
       description = "Anki decks to track.";
     };
 
@@ -56,7 +60,7 @@ in
     };
 
     taskNoteMode = lib.mkOption {
-      type = lib.types.enum [ "off" "propose" ];
+      type = lib.types.enum ["off" "propose"];
       default = "propose";
       description = ''
         Authority mode for Anki recovery task output.
@@ -81,14 +85,17 @@ in
     systemd.user.services.anki-bridge = {
       description = "Read-only Anki status bridge";
 
-      wantedBy = [ "default.target" ];
+      wantedBy = ["default.target"];
 
       environment = {
         AI_DIR = cfg.aiDir;
         TASKNOTES_DIR = cfg.taskNotesDir;
         ANKI_CONNECT_URL = cfg.ankiConnectUrl;
         INTERVAL_SECONDS = toString cfg.intervalSeconds;
-        CREATE_TASKNOTE = if cfg.createTaskNote then "1" else "0";
+        CREATE_TASKNOTE =
+          if cfg.createTaskNote
+          then "1"
+          else "0";
         TASKNOTE_MODE = effectiveTaskNoteMode;
         ANKI_DECKS_JSON = decksJson;
         AI_TIMEZONE = config.my.ai.core.timezone;

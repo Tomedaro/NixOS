@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{pkgs, ...}:
 pkgs.writeShellScriptBin "screenshot" ''
   swpy_dir="''${XDG_CONFIG_HOME:-$HOME/.config}/swappy"
   XDG_PICTURES_DIR="''${XDG_PICTURES_DIR:-$HOME/Pictures}"

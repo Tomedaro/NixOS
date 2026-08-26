@@ -1,5 +1,4 @@
-{ pkgs, ... }:
-{
+{pkgs, ...}: {
   # TODO: review
   programs = {
     fuse.userAllowOther = true;
@@ -11,7 +10,7 @@
     zoxide = {
       enable = true;
       enableZshIntegration = true;
-      flags = [ "--cmd cd" ];
+      flags = ["--cmd cd"];
     };
   };
 
@@ -45,6 +44,5 @@
     tldr # Improved Man
     unrar # Tool For Handling .rar Files
     unzip # Tool For Handling .zip Files
-
   ];
 }

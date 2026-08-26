@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{pkgs, ...}:
 pkgs.writeShellScriptBin "rollback" ''
   # Colors for output
   RED='\033[0;31m'

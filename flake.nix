@@ -2,7 +2,7 @@
   description = "A simple flake for an atomic system";
 
   inputs = {
-    nixpkgs.url        = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-25.11"; # upstream: updated from 24.11
     hyprland.url = "github:hyprwm/Hyprland";
 
@@ -41,11 +41,11 @@
     };
     nur.url = "github:nix-community/NUR";
     betterfox = {
-      url    = "github:yokoffing/Betterfox";
-      flake  = false;
+      url = "github:yokoffing/Betterfox";
+      flake = false;
     };
     thunderbird-catppuccin = {
-      url   = "github:catppuccin/thunderbird";
+      url = "github:catppuccin/thunderbird";
       flake = false;
     };
 
@@ -69,109 +69,104 @@
     bzmenu.url = "github:e-tho/bzmenu";
   };
 
-  outputs =
-    {
-      self,
-      nixpkgs,
-      ...
-    } @ inputs:
-    let
-      inherit (self) outputs;
-      systems = [
-        "x86_64-linux"
-        "aarch64-linux"
-      ];
-      forAllSystems = nixpkgs.lib.genAttrs systems;
+  outputs = {
+    self,
+    nixpkgs,
+    ...
+  } @ inputs: let
+    inherit (self) outputs;
+    systems = [
+      "x86_64-linux"
+      "aarch64-linux"
+    ];
+    forAllSystems = nixpkgs.lib.genAttrs systems;
 
-      templates = import ./dev-shells;
-      devShellEntries = builtins.readDir ./dev-shells;
-      templateDirectories =
-        builtins.filter
-          (name:
-            devShellEntries.${name} == "directory"
-            && builtins.pathExists (./dev-shells + "/${name}/flake.nix"))
-          (builtins.attrNames devShellEntries);
-      registeredTemplateDirectories =
-        nixpkgs.lib.unique
-          (map
-            (template: builtins.baseNameOf (toString template.path))
-            (builtins.attrValues templates));
-      templateRegistryIsComplete =
-        builtins.sort builtins.lessThan templateDirectories
-        == builtins.sort builtins.lessThan registeredTemplateDirectories;
+    templates = import ./dev-shells;
+    devShellEntries = builtins.readDir ./dev-shells;
+    templateDirectories =
+      builtins.filter
+      (name:
+        devShellEntries.${name}
+        == "directory"
+        && builtins.pathExists (./dev-shells + "/${name}/flake.nix"))
+      (builtins.attrNames devShellEntries);
+    registeredTemplateDirectories =
+      nixpkgs.lib.unique
+      (map
+        (template: builtins.baseNameOf (toString template.path))
+        (builtins.attrValues templates));
+    templateRegistryIsComplete =
+      builtins.sort builtins.lessThan templateDirectories
+      == builtins.sort builtins.lessThan registeredTemplateDirectories;
 
-      mkHost = host:
-        let
-          workstationSettings = import ./hosts/${host}/variables.nix;
-          choices = import ./lib/choices.nix;
-        in
-        nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
-          modules = [
-            ./hosts/${host}/configuration.nix
-          ];
-          specialArgs = {
-            overlays = import ./overlays { inherit inputs; };
-            inherit self inputs outputs host workstationSettings choices;
-          };
-        };
+    mkHost = host: let
+      workstationSettings = import ./hosts/${host}/variables.nix;
+      choices = import ./lib/choices.nix;
     in
-    {
-      templates = templates;
-      overlays = import ./overlays { inherit inputs; };
-      formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.alejandra);
-
-      nixosConfigurations = {
-        Default = mkHost "Default";
-      };
-
-      checks.x86_64-linux =
-        let
-          pkgs = nixpkgs.legacyPackages.x86_64-linux;
-        in
-        {
-          system = self.nixosConfigurations.Default.config.system.build.toplevel;
-
-          formatting = pkgs.runCommand "nix-formatting-check" {
-            nativeBuildInputs = [ pkgs.alejandra pkgs.findutils ];
-            src = ./.;
-          } ''
-            cd "$src"
-            find . -type f -name '*.nix' -print0 \
-              | xargs -0 -r alejandra --check
-            touch "$out"
-          '';
-
-          template-registry =
-            assert templateRegistryIsComplete;
-            pkgs.runCommand "template-registry-check" { } ''
-              touch "$out"
-            '';
-
-          workstation-boundary = pkgs.runCommand "workstation-boundary-check" {
-            nativeBuildInputs = [ pkgs.ripgrep ];
-            src = ./.;
-          } ''
-            if rg -n 'hosts/.*/variables\.nix' "$src/modules" --glob '*.nix'; then
-              echo "ordinary modules must consume config.workstation, not host variables.nix" >&2
-              exit 1
-            fi
-            touch "$out"
-          '';
+      nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        modules = [
+          ./hosts/${host}/configuration.nix
+        ];
+        specialArgs = {
+          overlays = import ./overlays {inherit inputs;};
+          inherit self inputs outputs host workstationSettings choices;
         };
+      };
+  in {
+    templates = templates;
+    overlays = import ./overlays {inherit inputs;};
+    formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.alejandra);
 
-      devShells = forAllSystems (system:
-        let
-          pkgs = import nixpkgs {
-            inherit system;
-            config.allowUnfree = true;
-            config.nvidia.acceptLicense = true;
-          };
-        in {
-          default = pkgs.mkShellNoCC {
-            packages = with pkgs; [ git nix figlet lolcat ];
-            NIX_CONFIG = "experimental-features = nix-command flakes";
-          };
-        });
+    nixosConfigurations = {
+      Default = mkHost "Default";
     };
+
+    checks.x86_64-linux = let
+      pkgs = nixpkgs.legacyPackages.x86_64-linux;
+    in {
+      system = self.nixosConfigurations.Default.config.system.build.toplevel;
+
+      formatting =
+        pkgs.runCommand "nix-formatting-check" {
+          nativeBuildInputs = [pkgs.alejandra pkgs.findutils];
+          src = ./.;
+        } ''
+          cd "$src"
+          find . -type f -name '*.nix' -print0 \
+            | xargs -0 -r alejandra --check
+          touch "$out"
+        '';
+
+      template-registry = assert templateRegistryIsComplete;
+        pkgs.runCommand "template-registry-check" {} ''
+          touch "$out"
+        '';
+
+      workstation-boundary =
+        pkgs.runCommand "workstation-boundary-check" {
+          nativeBuildInputs = [pkgs.ripgrep];
+          src = ./.;
+        } ''
+          if rg -n 'hosts/.*/variables\.nix' "$src/modules" --glob '*.nix'; then
+            echo "ordinary modules must consume config.workstation, not host variables.nix" >&2
+            exit 1
+          fi
+          touch "$out"
+        '';
+    };
+
+    devShells = forAllSystems (system: let
+      pkgs = import nixpkgs {
+        inherit system;
+        config.allowUnfree = true;
+        config.nvidia.acceptLicense = true;
+      };
+    in {
+      default = pkgs.mkShellNoCC {
+        packages = with pkgs; [git nix figlet lolcat];
+        NIX_CONFIG = "experimental-features = nix-command flakes";
+      };
+    });
+  };
 }
