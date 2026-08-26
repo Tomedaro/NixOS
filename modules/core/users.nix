@@ -29,7 +29,7 @@ in
       home = {
         username = "${username}";
         homeDirectory = "/home/${username}";
-        stateVersion = "26.05"; # Do not change!
+        stateVersion = "26.05"; # Intentionally migrated from 23.11; see docs/state-version-26.05.md
         sessionVariables = {
           EDITOR =
             if (editor == "nixvim" || editor == "neovim" || editor == "nvchad") then

@@ -83,6 +83,23 @@
       ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
 
+      templates = import ./dev-shells;
+      devShellEntries = builtins.readDir ./dev-shells;
+      templateDirectories =
+        builtins.filter
+          (name:
+            devShellEntries.${name} == "directory"
+            && builtins.pathExists (./dev-shells + "/${name}/flake.nix"))
+          (builtins.attrNames devShellEntries);
+      registeredTemplateDirectories =
+        nixpkgs.lib.unique
+          (map
+            (template: builtins.baseNameOf (toString template.path))
+            (builtins.attrValues templates));
+      templateRegistryIsComplete =
+        builtins.sort builtins.lessThan templateDirectories
+        == builtins.sort builtins.lessThan registeredTemplateDirectories;
+
       mkHost = host:
         nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
@@ -96,13 +113,37 @@
         };
     in
     {
-      templates  = import ./dev-shells;
-      overlays   = import ./overlays { inherit inputs; host = "Default"; };
-      formatter  = forAllSystems (system: nixpkgs.legacyPackages.${system}.alejandra);
+      templates = templates;
+      overlays = import ./overlays { inherit inputs; host = "Default"; };
+      formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.alejandra);
 
       nixosConfigurations = {
         Default = mkHost "Default";
       };
+
+      checks.x86_64-linux =
+        let
+          pkgs = nixpkgs.legacyPackages.x86_64-linux;
+        in
+        {
+          system = self.nixosConfigurations.Default.config.system.build.toplevel;
+
+          formatting = pkgs.runCommand "nix-formatting-check" {
+            nativeBuildInputs = [ pkgs.alejandra pkgs.findutils ];
+            src = ./.;
+          } ''
+            cd "$src"
+            find . -type f -name '*.nix' -print0 \
+              | xargs -0 -r alejandra --check
+            touch "$out"
+          '';
+
+          template-registry =
+            assert templateRegistryIsComplete;
+            pkgs.runCommand "template-registry-check" { } ''
+              touch "$out"
+            '';
+        };
 
       devShells = forAllSystems (system:
         let
