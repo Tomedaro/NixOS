@@ -1,6 +1,7 @@
-{ pkgs, host, ... }:
+{ config, pkgs, ... }:
 let
-  inherit (import ../../hosts/${host}/variables.nix) hostname bluetoothSupport;
+  hostname = config.workstation.hostName;
+  bluetoothSupport = config.workstation.hardware.bluetooth;
 in
 {
   hardware = {

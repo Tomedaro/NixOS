@@ -1,9 +1,12 @@
-{ host, lib, ... }:
+{
+  choices,
+  workstationSettings,
+  ...
+}:
 let
-  inherit (import ../../../../../hosts/${host}/variables.nix) waybarTheme;
+  theme = workstationSettings.waybarTheme;
+  themeModule = choices.waybarThemes.${theme} or (throw "Unsupported Waybar theme choice: ${theme}");
 in
 {
-  imports = [
-    ./${waybarTheme}.nix
-  ];
+  imports = [ themeModule ];
 }

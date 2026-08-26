@@ -1,11 +1,11 @@
 {
+  config,
   inputs,
-  host,
   pkgs,
   ...
 }:
 let
-  inherit (import ../../../../hosts/${host}/variables.nix) terminal;
+  terminal = config.workstation.apps.terminal;
 in
 {
   environment.systemPackages = with pkgs; [

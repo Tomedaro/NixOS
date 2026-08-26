@@ -1,12 +1,12 @@
 {
+  config,
   pkgs,
   inputs,
-  host,
   ...
 }:
 let
-  inherit (import ../../hosts/${host}/variables.nix)
-    username
+  username = config.workstation.user.name;
+  inherit (config.workstation.apps)
     editor
     terminal
     browser

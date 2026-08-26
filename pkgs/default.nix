@@ -1,4 +1,4 @@
-{ host, pkgs, ... }:
+{ pkgs, ... }:
 {
   # these are overlaid into nixpkgs automatically.
   # for example: environment.systemPackages = with pkgs; [pokego];

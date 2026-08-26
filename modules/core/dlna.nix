@@ -1,6 +1,6 @@
-{ host, ... }:
+{ config, ... }:
 let
-  inherit (import ../../hosts/${host}/variables.nix) hostname;
+  hostname = config.workstation.hostName;
 in
 {
 

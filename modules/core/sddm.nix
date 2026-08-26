@@ -1,11 +1,11 @@
 {
+  config,
   pkgs,
   lib,
-  host,
   ...
 }:
 let
-  inherit (import ../../hosts/${host}/variables.nix) sddmTheme;
+  sddmTheme = config.workstation.appearance.sddmTheme;
   sddm-astronaut = pkgs.sddm-astronaut.override {
     embeddedTheme = "${sddmTheme}";
     themeConfig =

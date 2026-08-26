@@ -1,13 +1,22 @@
-{ lib, pkgs, ... }:
+{
+  lib,
+  pkgs,
+  choices,
+  workstationSettings,
+  ...
+}:
 let
-  vars = import ./variables.nix;
+  vars = workstationSettings;
+  select = kind: set: name:
+    set.${name} or (throw "Unsupported ${kind} choice: ${name}");
 in
 {
   imports = [
+    ../../modules/options/workstation.nix
     ./hardware-configuration.nix
     ./host-packages.nix
 
-    # Core Modules
+    # Core modules
     ../../modules/scripts
     ../../modules/core/boot.nix
     ../../modules/core/bash.nix
@@ -26,20 +35,16 @@ in
     ../../modules/core/syncthing.nix
     ../../modules/core/system.nix
     ../../modules/core/users.nix
-    # ../../modules/core/flatpak.nix
-    # ../../modules/core/virtualisation.nix
-    # ../../modules/core/dlna.nix
 
-    # Hardware
+    # Hardware and selected user-facing modules. Choice lookup is explicit so
+    # a typo fails here instead of becoming an accidental filesystem import.
+    (select "video driver" choices.videoDrivers vars.videoDriver)
     ../../modules/hardware/drives
-    ../../modules/hardware/video/${vars.videoDriver}.nix
+    (select "desktop" choices.desktops vars.desktop)
+    (select "terminal" choices.terminals vars.terminal)
+    (select "editor" choices.editors vars.editor)
+    (select "file manager" choices.fileManagers vars.fileManager)
 
-    # Desktop & Programs
-    ../../modules/desktop/${vars.desktop}
-    #../../modules/programs/browser/${vars.browser}
-    ../../modules/programs/terminal/${vars.terminal}
-    ../../modules/programs/editor/${vars.editor}
-    ../../modules/programs/cli/${vars.fileManager}
     ../../modules/programs/cli/tmux
     ../../modules/programs/cli/pi
     ../../modules/programs/cli/omp
@@ -58,9 +63,54 @@ in
     ../../modules/programs/misc/virt-manager
     ../../modules/programs/anki
 
-    # ../../modules/programs/ai
+    # Browser ownership remains in host-packages.nix for this behavior-preserving
+    # tranche. The browser selector is still typed and consumed by desktop/app
+    # defaults; moving package/profile ownership is a separate migration.
+    # (select "browser" choices.browsers vars.browser)
   ]
-  ++ lib.optional (vars.games == true) ../../modules/core/games.nix;
+  ++ lib.optional vars.games ../../modules/core/games.nix;
+
+  workstation = {
+    user.name = vars.username;
+    hostName = vars.hostname;
+
+    desktop = {
+      environment = vars.desktop;
+      bar = vars.bar;
+      waybarTheme = vars.waybarTheme;
+    };
+
+    appearance = {
+      sddmTheme = vars.sddmTheme;
+      wallpaper = vars.defaultWallpaper;
+      lockWallpaper = vars.hyprlockWallpaper;
+    };
+
+    apps = {
+      terminal = vars.terminal;
+      editor = vars.editor;
+      browser = vars.browser;
+      fileManager = vars.fileManager;
+      shell = vars.shell;
+    };
+
+    features.gaming = vars.games;
+
+    hardware = {
+      videoDriver = vars.videoDriver;
+      bluetooth = vars.bluetoothSupport;
+    };
+
+    localization = {
+      timeZone = vars.timezone;
+      locale = vars.locale;
+      clock24h = vars.clock24h;
+      xkbLayout = vars.kbdLayout;
+      xkbVariant = vars.kbdVariant;
+      consoleKeymap = vars.consoleKeymap;
+      capslockAsEscape = vars.capslockAsESC;
+    };
+  };
 
   # Swap
   swapDevices = [{ device = "/swapfile"; size = 8192; }];

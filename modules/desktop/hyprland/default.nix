@@ -1,20 +1,21 @@
 {
-  host,
+  choices,
   inputs,
-  config,
   lib,
   pkgs,
+  workstationSettings,
   ...
 }:
 let
   inherit (lib) optional;
-  inherit (import ../../../hosts/${host}/variables.nix) bar;
+  bar = workstationSettings.bar;
+  barModule = choices.hyprlandBars.${bar} or (throw "Unsupported Hyprland bar choice: ${bar}");
 in
 {
   imports = [
     ../../themes/Gruvbox  # Gruvbox GTK and QT themes
     ./variables.nix
-    ./programs/${bar}
+    barModule
     ./programs/wlogout
     ./programs/rofi
     ./programs/hypridle

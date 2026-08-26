@@ -1,6 +1,6 @@
-{ host, ... }:
+{ config, ... }:
 let
-  inherit (import ../../../../../hosts/${host}/variables.nix) hyprlockWallpaper;
+  hyprlockWallpaper = config.workstation.appearance.lockWallpaper;
 in
 {
   home-manager.sharedModules = [

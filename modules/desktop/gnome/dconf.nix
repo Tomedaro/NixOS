@@ -1,8 +1,10 @@
 # Generated via dconf2nix: https://github.com/gvolpe/dconf2nix
-{ host, ... }:
+{ config, ... }:
 
 let
-  inherit (import ../../../hosts/${host}/variables.nix) username kbdLayout defaultWallpaper;
+  username = config.workstation.user.name;
+  kbdLayout = config.workstation.localization.xkbLayout;
+  defaultWallpaper = config.workstation.appearance.wallpaper;
 in
 {
   home-manager.sharedModules = [

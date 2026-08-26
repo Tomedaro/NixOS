@@ -1,10 +1,10 @@
 {
+  config,
   pkgs,
-  host,
   ...
 }:
 let
-  inherit (import ../../../../../hosts/${host}/variables.nix) browser;
+  browser = config.workstation.apps.browser;
 in
 {
   home-manager.sharedModules = [

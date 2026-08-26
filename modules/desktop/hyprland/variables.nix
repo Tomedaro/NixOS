@@ -1,22 +1,18 @@
 {
-  host,
+  config,
   lib,
   pkgs,
   ...
 }: let
   inherit (lib) getExe;
-  inherit
-    (import ../../../hosts/${host}/variables.nix)
-    bar
-    browser
-    terminal
-    fileManager
-    kbdLayout
-    kbdVariant
-    capslockAsESC
-    defaultWallpaper
-    ;
-
+  bar = config.workstation.desktop.bar;
+  browser = config.workstation.apps.browser;
+  terminal = config.workstation.apps.terminal;
+  fileManager = config.workstation.apps.fileManager;
+  kbdLayout = config.workstation.localization.xkbLayout;
+  kbdVariant = config.workstation.localization.xkbVariant;
+  capslockAsESC = config.workstation.localization.capslockAsEscape;
+  defaultWallpaper = config.workstation.appearance.wallpaper;
   # Import script modules
   # autowaybar = pkgs.callPackage ./scripts/autowaybar.nix { };
   autoclicker = pkgs.callPackage ./scripts/autoclicker.nix {};

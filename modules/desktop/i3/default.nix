@@ -1,7 +1,9 @@
-{ lib, pkgs, host, ... }:
+{ config, lib, pkgs, ... }:
 let
   inherit (lib) getExe getExe';
-  inherit (import ../../../hosts/${host}/variables.nix) terminal browser defaultWallpaper;
+  terminal = config.workstation.apps.terminal;
+  browser = config.workstation.apps.browser;
+  defaultWallpaper = config.workstation.appearance.wallpaper;
   monitors = pkgs.callPackage ./scripts/monitors.nix { };
   wallpaper = pkgs.callPackage ./scripts/wallpaper.nix { };
 in

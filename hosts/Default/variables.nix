@@ -2,18 +2,18 @@
   username = "daniil"; # auto-set with install.sh, live-install.sh, and rebuild scripts.
 
   # Desktop Environment
-  desktop = "hyprland"; # hyprland, i3, gnome, plasma6
+  desktop = "hyprland"; # hyprland, gnome, i3, plasma6
 
   # Theme & Appearance
-  bar = "waybar"; # waybar, hyprpanel, noctalia
+  bar = "waybar"; # waybar, hyprpanel, noctalia, caelestia
   waybarTheme = "minimal"; # stylish, minimal
   sddmTheme = "astronaut"; # astronaut, black_hole, purple_leaves, jake_the_dog, hyprland_kath
   defaultWallpaper = "galaxy.webp"; # Change with SUPER + SHIFT + W (Hyprland)
   hyprlockWallpaper = "galaxy.webp";
 
   # Default Applications
-  terminal = "kitty"; # kitty, alacritty
-  editor = "nixvim"; # nixvim, vscode, helix, doom-emacs, nvchad, neovim
+  terminal = "kitty"; # kitty, alacritty, wezterm
+  editor = "nixvim"; # nixvim, neovim, nvchad, vscode, helix, emacs, doom-emacs
   browser = "zen-beta"; # zen-beta, firefox, floorp
   fileManager = "yazi"; # yazi, lf
   shell = "zsh"; # zsh, bash
@@ -21,7 +21,7 @@
 
   # Hardware
   hostname = "Singularity";
-  videoDriver = "intel"; # nvidia, amdgpu, intel
+  videoDriver = "intel"; # intel, amdgpu, nvidia, nvk
   bluetoothSupport = true; # Whether your motherboard supports bluetooth
 
   # Localization

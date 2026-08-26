@@ -1,11 +1,12 @@
 {
+  config,
   inputs,
-  host,
   pkgs,
   ...
 }:
 let
-  inherit (import ../../../../../hosts/${host}/variables.nix) clock24h bluetoothSupport;
+  clock24h = config.workstation.localization.clock24h;
+  bluetoothSupport = config.workstation.hardware.bluetooth;
 in
 {
   # Optional Dependencies

@@ -101,20 +101,24 @@
         == builtins.sort builtins.lessThan registeredTemplateDirectories;
 
       mkHost = host:
+        let
+          workstationSettings = import ./hosts/${host}/variables.nix;
+          choices = import ./lib/choices.nix;
+        in
         nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = [
             ./hosts/${host}/configuration.nix
           ];
           specialArgs = {
-            overlays = import ./overlays { inherit inputs host; };
-            inherit self inputs outputs host;
+            overlays = import ./overlays { inherit inputs; };
+            inherit self inputs outputs host workstationSettings choices;
           };
         };
     in
     {
       templates = templates;
-      overlays = import ./overlays { inherit inputs; host = "Default"; };
+      overlays = import ./overlays { inherit inputs; };
       formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.alejandra);
 
       nixosConfigurations = {
@@ -143,6 +147,17 @@
             pkgs.runCommand "template-registry-check" { } ''
               touch "$out"
             '';
+
+          workstation-boundary = pkgs.runCommand "workstation-boundary-check" {
+            nativeBuildInputs = [ pkgs.ripgrep ];
+            src = ./.;
+          } ''
+            if rg -n 'hosts/.*/variables\.nix' "$src/modules" --glob '*.nix'; then
+              echo "ordinary modules must consume config.workstation, not host variables.nix" >&2
+              exit 1
+            fi
+            touch "$out"
+          '';
         };
 
       devShells = forAllSystems (system:

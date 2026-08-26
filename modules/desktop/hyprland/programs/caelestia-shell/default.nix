@@ -1,17 +1,14 @@
 {
+  config,
   pkgs,
   inputs,
-  host,
   ...
 }:
 
 let
-  inherit (import ../../../../../hosts/${host}/variables.nix)
-    clock24h
-    username
-    bluetoothSupport
-    ;
-
+  clock24h = config.workstation.localization.clock24h;
+  username = config.workstation.user.name;
+  bluetoothSupport = config.workstation.hardware.bluetooth;
   caelestiaSettings = {
     appearance.transparency.enabled = true;
     background = {

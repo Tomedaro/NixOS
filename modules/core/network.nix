@@ -1,7 +1,7 @@
-{ host, pkgs, ... }:
+{ config, pkgs, ... }:
 
 let
-  inherit (import ../../hosts/${host}/variables.nix) hostname;
+  hostname = config.workstation.hostName;
 in
 {
   networking = {

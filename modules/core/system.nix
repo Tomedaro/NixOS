@@ -1,19 +1,19 @@
 {
+  config,
   self,
   inputs,
-  host,
   pkgs,
   overlays,
   ...
 }:
 let
-  inherit (import ../../hosts/${host}/variables.nix)
+  inherit (config.workstation.localization)
     consoleKeymap
-    kbdLayout
-    kbdVariant
     locale
-    timezone
     ;
+  kbdLayout = config.workstation.localization.xkbLayout;
+  kbdVariant = config.workstation.localization.xkbVariant;
+  timezone = config.workstation.localization.timeZone;
 in
 {
   imports = [ inputs.nix-index-database.nixosModules.nix-index ];

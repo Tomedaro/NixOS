@@ -6,7 +6,7 @@
   ...
 }:
 let
-  inherit (import ../../hosts/${host}/variables.nix) terminal;
+  terminal = config.workstation.apps.terminal;
 in
 let
   scriptArgs = {

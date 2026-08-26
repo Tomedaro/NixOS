@@ -1,6 +1,6 @@
-{ host, pkgs, ... }:
+{ config, pkgs, ... }:
 let
-  inherit (import ../../hosts/${host}/variables.nix) username;
+  username = config.workstation.user.name;
 in
 {
   programs.nh = {

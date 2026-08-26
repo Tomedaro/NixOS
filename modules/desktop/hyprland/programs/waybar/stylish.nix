@@ -1,6 +1,7 @@
-{ host, pkgs, ... }:
+{ config, pkgs, ... }:
 let
-  inherit (import ../../../../../hosts/${host}/variables.nix) clock24h terminal;
+  clock24h = config.workstation.localization.clock24h;
+  terminal = config.workstation.apps.terminal;
   gpuinfo = pkgs.callPackage ../../scripts/gpuinfo.nix { };
 in
 {

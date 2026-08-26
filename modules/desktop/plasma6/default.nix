@@ -1,18 +1,16 @@
 {
+  config,
   lib,
   inputs,
-  host,
   pkgs,
   ...
 }:
 let
-  inherit (import ../../../hosts/${host}/variables.nix)
-    browser
-    terminal
-    editor
-    games
-    defaultWallpaper
-    ;
+  browser = config.workstation.apps.browser;
+  terminal = config.workstation.apps.terminal;
+  editor = config.workstation.apps.editor;
+  games = config.workstation.features.gaming;
+  defaultWallpaper = config.workstation.appearance.wallpaper;
 in
 {
   programs.thunar.enable = lib.mkForce false;

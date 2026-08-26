@@ -1,13 +1,9 @@
-{ host, inputs, ... }:
-let
-  inherit (import ../hosts/${host}/variables.nix) sddmTheme;
-in
+{ inputs, ... }:
 {
   additions =
     final: _prev:
     import ../pkgs {
       pkgs = final;
-      inherit host;
     };
 
   modifications = final: prev: {
