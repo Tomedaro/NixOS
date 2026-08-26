@@ -35,5 +35,11 @@ in
         done
       '';
     });
+    lact = prev.lact.overrideAttrs (old: {
+      postPatch = (old.postPatch or "") + ''
+        # libdisplay-info 0.4.0 breaks the vendored libdisplay-info-sys 0.3.0 version constraint
+        sed -i 's|< 0.4.0|< 0.5.0|g' "$cargoDepsCopy/source-registry-0/libdisplay-info-sys-0.3.0/Cargo.toml"
+      '';
+    });
   };
 }
