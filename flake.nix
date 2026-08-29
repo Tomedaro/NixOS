@@ -265,42 +265,73 @@
 
     checks.x86_64-linux = let
       pkgs = nixpkgs.legacyPackages.x86_64-linux;
+      policyConfig = self.nixosConfigurations.Default.config;
+      policyUsername = policyConfig.workstation.user.name;
+      policyGroups = builtins.sort builtins.lessThan policyConfig.users.users.${policyUsername}.extraGroups;
+      expectedPolicyGroups = builtins.sort builtins.lessThan [
+        "wheel"
+        "input"
+        "networkmanager"
+        "video"
+        "audio"
+        "libvirtd"
+        "kvm"
+      ];
     in {
-        system = self.nixosConfigurations.Default.config.system.build.toplevel;
+      system = policyConfig.system.build.toplevel;
 
-        formatting =
-          pkgs.runCommand "nix-formatting-check" {
-            nativeBuildInputs = [pkgs.alejandra pkgs.findutils];
-            src = ./.;
-          } ''
-            cd "$src"
-            find . -type f -name '*.nix' -print0 \
-              | xargs -0 -r alejandra --check
-            touch "$out"
-          '';
+      formatting =
+        pkgs.runCommand "nix-formatting-check" {
+          nativeBuildInputs = [pkgs.alejandra pkgs.findutils];
+          src = ./.;
+        } ''
+          cd "$src"
+          find . -type f -name '*.nix' -print0 \
+            | xargs -0 -r alejandra --check
+          touch "$out"
+        '';
 
-        template-registry = assert templateRegistryIsComplete;
-          pkgs.runCommand "template-registry-check" {} ''
-            touch "$out"
-          '';
+      template-registry = assert templateRegistryIsComplete;
+        pkgs.runCommand "template-registry-check" {} ''
+          touch "$out"
+        '';
 
-        workstation-boundary =
-          pkgs.runCommand "workstation-boundary-check" {
-            nativeBuildInputs = [pkgs.ripgrep];
-            src = ./.;
-          } ''
-            if rg -n 'hosts/.*/variables\.nix' "$src/modules" --glob '*.nix'; then
-              echo "ordinary modules must consume config.workstation, not host variables.nix" >&2
-              exit 1
-            fi
-            touch "$out"
-          '';
+      workstation-boundary =
+        pkgs.runCommand "workstation-boundary-check" {
+          nativeBuildInputs = [pkgs.ripgrep];
+          src = ./.;
+        } ''
+          if rg -n 'hosts/.*/variables\.nix' "$src/modules" --glob '*.nix'; then
+            echo "ordinary modules must consume config.workstation, not host variables.nix" >&2
+            exit 1
+          fi
+          touch "$out"
+        '';
 
-        choice-catalog = assert choiceCatalogIsValid;
-          pkgs.runCommand "workstation-choice-catalog-check" {} ''
-            touch "$out"
-          '';
-      };
+      choice-catalog = assert choiceCatalogIsValid;
+        pkgs.runCommand "workstation-choice-catalog-check" {} ''
+          touch "$out"
+        '';
+
+      system-policy = assert policyConfig.services.openssh.enable == false;
+      assert policyConfig.users.users.${policyUsername}.initialPassword == null;
+      assert policyGroups == expectedPolicyGroups;
+      assert policyConfig.services.printing.enable == false;
+      assert policyConfig.hardware.sane.enable == false;
+      assert policyConfig.virtualisation.docker.enable == false;
+      assert policyConfig.virtualisation.libvirtd.enable == true;
+      assert policyConfig.programs.virt-manager.enable == true;
+      assert policyConfig.services.qemuGuest.enable == false;
+      assert policyConfig.services.spice-vdagentd.enable == false;
+      assert policyConfig.services.spice-webdavd.enable == false;
+      assert policyConfig.nix.settings.trusted-users == ["root"];
+      assert policyConfig.nix.settings.allowed-users == [policyUsername];
+      assert policyConfig.nix.settings.accept-flake-config == false;
+      assert policyConfig.programs.nh.clean.enable == false;
+        pkgs.runCommand "workstation-system-policy-check" {} ''
+          touch "$out"
+        '';
+    };
 
     devShells = forAllSystems (system: let
       pkgs = import nixpkgs {

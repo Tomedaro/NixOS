@@ -35,8 +35,7 @@ in {
   nix = {
     # Nix Package Manager Settings
     settings = {
-      trusted-users = ["root" "@wheel"]; # Required by Cachix to be used as non-root user
-      accept-flake-config = true;
+      accept-flake-config = false;
       builders-use-substitutes = true;
       download-buffer-size = 200000000;
       auto-optimise-store = true; # May make rebuilds longer but less size
@@ -63,9 +62,6 @@ in {
         "flakes"
       ];
       use-xdg-base-directories = false;
-      warn-dirty = false;
-      keep-outputs = true;
-      keep-derivations = true;
     };
     optimise.automatic = true;
     package = pkgs.nix;

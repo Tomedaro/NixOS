@@ -60,7 +60,6 @@ in {
     mutableUsers = true;
     users.${username} = {
       isNormalUser = true;
-      initialPassword = "123";
       extraGroups = [
         "wheel" # sudo access
         "input"
@@ -69,12 +68,6 @@ in {
         "audio"
         "libvirtd"
         "kvm"
-        "docker"
-        "disk"
-        "adbusers"
-        "lp"
-        "scanner"
-        "vboxusers" # Virtual Box
       ];
       shell = pkgs.${shellPackageName};
       ignoreShellProgramCheck = true;

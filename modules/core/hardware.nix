@@ -1,17 +1,8 @@
-{
-  config,
-  pkgs,
-  ...
-}: let
+{config, ...}: let
   hostname = config.workstation.hostName;
   bluetoothSupport = config.workstation.hardware.bluetooth;
 in {
   hardware = {
-    sane = {
-      enable = true;
-      extraBackends = [pkgs.sane-airscan];
-      disabledDefaultBackends = ["escl"];
-    };
     logitech.wireless.enable = false;
     logitech.wireless.enableGraphical = false;
     graphics.enable = true;

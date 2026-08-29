@@ -29,7 +29,6 @@ in {
       ../../modules/core/dns.nix
       ../../modules/core/nh.nix
       ../../modules/core/packages.nix
-      ../../modules/core/printing.nix
       ../../modules/core/sddm.nix
       ../../modules/core/security.nix
       ../../modules/core/services.nix
@@ -71,6 +70,10 @@ in {
       # (select "browser" choices.browsers vars.browser)
     ]
     ++ lib.optional vars.games ../../modules/core/games.nix;
+
+  # Keep automatic garbage collection off during the staged hardening rollout.
+  # A single retention policy will be reintroduced after rollback is proven.
+  programs.nh.clean.enable = lib.mkForce false;
 
   workstation = {
     user.name = vars.username;
