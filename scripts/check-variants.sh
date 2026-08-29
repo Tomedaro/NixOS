@@ -15,8 +15,9 @@ usage() {
 Usage: check-variants [--flake REF] [--list] [VARIANT ...]
 
 Evaluate supported non-default workstation variants one at a time.
-Each variant runs in a fresh Nix evaluator process so evaluator memory
-is released before the next configuration is checked.
+Each variant runs in a fresh, uncached Nix evaluator process with Import From
+Derivation disabled, so evaluator memory is released between configurations and
+variant validity does not depend on pre-existing derivation outputs.
 
   --flake REF  Flake reference to evaluate. Defaults to the current Git repo.
   --list       Print supported non-default variant names and exit.
@@ -101,6 +102,8 @@ for name in "${selected[@]}"; do
   index=$((index + 1))
   printf '[%d/%d] %s\n' "$index" "$local_count" "$name"
   nix eval \
+    --no-eval-cache \
+    --option allow-import-from-derivation false \
     --no-update-lock-file \
     --no-write-lock-file \
     --raw "$flake_ref#lib.workstation.variantDrvPaths.$name" \

@@ -407,7 +407,7 @@ bundle_run() {
     local preflight_hook='' pre_activate_hook='' runtime_hook='' previous_system='' base_head='' base_branch=''
     local base_git='' pretest_resolv='' tmpdir_run='' target_system='' default_if='' current_system=''
     local patch_applied=0 rollback_armed=0 succeeded=0 sudo_keepalive_pid=''
-    local -a pretest_dns=() new_paths=() checks=()
+    local -a pretest_dns=() new_paths=()
 
     cleanup_bundle_run() {
       local rc=$?
@@ -475,7 +475,6 @@ bundle_run() {
     preflight_hook=$(bundle_optional_string "$manifest" '.preflight_hook')
     pre_activate_hook=$(bundle_optional_string "$manifest" '.pre_activate_hook')
     runtime_hook=$(bundle_optional_string "$manifest" '.runtime_hook')
-    mapfile -t checks < <(jq -r '.build_checks // [] | .[]' "$manifest")
 
     section 'bundle integrity / preflight'
     printf 'name: %s\n' "$name"
@@ -546,34 +545,44 @@ bundle_run() {
     run "$base_git" -C "$root" diff --check
 
     section 'Nix evaluation / checks'
-    # `nix flake check --no-build` puts the evaluator in read-only mode.
-    # After GC, valid content-addressed source copies needed during evaluation
-    # may therefore be computed but not materialized, producing false
-    # "path '...' is not valid" failures.  First evaluate the active host in
-    # normal writable mode while explicitly forbidding Import From Derivation.
-    # This permits harmless store path/source copies but not evaluation-time
-    # derivation builds.
-    run nix eval \
+    # Authoritative gate: fresh writable evaluation of the full `flake check`
+    # surface, with Import From Derivation forbidden explicitly. Writable
+    # evaluation may materialize ordinary source/store objects; IFD remains a
+    # hard error regardless of whether a derivation output is already present.
+    # After evaluation succeeds, `nix flake check` builds declared checks.
+    run nix flake check \
+      --no-eval-cache \
       --option allow-import-from-derivation false \
-      --raw \
-      ".#nixosConfigurations.${host}.config.system.build.toplevel.drvPath"
-    run nix flake check --no-build
-    if ((${#checks[@]})); then
-      local -a check_installables=()
-      local check
-      for check in "${checks[@]}"; do
-        [[ "$check" =~ ^[A-Za-z0-9._+-]+$ ]] || die "invalid check name: $check"
-        check_installables+=(".#checks.x86_64-linux.$check")
-      done
-      run nix build --no-link "${check_installables[@]}"
-    fi
+      --no-update-lock-file \
+      --no-write-lock-file
+
+    # Nix 2.34 makes `flake check --no-build` read-only as well as no-build.
+    # Keep that stricter mode as a diagnostic rather than conflating its extra
+    # store constraint with the no-IFD correctness invariant above.
+    run_optional 'read-only flake diagnostic (non-authoritative)' \
+      nix flake check --no-build \
+        --no-eval-cache \
+        --option allow-import-from-derivation false \
+        --no-update-lock-file \
+        --no-write-lock-file
     if [[ "$full_variants" == true && -f scripts/check-variants.sh ]]; then
       run bash -n scripts/check-variants.sh
-      run nix run .#check-variants
+      run nix run \
+        --no-eval-cache \
+        --option allow-import-from-derivation false \
+        --no-update-lock-file \
+        --no-write-lock-file \
+        .#check-variants
     fi
 
     section 'build exact system closure'
-    run nix build --out-link "$tmpdir_run/system" ".#nixosConfigurations.${host}.config.system.build.toplevel"
+    run nix build \
+      --out-link "$tmpdir_run/system" \
+      --no-eval-cache \
+      --option allow-import-from-derivation false \
+      --no-update-lock-file \
+      --no-write-lock-file \
+      ".#nixosConfigurations.${host}.config.system.build.toplevel"
     target_system=$(readlink -f "$tmpdir_run/system")
     export NIXOS_ASSIST_TARGET_SYSTEM="$target_system"
     printf 'target-system: %s\n' "$target_system"

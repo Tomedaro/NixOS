@@ -1,15 +1,29 @@
-# nixos-assist v6.3
+# nixos-assist v6.4
 
 A reusable, deliberately conservative harness for this workstation's NixOS
 maintenance workflow.
 
-## Why v6.3 exists
+## Why v6.4 exists
 
 v5 had useful commands, but it mixed generic mechanics with Phase 3B-specific
 firewall facts, formatted source as part of validation, and did not reliably
-rollback a failed test activation. v6.3 separates those concerns, reads system-generation metadata without taking the root-owned profile lock, makes the generic handoff complete by snapshotting every Git-tracked repository file instead of a manually curated subset, and avoids using read-only `nix flake check --no-build` as the first evaluator.
+rollback a failed test activation. Later revisions separated those concerns,
+made system-generation reporting lock-free, and made generic handoffs complete.
 
-Before the read-only `flake check --no-build` pass, `bundle-run` evaluates the active host normally with Import From Derivation explicitly disabled. This matters on Nix 2.34: read-only evaluation can false-fail after garbage collection when a content-addressed source path needs to be copied into the store. The writable pre-evaluation may materialize such source copies, while `allow-import-from-derivation = false` still rejects derivation builds during evaluation.
+v6.4 tightens the evaluation contract after the post-GC failures showed that
+two constraints had been bundled together. On Nix 2.34, `flake check
+--no-build` switches evaluation to a read-only store and also disables Import
+From Derivation (IFD) by default. A failure in that mode therefore does not, by
+itself, distinguish a genuine IFD from a failure caused by the additional
+read-only-store constraint.
+
+The authoritative gate is a fresh, writable `nix flake check` with
+`allow-import-from-derivation = false` set explicitly. This preserves the
+store-state-independent invariant we actually care about — evaluation must not
+build derivations — without also making the evaluator read-only. After
+successful evaluation, `flake check` builds every declared `checks` derivation.
+The read-only `--no-build` pass remains a diagnostic only. Non-default
+workstation variants are evaluated uncached with IFD disabled as well.
 
 The generic harness owns:
 
@@ -17,9 +31,9 @@ The generic harness owns:
 - bundle SHA-256 verification;
 - patch apply-check + apply;
 - `git diff --check` (validation never reformats source);
-- a writable evaluation of the active host with `allow-import-from-derivation = false`, followed by `nix flake check --no-build`;
-- selected flake check builds;
-- optional full variant matrix;
+- a fresh writable full-flake check with `allow-import-from-derivation = false`;
+- a non-authoritative read-only `flake check --no-build` diagnostic;
+- optional full variant matrix, also fresh and IFD-free;
 - one exact system closure build;
 - dry activation;
 - non-persistent test activation;
@@ -95,7 +109,6 @@ Example `phase.json`:
   "patch": "change.patch",
   "network_preflight": true,
   "full_variants": true,
-  "build_checks": ["formatting", "system-policy"],
   "allowed_failed_user_units": ["swaync.service"],
   "preflight_hook": "hooks/preflight.sh",
   "pre_activate_hook": "hooks/pre-activate.sh",
@@ -106,6 +119,10 @@ Example `phase.json`:
 
 All files referenced by the manifest must be covered by `SHA256SUMS`.
 `bundle-run` verifies the checksums before touching the repository.
+
+`bundle-run` now builds the flake's complete local-system `checks` set in the
+authoritative gate. A legacy schema-v1 `build_checks` field is tolerated in old
+bundles but no longer selects a subset.
 
 Hooks run as the invoking user and inherit:
 
