@@ -25,7 +25,10 @@
     gamescope
   ];
   programs = {
-    gamemode.enable = true;
+    gamemode = {
+      enable = true;
+      enableRenice = false;
+    };
     steam = {
       enable = true;
       remotePlay.openFirewall = false;

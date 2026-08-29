@@ -1,12 +1,6 @@
 {pkgs, ...}: {
   # TODO: review
   programs = {
-    fuse.userAllowOther = true;
-    mtr.enable = true;
-    gnupg.agent = {
-      enable = true;
-      enableSSHSupport = true;
-    };
     zoxide = {
       enable = true;
       enableZshIntegration = true;
@@ -14,17 +8,11 @@
     };
   };
 
-  nixpkgs.config = {
-    allowUnfree = true;
-    permittedInsecurePackages = [
-      "ventoy-1.1.12"
-    ];
-  };
-
   environment.systemPackages = with pkgs; [
     appimage-run # Needed For AppImage Support
     killall # For Killing All Instances Of Programs
     lm_sensors # Used For Getting Hardware Temps
+    mtr # Run with sudo when raw-socket traceroute is needed
     gnome-disk-utility # Disk Partitioning and Mounting Utility
     rclone # Cloning Utility
     jq # Json Formatting Utility

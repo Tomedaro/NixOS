@@ -45,9 +45,11 @@
 in {
   networking = {
     hostName = "${hostname}";
-    networkmanager.enable = true;
-    # DNS migration is deliberately deferred to the next tranche.
-    networkmanager.insertNameservers = ["1.1.1.1" "1.0.0.1"];
+    networkmanager = {
+      enable = true;
+      # Keep global DNS injection empty. The active connection owns DNS.
+      insertNameservers = [];
+    };
 
     # Firewall policy belongs to standalone firewalld. NixOS still requires
     # nftables support to be enabled for firewalld's nftables backend; keep
@@ -71,16 +73,12 @@ in {
 
     # /etc/firewalld zone definitions override the packaged defaults. Keep
     # the lists explicit so adding a service elsewhere cannot silently expose
-    # it on every network. Anki/27701 is the intentionally retained exception.
+    # it on every network. The Anki sync server uses plaintext HTTP, so its
+    # port is restricted to the explicitly trusted home zone.
     zones = {
       public = {
         services = ["dhcpv6-client"];
-        ports = [
-          {
-            port = 27701;
-            protocol = "tcp";
-          }
-        ];
+        ports = [];
       };
 
       home = {
@@ -88,25 +86,20 @@ in {
           "dhcpv6-client"
           "kdeconnect"
         ];
+        # Syncthing's persistent user config currently listens on 38459. Keep
+        # the firewall aligned without taking declarative ownership of its
+        # manually managed devices, folders, or other Syncthing settings.
         ports = [
           {
             port = 27701;
             protocol = "tcp";
           }
           {
-            port = 8200;
+            port = 38459;
             protocol = "tcp";
           }
           {
-            port = 1900;
-            protocol = "udp";
-          }
-          {
-            port = 22000;
-            protocol = "tcp";
-          }
-          {
-            port = 22000;
+            port = 38459;
             protocol = "udp";
           }
           {
@@ -118,71 +111,31 @@ in {
     };
   };
 
-  boot = {
-    kernelModules = ["tcp_bbr"];
-    kernel.sysctl = {
-      # TCP hardening
-      "kernel.sysrq" = 0;
-      "net.ipv4.conf.default.rp_filter" = 1;
-      "net.ipv4.conf.all.rp_filter" = 1;
-      "net.ipv4.conf.default.send_redirects" = 0;
-      "net.ipv4.conf.default.accept_redirects" = 0;
-      "net.ipv4.conf.all.secure_redirects" = 0;
-      "net.ipv4.conf.default.secure_redirects" = 0;
-      "net.ipv6.conf.all.accept_redirects" = 0;
-      "net.ipv6.conf.default.accept_redirects" = 0;
-      "net.ipv4.tcp_syncookies" = 1;
-      "net.ipv4.tcp_rfc1337" = 1;
+  boot.kernel.sysctl = {
+    # Keep explicit security policy; rely on current kernel defaults for TCP
+    # congestion control, buffers, pacing, ECN and latency behavior.
+    "kernel.sysrq" = 0;
+    "net.ipv4.conf.default.rp_filter" = 1;
+    "net.ipv4.conf.all.rp_filter" = 1;
+    "net.ipv4.conf.default.send_redirects" = 0;
+    "net.ipv4.conf.all.send_redirects" = 0;
+    "net.ipv4.conf.default.accept_redirects" = 0;
+    "net.ipv4.conf.all.accept_redirects" = 0;
+    "net.ipv4.conf.default.secure_redirects" = 0;
+    "net.ipv4.conf.all.secure_redirects" = 0;
+    "net.ipv6.conf.default.accept_redirects" = 0;
+    "net.ipv6.conf.all.accept_redirects" = 0;
+    "net.ipv4.tcp_syncookies" = 1;
 
-      # BBR + ECN optimization (Kernel 6.x)
-      "net.ipv4.tcp_congestion_control" = "bbr";
-      "net.ipv4.tcp_ecn" = 1;
-      "net.ipv4.tcp_ecn_fallback" = 1;
-
-      # TCP ultra low latency
-      "net.ipv4.tcp_fastopen" = 3;
-      "net.ipv4.tcp_fin_timeout" = 30;
-      "net.ipv4.tcp_window_scaling" = 1;
-      "net.ipv4.tcp_mtu_probing" = 1;
-      "net.ipv4.tcp_slow_start_after_idle" = 0;
-      "net.ipv4.tcp_notsent_lowat" = 16384;
-
-      # BBR pacing (Kernel 6.x)
-      "net.ipv4.tcp_pacing_ss_ratio" = 200;
-      "net.ipv4.tcp_pacing_ca_ratio" = 120;
-
-      # Buffer optimization (1Gbps Optimized)
-      "net.ipv4.tcp_rmem" = "4096 131072 67108864";
-      "net.ipv4.tcp_wmem" = "4096 65536 67108864";
-      "net.core.wmem_max" = 67108864;
-      "net.core.rmem_max" = 67108864;
-      "net.core.wmem_default" = 1048576;
-      "net.core.rmem_default" = 1048576;
-
-      # Queue management
-      "net.core.default_qdisc" = "fq";
-      "net.core.netdev_max_backlog" = 16384;
-      "net.core.somaxconn" = 2048;
-
-      # Netdev budget
-      "net.core.netdev_budget" = 600;
-      "net.core.netdev_budget_usecs" = 8000;
-
-      # Kernel Security Hardening
-      "kernel.kptr_restrict" = 2;
-      "kernel.dmesg_restrict" = 1;
-      "kernel.printk" = "3 3 3 3";
-      "kernel.unprivileged_bpf_disabled" = 1;
-      "kernel.yama.ptrace_scope" = 1;
-
-      # BPF JIT compiler (performance boost & hardening)
-      "net.core.bpf_jit_enable" = 1;
-      "net.core.bpf_jit_harden" = 2;
-      "net.core.bpf_jit_kallsyms" = 1;
-
-      # IPv6
-      "net.ipv6.conf.all.accept_ra" = 1;
-    };
+    "kernel.kptr_restrict" = 2;
+    "kernel.dmesg_restrict" = 1;
+    "kernel.printk" = "3 3 3 3";
+    "kernel.unprivileged_bpf_disabled" = 1;
+    "kernel.yama.ptrace_scope" = 1;
+    # Keep BPF JIT explicitly enabled and hardened; only the incompatible
+    # kallsyms-export override is removed.
+    "net.core.bpf_jit_enable" = 1;
+    "net.core.bpf_jit_harden" = 2;
   };
 
   # Assign only explicitly trusted existing NetworkManager profiles to the

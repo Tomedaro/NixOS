@@ -60,7 +60,6 @@ in {
       ../../modules/programs/media/mpv
       ../../modules/programs/misc/tlp
       ../../modules/programs/misc/thunar
-      ../../modules/programs/misc/lact
       ../../modules/programs/misc/virt-manager
       ../../modules/programs/anki
 
@@ -127,40 +126,8 @@ in {
     }
   ];
 
-  # CPU scheduler
-  services.scx = {
-    enable = true;
-    package = pkgs.scx.rustscheds;
-    scheduler = "scx_lavd";
-  };
-
-  # Drive automounting
-  services.devmon.enable = true;
-  services.gvfs.enable = true;
-  services.udisks2.enable = true;
-
   programs.kdeconnect = {
     enable = true;
     package = pkgs.valent;
   };
-
-  # DLNA media server
-  services.minidlna = {
-    enable = true;
-    # Exposure is owned centrally by modules/core/network.nix.
-    openFirewall = false;
-    settings = {
-      friendly_name = "NixOS-DLNA";
-      media_dir = [
-        "/mnt/work/Pimsleur"
-        "/mnt/work/Media/Films"
-        "/mnt/work/Media/Series"
-        "/mnt/work/Media/Videos"
-        "/mnt/work/Media/Music"
-      ];
-      inotify = "yes";
-      log_level = "error";
-    };
-  };
-  users.users.minidlna.extraGroups = ["users"];
 }

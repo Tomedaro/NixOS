@@ -9,7 +9,6 @@
     fstrim.enable = true; # SSD Optimizer
     devmon.enable = true; # For Mounting USB & More
     gvfs.enable = true; # For Mounting USB & More
-    udisks2.enable = true; # For Mounting USB & More
 
     # Userspace CPU Scheduler for Improved Latency for Gaming (Hardware Specific)
     # services.scx = {
@@ -28,37 +27,6 @@
       alsa.enable = true;
       alsa.support32Bit = true;
       pulse.enable = true;
-      jack.enable = true;
-      # wireplumber = {
-      #   enable = true;
-      #   configPackages = [
-      #     (pkgs.writeTextDir "share/wireplumber/wireplumber.conf.d/11-bluetooth-policy.conf" ''
-      #       bluetooth.autoswitch-to-headset-profile = false
-      #     '')
-      #   ];
-      # };
-      extraConfig.pipewire."92-low-latency" = {
-        "context.properties" = {
-          "default.clock.rate" = 48000;
-          "default.clock.quantum" = 256;
-          "default.clock.min-quantum" = 256;
-          "default.clock.max-quantum" = 256;
-        };
-      };
-      extraConfig.pipewire-pulse."92-low-latency" = {
-        context.modules = [
-          {
-            name = "libpipewire-module-protocol-pulse";
-            args = {
-              pulse.min.req = "256/48000";
-              pulse.default.req = "256/48000";
-              pulse.max.req = "256/48000";
-              pulse.min.quantum = "256/48000";
-              pulse.max.quantum = "256/48000";
-            };
-          }
-        ];
-      };
     };
   };
   systemd.user.services.blueman-applet.serviceConfig.ExecStart = lib.mkForce [

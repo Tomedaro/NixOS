@@ -66,10 +66,6 @@ hl.window_rule({
 	opacity = "0.90 0.80",
 })
 hl.window_rule({
-	match = { class = "^(proton.vpn.app.gtk)$" },
-	opacity = "0.90 0.80",
-})
-hl.window_rule({
 	match = { class = "^(heroic)$" },
 	opacity = "0.90 0.80",
 })
@@ -108,10 +104,6 @@ hl.window_rule({
 })
 hl.window_rule({
 	match = { class = "^(file-roller|org.gnome.FileRoller)$" },
-	opacity = "0.80 0.70",
-})
-hl.window_rule({
-	match = { class = "^(io.github.ilya_zlobintsev.LACT)$" },
 	opacity = "0.80 0.70",
 })
 hl.window_rule({

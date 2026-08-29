@@ -37,8 +37,6 @@ in {
     settings = {
       accept-flake-config = false;
       builders-use-substitutes = true;
-      download-buffer-size = 200000000;
-      auto-optimise-store = true; # May make rebuilds longer but less size
       substituters = [
         "https://cache.nixos.org/"
         "https://nix-community.cachix.org/"

@@ -21,22 +21,13 @@ in {
     captive-browser
     bleachbit
     qimgv
-    killall
     android-tools
     feh
     foliate
     sioyek
-    lm_sensors
     woeusb
-    ventoy-full
     guvcview
-    jq
     sedutil
-    bibata-cursors
-    sddm-astronaut # Overlaid
-    kdePackages.qtsvg
-    kdePackages.qtmultimedia
-    kdePackages.qtvirtualkeyboard
 
     # From flake inputs
     inputs.bzmenu.packages.${stdenv.hostPlatform.system}.default
@@ -46,7 +37,6 @@ in {
     lean-ctx
     obsidian
     ludusavi
-    proton-vpn
     github-desktop
     firefoxpwa
     (inputs.zen-browser.packages.${stdenv.hostPlatform.system}.beta.override {
@@ -64,7 +54,6 @@ in {
         zoom-us
         google-chrome
         protonup-qt
-        steam
         tor-browser
         localsend
         onlyoffice-desktopeditors
@@ -74,14 +63,7 @@ in {
         # Terminal tools
         fuzzel
         cool-retro-term
-        fzf
-        fd
-        git
-        gh
         htop
-        nix-prefetch-scripts
-        microfetch
-        ripgrep
         yt-dlg
         yt-dlp
 

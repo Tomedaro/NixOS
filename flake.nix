@@ -288,14 +288,12 @@
         builtins.sort builtins.lessThan (map (entry: "${toString entry.port}/${entry.protocol}") ports);
       firewallPublicPorts = normalizeFirewallPorts policyConfig.services.firewalld.zones.public.ports;
       firewallHomePorts = normalizeFirewallPorts policyConfig.services.firewalld.zones.home.ports;
-      expectedPublicPorts = ["27701/tcp"];
+      expectedPublicPorts = [];
       expectedHomePorts = builtins.sort builtins.lessThan [
-        "1900/udp"
         "21027/udp"
-        "22000/tcp"
-        "22000/udp"
+        "38459/tcp"
+        "38459/udp"
         "27701/tcp"
-        "8200/tcp"
       ];
       expectedTrustedConnectionUuids = [
         "c7d1f765-e254-4a6f-ab29-21ec5a9f49e1"
@@ -386,13 +384,70 @@
       assert firewallHomeServices == expectedHomeServices;
       assert firewallPublicPorts == expectedPublicPorts;
       assert firewallHomePorts == expectedHomePorts;
-      assert policyConfig.services.adguardhome.openFirewall == false;
-      assert policyConfig.services.minidlna.openFirewall == false;
+      assert policyConfig.services.adguardhome.enable == false;
+      assert policyConfig.services.unbound.enable == false;
+      assert policyConfig.services.minidlna.enable == false;
       assert policyConfig.services.syncthing.openDefaultPorts == false;
+      assert !(builtins.hasAttr "syncthing-init" policyConfig.systemd.services);
       assert policyConfig.programs.steam.remotePlay.openFirewall == false;
       assert policyConfig.programs.steam.dedicatedServer.openFirewall == false;
       assert policyConfig.programs.steam.localNetworkGameTransfers.openFirewall == false;
         pkgs.runCommand "workstation-firewall-policy-check" {} ''
+          touch "$out"
+        '';
+
+      dns-policy = assert policyConfig.services.resolved.enable == false;
+      assert policyConfig.services.adguardhome.enable == false;
+      assert policyConfig.services.unbound.enable == false;
+      assert policyConfig.networking.networkmanager.dns == "default";
+      assert policyConfig.networking.networkmanager.insertNameservers == [];
+      assert policyConfig.networking.networkmanager.appendNameservers == [];
+      assert policyConfig.networking.nameservers == [];
+      assert policyConfig.networking.resolvconf.enable == true;
+        pkgs.runCommand "workstation-dns-policy-check" {} ''
+          touch "$out"
+        '';
+
+      cleanup-policy = assert policyConfig.services.scx.enable == false;
+      assert policyConfig.services.minidlna.enable == false;
+      assert policyConfig.services.tlp.enable == true;
+      assert policyConfig.services.devmon.enable == true;
+      assert policyConfig.services.gvfs.enable == true;
+      assert policyConfig.services.udisks2.enable == true;
+      assert policyConfig.services.pipewire.jack.enable == false;
+      assert policyConfig.programs.fuse.userAllowOther == false;
+      assert policyConfig.programs.mtr.enable == false;
+      assert !(builtins.hasAttr "mtr-packet" policyConfig.security.wrappers);
+      assert policyConfig.programs.gamemode.enable == true;
+      assert policyConfig.programs.gamemode.enableRenice == false;
+      assert !(builtins.hasAttr "gamemoded" policyConfig.security.wrappers);
+      assert policyConfig.programs.gamescope.capSysNice == true;
+      assert policyConfig.programs.gnupg.agent.enable == true;
+      assert policyConfig.programs.gnupg.agent.enableSSHSupport == true;
+      assert policyConfig.hardware.keyboard.qmk.enable == true;
+      assert !(builtins.hasAttr "Experimental" policyConfig.hardware.bluetooth.settings.General);
+      assert !(builtins.hasAttr "KernelExperimental" policyConfig.hardware.bluetooth.settings.General);
+      assert !(builtins.hasAttr "FastConnectable" policyConfig.hardware.bluetooth.settings.General);
+      assert !(builtins.hasAttr "JustWorksRepairing" policyConfig.hardware.bluetooth.settings.General);
+      assert !(builtins.hasAttr "GATT" policyConfig.hardware.bluetooth.settings);
+      assert !(builtins.hasAttr "Policy" policyConfig.hardware.bluetooth.settings);
+      assert policyConfig.programs.thunar.enable == true;
+      assert policyConfig.services.tlp.settings.START_CHARGE_THRESH_BAT0 == 90;
+      assert policyConfig.services.tlp.settings.STOP_CHARGE_THRESH_BAT0 == 95;
+      assert !(builtins.hasAttr "START_CHARGE_THRESH_BAT1" policyConfig.services.tlp.settings);
+      assert !(builtins.hasAttr "STOP_CHARGE_THRESH_BAT1" policyConfig.services.tlp.settings);
+      assert (policyConfig.nix.settings."download-buffer-size" or null) != 200000000;
+      assert policyConfig.nix.settings.auto-optimise-store == false;
+      assert !(builtins.elem "ventoy-1.1.12" (policyConfig.nixpkgs.config.permittedInsecurePackages or []));
+      assert policyConfig.nix.optimise.automatic == true;
+      assert !(builtins.hasAttr "lactd" policyConfig.systemd.services);
+      assert !(builtins.elem "tcp_bbr" policyConfig.boot.kernelModules);
+      assert !(builtins.hasAttr "net.ipv4.tcp_congestion_control" policyConfig.boot.kernel.sysctl);
+      assert !(builtins.hasAttr "net.ipv4.tcp_rfc1337" policyConfig.boot.kernel.sysctl);
+      assert policyConfig.boot.kernel.sysctl."net.core.bpf_jit_enable" == 1;
+      assert policyConfig.boot.kernel.sysctl."net.core.bpf_jit_harden" == 2;
+      assert !(builtins.hasAttr "net.core.bpf_jit_kallsyms" policyConfig.boot.kernel.sysctl);
+        pkgs.runCommand "workstation-cleanup-policy-check" {} ''
           touch "$out"
         '';
     };
