@@ -1,13 +1,15 @@
-# nixos-assist v6.2
+# nixos-assist v6.3
 
 A reusable, deliberately conservative harness for this workstation's NixOS
 maintenance workflow.
 
-## Why v6.2 exists
+## Why v6.3 exists
 
 v5 had useful commands, but it mixed generic mechanics with Phase 3B-specific
 firewall facts, formatted source as part of validation, and did not reliably
-rollback a failed test activation. v6.2 separates those concerns, reads system-generation metadata without taking the root-owned profile lock, and makes the generic handoff complete by snapshotting every Git-tracked repository file instead of a manually curated subset.
+rollback a failed test activation. v6.3 separates those concerns, reads system-generation metadata without taking the root-owned profile lock, makes the generic handoff complete by snapshotting every Git-tracked repository file instead of a manually curated subset, and avoids using read-only `nix flake check --no-build` as the first evaluator.
+
+Before the read-only `flake check --no-build` pass, `bundle-run` evaluates the active host normally with Import From Derivation explicitly disabled. This matters on Nix 2.34: read-only evaluation can false-fail after garbage collection when a content-addressed source path needs to be copied into the store. The writable pre-evaluation may materialize such source copies, while `allow-import-from-derivation = false` still rejects derivation builds during evaluation.
 
 The generic harness owns:
 
@@ -15,7 +17,7 @@ The generic harness owns:
 - bundle SHA-256 verification;
 - patch apply-check + apply;
 - `git diff --check` (validation never reformats source);
-- `nix flake check --no-build`;
+- a writable evaluation of the active host with `allow-import-from-derivation = false`, followed by `nix flake check --no-build`;
 - selected flake check builds;
 - optional full variant matrix;
 - one exact system closure build;

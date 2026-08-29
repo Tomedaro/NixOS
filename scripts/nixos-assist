@@ -546,6 +546,17 @@ bundle_run() {
     run "$base_git" -C "$root" diff --check
 
     section 'Nix evaluation / checks'
+    # `nix flake check --no-build` puts the evaluator in read-only mode.
+    # After GC, valid content-addressed source copies needed during evaluation
+    # may therefore be computed but not materialized, producing false
+    # "path '...' is not valid" failures.  First evaluate the active host in
+    # normal writable mode while explicitly forbidding Import From Derivation.
+    # This permits harmless store path/source copies but not evaluation-time
+    # derivation builds.
+    run nix eval \
+      --option allow-import-from-derivation false \
+      --raw \
+      ".#nixosConfigurations.${host}.config.system.build.toplevel.drvPath"
     run nix flake check --no-build
     if ((${#checks[@]})); then
       local -a check_installables=()
