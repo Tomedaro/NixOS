@@ -1,13 +1,13 @@
-# nixos-assist v6.1
+# nixos-assist v6.2
 
 A reusable, deliberately conservative harness for this workstation's NixOS
 maintenance workflow.
 
-## Why v6.1 exists
+## Why v6.2 exists
 
 v5 had useful commands, but it mixed generic mechanics with Phase 3B-specific
 firewall facts, formatted source as part of validation, and did not reliably
-rollback a failed test activation. v6.1 separates those concerns and reads system-generation metadata without taking the root-owned profile lock.
+rollback a failed test activation. v6.2 separates those concerns, reads system-generation metadata without taking the root-owned profile lock, and makes the generic handoff complete by snapshotting every Git-tracked repository file instead of a manually curated subset.
 
 The generic harness owns:
 
@@ -58,6 +58,8 @@ scripts/nixos-assist gc-plan
 nixos-assist doctor
 nixos-assist report [generic|network|storage]
 nixos-assist handoff [generic|network|storage]
+
+`handoff generic` includes every Git-tracked repository file plus current changed paths; scoped `network` and `storage` handoffs remain intentionally smaller.
 nixos-assist gc-plan
 nixos-assist bundle-run BUNDLE_DIR
 nixos-assist postboot [BUNDLE_DIR]

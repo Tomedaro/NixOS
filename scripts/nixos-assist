@@ -164,7 +164,11 @@ handoff_paths() {
   local profile=${1:-generic}
   case "$profile" in
     generic)
-      printf '%s\n' flake.nix flake.lock lib hosts/Default modules/options/workstation.nix modules/core scripts/check-variants.sh
+      # A generic handoff is the audit/debug snapshot: include every tracked
+      # repository file. `git ls-files` excludes .git and ignored machine-local
+      # state while avoiding a brittle hand-maintained allowlist that can miss
+      # newly added modules, scripts, overlays, dev shells, or documentation.
+      git ls-files
       ;;
     network)
       printf '%s\n' flake.nix flake.lock hosts/Default/configuration.nix hosts/Default/variables.nix \
