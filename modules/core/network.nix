@@ -1,19 +1,120 @@
 {
   config,
+  lib,
   pkgs,
   ...
 }: let
   hostname = config.workstation.hostName;
+  trustedConnectionUuids = config.workstation.network.trustedConnectionUuids;
+  nmcli = "${pkgs.networkmanager}/bin/nmcli";
+  zoneStateDir = "/run/workstation-network-zones";
+  restoreTrustedZones = pkgs.writeShellScript "workstation-network-zones-restore" ''
+    set +e
+    ${lib.concatMapStringsSep "\n" (uuid: let
+        stateFile = "${zoneStateDir}/${uuid}.zone";
+      in ''
+        if [ -f ${lib.escapeShellArg stateFile} ] \
+          && ${nmcli} connection show uuid ${lib.escapeShellArg uuid} >/dev/null 2>&1; then
+          previous_zone="$(${pkgs.coreutils}/bin/cat ${lib.escapeShellArg stateFile})"
+          ${nmcli} connection modify --temporary uuid ${lib.escapeShellArg uuid} connection.zone "$previous_zone"
+        fi
+        ${pkgs.coreutils}/bin/rm -f ${lib.escapeShellArg stateFile}
+      '')
+      trustedConnectionUuids}
+  '';
+  applyTrustedZones = pkgs.writeShellScript "workstation-network-zones-apply" ''
+    set -eu
+    rollback() {
+      ${restoreTrustedZones}
+    }
+    trap rollback EXIT
+    trap 'exit 1' HUP INT TERM
+
+    ${lib.concatMapStringsSep "\n" (uuid: let
+        stateFile = "${zoneStateDir}/${uuid}.zone";
+      in ''
+        ${nmcli} connection show uuid ${lib.escapeShellArg uuid} >/dev/null
+        previous_zone="$(${nmcli} -g connection.zone connection show uuid ${lib.escapeShellArg uuid})"
+        printf '%s' "$previous_zone" > ${lib.escapeShellArg stateFile}
+        ${nmcli} connection modify --temporary uuid ${lib.escapeShellArg uuid} connection.zone home
+      '')
+      trustedConnectionUuids}
+
+    trap - EXIT HUP INT TERM
+  '';
 in {
   networking = {
     hostName = "${hostname}";
     networkmanager.enable = true;
+    # DNS migration is deliberately deferred to the next tranche.
     networkmanager.insertNameservers = ["1.1.1.1" "1.0.0.1"];
 
-    firewall = {
+    # Firewall policy belongs to standalone firewalld. NixOS still requires
+    # nftables support to be enabled for firewalld's nftables backend; keep
+    # the NixOS nftables ruleset empty and never let it flush other owners.
+    firewall.enable = false;
+    nftables = {
       enable = true;
-      allowedTCPPorts = [];
-      allowedUDPPorts = [];
+      flushRuleset = false;
+      ruleset = "";
+      rulesetFile = null;
+      tables = {};
+    };
+  };
+
+  services.firewalld = {
+    enable = true;
+    settings = {
+      DefaultZone = "public";
+      FirewallBackend = "nftables";
+    };
+
+    # /etc/firewalld zone definitions override the packaged defaults. Keep
+    # the lists explicit so adding a service elsewhere cannot silently expose
+    # it on every network. Anki/27701 is the intentionally retained exception.
+    zones = {
+      public = {
+        services = ["dhcpv6-client"];
+        ports = [
+          {
+            port = 27701;
+            protocol = "tcp";
+          }
+        ];
+      };
+
+      home = {
+        services = [
+          "dhcpv6-client"
+          "kdeconnect"
+        ];
+        ports = [
+          {
+            port = 27701;
+            protocol = "tcp";
+          }
+          {
+            port = 8200;
+            protocol = "tcp";
+          }
+          {
+            port = 1900;
+            protocol = "udp";
+          }
+          {
+            port = 22000;
+            protocol = "tcp";
+          }
+          {
+            port = 22000;
+            protocol = "udp";
+          }
+          {
+            port = 21027;
+            protocol = "udp";
+          }
+        ];
+      };
     };
   };
 
@@ -81,6 +182,32 @@ in {
 
       # IPv6
       "net.ipv6.conf.all.accept_ra" = 1;
+    };
+  };
+
+  # Assign only explicitly trusted existing NetworkManager profiles to the
+  # home zone. --temporary keeps credentials/profile ownership out of Nix and
+  # ExecStop makes `switch-to-configuration test` rollback-clean. NetworkManager
+  # immediately reapplies connection.zone to an already-active interface.
+  systemd.services.workstation-network-zones = lib.mkIf (trustedConnectionUuids != []) {
+    description = "Assign trusted NetworkManager connections to firewalld home zone";
+    requires = [
+      "NetworkManager.service"
+      "firewalld.service"
+    ];
+    after = [
+      "NetworkManager.service"
+      "firewalld.service"
+    ];
+    partOf = ["NetworkManager.service"];
+    wantedBy = ["multi-user.target"];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      RuntimeDirectory = "workstation-network-zones";
+      RuntimeDirectoryMode = "0700";
+      ExecStart = applyTrustedZones;
+      ExecStop = restoreTrustedZones;
     };
   };
 

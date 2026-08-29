@@ -15,6 +15,16 @@ in {
       description = "Network hostname for this workstation.";
     };
 
+    network.trustedConnectionUuids = mkOption {
+      type = types.listOf (types.strMatching "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$");
+      default = [];
+      description = ''
+        Existing NetworkManager connection UUIDs that should receive the
+        firewalld home zone at runtime. Profiles not listed here remain in
+        firewalld's default zone.
+      '';
+    };
+
     desktop = {
       environment = mkOption {
         type = types.enum (supportedChoiceNames choices.desktops);

@@ -24,6 +24,14 @@
   videoDriver = "intel"; # Choice catalogue: lib/choices.nix
   bluetoothSupport = true;
 
+  # Network trust
+  # Existing NetworkManager profiles remain externally managed. These UUIDs
+  # are assigned to the firewalld home zone at runtime without persisting
+  # changes back into the connection profile.
+  trustedConnectionUuids = [
+    "c7d1f765-e254-4a6f-ab29-21ec5a9f49e1" # Bbox-93F30CDB
+  ];
+
   # Localization
   timezone = "Europe/Paris";
   locale = "en_GB.UTF-8";

@@ -277,6 +277,29 @@
         "libvirtd"
         "kvm"
       ];
+      firewallPublicServices = builtins.sort builtins.lessThan policyConfig.services.firewalld.zones.public.services;
+      firewallHomeServices = builtins.sort builtins.lessThan policyConfig.services.firewalld.zones.home.services;
+      expectedPublicServices = ["dhcpv6-client"];
+      expectedHomeServices = builtins.sort builtins.lessThan [
+        "dhcpv6-client"
+        "kdeconnect"
+      ];
+      normalizeFirewallPorts = ports:
+        builtins.sort builtins.lessThan (map (entry: "${toString entry.port}/${entry.protocol}") ports);
+      firewallPublicPorts = normalizeFirewallPorts policyConfig.services.firewalld.zones.public.ports;
+      firewallHomePorts = normalizeFirewallPorts policyConfig.services.firewalld.zones.home.ports;
+      expectedPublicPorts = ["27701/tcp"];
+      expectedHomePorts = builtins.sort builtins.lessThan [
+        "1900/udp"
+        "21027/udp"
+        "22000/tcp"
+        "22000/udp"
+        "27701/tcp"
+        "8200/tcp"
+      ];
+      expectedTrustedConnectionUuids = [
+        "c7d1f765-e254-4a6f-ab29-21ec5a9f49e1"
+      ];
     in {
       system = policyConfig.system.build.toplevel;
 
@@ -329,6 +352,47 @@
       assert policyConfig.nix.settings.accept-flake-config == false;
       assert policyConfig.programs.nh.clean.enable == false;
         pkgs.runCommand "workstation-system-policy-check" {} ''
+          touch "$out"
+        '';
+
+      firewall-policy = assert policyConfig.networking.firewall.enable == false;
+      assert policyConfig.networking.nftables.enable == true;
+      assert policyConfig.networking.nftables.flushRuleset == false;
+      assert policyConfig.networking.nftables.ruleset == "";
+      assert policyConfig.networking.nftables.rulesetFile == null;
+      assert policyConfig.networking.nftables.tables == {};
+      assert policyConfig.virtualisation.libvirtd.firewallBackend == "iptables";
+      assert policyConfig.services.firewalld.enable == true;
+      assert policyConfig.services.firewalld.settings.DefaultZone == "public";
+      assert policyConfig.services.firewalld.settings.FirewallBackend == "nftables";
+      assert policyConfig.services.firewalld.zones.public.forward == false;
+      assert policyConfig.services.firewalld.zones.home.forward == false;
+      assert policyConfig.services.firewalld.zones.public.masquerade == false;
+      assert policyConfig.services.firewalld.zones.home.masquerade == false;
+      assert policyConfig.services.firewalld.zones.public.interfaces == [];
+      assert policyConfig.services.firewalld.zones.home.interfaces == [];
+      assert policyConfig.services.firewalld.zones.public.sources == [];
+      assert policyConfig.services.firewalld.zones.home.sources == [];
+      assert policyConfig.services.firewalld.zones.public.protocols == [];
+      assert policyConfig.services.firewalld.zones.home.protocols == [];
+      assert policyConfig.services.firewalld.zones.public.sourcePorts == [];
+      assert policyConfig.services.firewalld.zones.home.sourcePorts == [];
+      assert policyConfig.services.firewalld.zones.public.forwardPorts == [];
+      assert policyConfig.services.firewalld.zones.home.forwardPorts == [];
+      assert policyConfig.services.firewalld.zones.public.rules == [];
+      assert policyConfig.services.firewalld.zones.home.rules == [];
+      assert policyConfig.workstation.network.trustedConnectionUuids == expectedTrustedConnectionUuids;
+      assert firewallPublicServices == expectedPublicServices;
+      assert firewallHomeServices == expectedHomeServices;
+      assert firewallPublicPorts == expectedPublicPorts;
+      assert firewallHomePorts == expectedHomePorts;
+      assert policyConfig.services.adguardhome.openFirewall == false;
+      assert policyConfig.services.minidlna.openFirewall == false;
+      assert policyConfig.services.syncthing.openDefaultPorts == false;
+      assert policyConfig.programs.steam.remotePlay.openFirewall == false;
+      assert policyConfig.programs.steam.dedicatedServer.openFirewall == false;
+      assert policyConfig.programs.steam.localNetworkGameTransfers.openFirewall == false;
+        pkgs.runCommand "workstation-firewall-policy-check" {} ''
           touch "$out"
         '';
     };

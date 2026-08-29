@@ -106,6 +106,8 @@ in {
       bluetooth = vars.bluetoothSupport;
     };
 
+    network.trustedConnectionUuids = vars.trustedConnectionUuids;
+
     localization = {
       timeZone = vars.timezone;
       locale = vars.locale;
@@ -137,24 +139,6 @@ in {
   services.gvfs.enable = true;
   services.udisks2.enable = true;
 
-  # Firewall
-  networking.firewall = {
-    enable = lib.mkForce false;
-    allowedTCPPortRanges = [
-      {
-        from = 1714;
-        to = 1764;
-      }
-    ];
-    allowedUDPPortRanges = [
-      {
-        from = 1714;
-        to = 1764;
-      }
-    ];
-    allowedTCPPorts = [27701 21027 22000];
-  };
-
   programs.kdeconnect = {
     enable = true;
     package = pkgs.valent;
@@ -163,7 +147,8 @@ in {
   # DLNA media server
   services.minidlna = {
     enable = true;
-    openFirewall = true;
+    # Exposure is owned centrally by modules/core/network.nix.
+    openFirewall = false;
     settings = {
       friendly_name = "NixOS-DLNA";
       media_dir = [

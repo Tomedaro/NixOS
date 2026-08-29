@@ -1,14 +1,6 @@
 {...}: {
-  networking.firewall = {
-    allowedTCPPorts = [
-      53
-      5335
-    ];
-    allowedUDPPorts = [
-      53
-      5335
-    ];
-  };
+  # DNS service binding is migrated separately. For this tranche, make sure
+  # DNS modules do not request any firewall exposure.
   # Disable systemd dns resolver
   services.resolved = {
     enable = false;
@@ -77,7 +69,7 @@
       host = "0.0.0.0";
       port = 3005;
       mutableSettings = true;
-      openFirewall = true;
+      openFirewall = false;
       settings = {
         http = {
           address = "127.0.0.1:3005";
