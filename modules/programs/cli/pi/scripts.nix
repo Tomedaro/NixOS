@@ -1658,23 +1658,21 @@
   '';
 
   # ── Hermes Memory Doctor ────────────────────────────────────────
-  # Detect Pi's bundled Node by reading the .pi-wrapped wrapper
-  piWrappedFile = "${piWrapped}/bin/.pi-wrapped";
-  piWrappedContent =
-    if builtins.pathExists piWrappedFile
-    then builtins.readFile piWrappedFile
-    else "";
-  piNodeMatch = builtins.match ''.*exec "([^"]+)" .*'' piWrappedContent;
-  piNode =
-    if piNodeMatch != null
-    then builtins.head piNodeMatch
-    else "${pkgs.nodejs_24}/bin/node";
-
+  # Pi's package is itself wrapped. Inspecting the built .pi-wrapped file from
+  # Nix evaluation is IFD, so preserve the old Node-detection semantics at
+  # doctor runtime instead. The normal Node 24 package remains the fallback.
   piHermesDoctor = pkgs.writeShellScriptBin "pi-hermes-doctor" ''
     set -euo pipefail
 
     node="${pkgs.nodejs_24}/bin/node"
-    pi_node="${piNode}"
+    pi_wrapped_file="${piWrapped}/bin/.pi-wrapped"
+    pi_node="$node"
+    if [ -r "$pi_wrapped_file" ]; then
+      detected_pi_node="$(${pkgs.gnused}/bin/sed -n '/exec "/{s/.*exec "\([^"]*\)" .*/\1/p;q;}' "$pi_wrapped_file")"
+      if [ -n "$detected_pi_node" ] && [ -x "$detected_pi_node" ]; then
+        pi_node="$detected_pi_node"
+      fi
+    fi
     sqlite3="${pkgs.sqlite}/bin/sqlite3"
 
     hermes_dir="${paths.piAgentDir}/pi-hermes-memory"
