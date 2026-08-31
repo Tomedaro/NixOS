@@ -68,7 +68,10 @@ in {
       # defaults; moving package/profile ownership is a separate migration.
       # (select "browser" choices.browsers vars.browser)
     ]
-    ++ lib.optional vars.games ../../modules/core/games.nix;
+    ++ lib.optionals vars.games [
+      ../../modules/core/games.nix
+      ../../modules/core/flatpak.nix
+    ];
 
   # Keep automatic garbage collection off during the staged hardening rollout.
   # A single retention policy will be reintroduced after rollback is proven.

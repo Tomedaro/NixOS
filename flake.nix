@@ -13,6 +13,9 @@
       url = "github:nix-community/nix-index-database";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # Declarative Flatpak state. `latest` is pinned by flake.lock, so updates
+    # remain explicit while following stable nix-flatpak releases.
+    nix-flatpak.url = "github:gmodena/nix-flatpak/?ref=latest";
 
     # Editors
     nixvim = {
