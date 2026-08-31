@@ -105,7 +105,10 @@ in {
       bluetooth = vars.bluetoothSupport;
     };
 
-    network.trustedConnectionUuids = vars.trustedConnectionUuids;
+    network = {
+      trustedConnectionUuids = vars.trustedConnectionUuids;
+      ankiSyncHostname = vars.ankiSyncHostname;
+    };
 
     localization = {
       timeZone = vars.timezone;

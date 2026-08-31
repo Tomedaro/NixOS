@@ -293,8 +293,14 @@
         "21027/udp"
         "38459/tcp"
         "38459/udp"
-        "27701/tcp"
+        "443/tcp"
       ];
+      ankiSyncHostname = policyConfig.workstation.network.ankiSyncHostname;
+      ankiServiceConfig = policyConfig.systemd.services.anki-sync-server.serviceConfig;
+      ankiServiceEnvironment = ankiServiceConfig.Environment;
+      ankiLoadCredential = ankiServiceConfig.LoadCredential;
+      ankiCaddyGlobalConfig = policyConfig.services.caddy.globalConfig;
+      ankiCaddyConfig = policyConfig.services.caddy.virtualHosts.${ankiSyncHostname}.extraConfig;
       expectedTrustedConnectionUuids = [
         "c7d1f765-e254-4a6f-ab29-21ec5a9f49e1"
       ];
@@ -393,6 +399,45 @@
       assert policyConfig.programs.steam.dedicatedServer.openFirewall == false;
       assert policyConfig.programs.steam.localNetworkGameTransfers.openFirewall == false;
         pkgs.runCommand "workstation-firewall-policy-check" {} ''
+          touch "$out"
+        '';
+
+      anki-sync-policy = assert ankiSyncHostname != "";
+      assert policyConfig.services.caddy.enable == true;
+      assert builtins.elem "PASSWORDS_HASHED=1" ankiServiceEnvironment;
+      assert builtins.elem "SYNC_HOST=127.0.0.1" ankiServiceEnvironment;
+      assert builtins.elem "SYNC_PORT=27701" ankiServiceEnvironment;
+      assert lib.all (entry: !(lib.hasPrefix "SYNC_USER" entry)) ankiServiceEnvironment;
+      assert builtins.elem "MAX_SYNC_PAYLOAD_MEGS=1000000" ankiServiceEnvironment;
+      assert ankiLoadCredential == ["anki-sync-password-hash:/var/lib/anki-sync-server-credentials/password.phc"];
+      assert lib.hasInfix "auto_https disable_redirects" ankiCaddyGlobalConfig;
+      assert !(lib.hasInfix "default_bind" ankiCaddyGlobalConfig);
+      assert lib.hasInfix "servers :443" ankiCaddyGlobalConfig;
+      assert lib.hasInfix "protocols h1 h2" ankiCaddyGlobalConfig;
+      assert lib.hasInfix "disable_http_challenge" ankiCaddyConfig;
+      assert lib.hasInfix "request_body" ankiCaddyConfig;
+      assert lib.hasInfix "max_size 1GB" ankiCaddyConfig;
+      assert lib.hasInfix "127.0.0.1:27701" ankiCaddyConfig;
+      assert lib.hasInfix "read_buffer 512k" ankiCaddyConfig;
+      assert ankiServiceConfig.NoNewPrivileges == true;
+      assert ankiServiceConfig.PrivateTmp == true;
+      assert ankiServiceConfig.PrivateDevices == true;
+      assert ankiServiceConfig.ProtectClock == true;
+      assert ankiServiceConfig.ProtectControlGroups == true;
+      assert ankiServiceConfig.ProtectKernelLogs == true;
+      assert ankiServiceConfig.ProtectKernelModules == true;
+      assert ankiServiceConfig.ProtectKernelTunables == true;
+      assert ankiServiceConfig.LockPersonality == true;
+      assert ankiServiceConfig.RestrictRealtime == true;
+      assert ankiServiceConfig.RestrictSUIDSGID == true;
+      assert toString ankiServiceConfig.CapabilityBoundingSet == "";
+      assert toString ankiServiceConfig.UMask == "0077";
+      assert toString ankiServiceConfig.TasksMax == "256";
+      assert toString ankiServiceConfig.MemoryHigh == "3G";
+      assert toString ankiServiceConfig.MemoryMax == "4G";
+      assert toString ankiServiceConfig.MemorySwapMax == "1G";
+      assert !(builtins.elem 27701 policyConfig.networking.firewall.allowedTCPPorts);
+        pkgs.runCommand "workstation-anki-sync-policy-check" {} ''
           touch "$out"
         '';
 

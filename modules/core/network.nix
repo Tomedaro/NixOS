@@ -73,8 +73,9 @@ in {
 
     # /etc/firewalld zone definitions override the packaged defaults. Keep
     # the lists explicit so adding a service elsewhere cannot silently expose
-    # it on every network. The Anki sync server uses plaintext HTTP, so its
-    # port is restricted to the explicitly trusted home zone.
+    # it on every network. Anki itself is loopback-only; Caddy is the sole
+    # Internet-facing sync boundary and accepts HTTPS only on the trusted home
+    # interface used behind the Bbox port-forward.
     zones = {
       public = {
         services = ["dhcpv6-client"];
@@ -91,7 +92,7 @@ in {
         # manually managed devices, folders, or other Syncthing settings.
         ports = [
           {
-            port = 27701;
+            port = 443;
             protocol = "tcp";
           }
           {

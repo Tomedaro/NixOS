@@ -25,6 +25,11 @@ in {
       '';
     };
 
+    network.ankiSyncHostname = mkOption {
+      type = types.str;
+      description = "Public DNS hostname for the self-hosted Anki HTTPS endpoint.";
+    };
+
     desktop = {
       environment = mkOption {
         type = types.enum (supportedChoiceNames choices.desktops);

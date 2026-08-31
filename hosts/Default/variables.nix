@@ -32,6 +32,11 @@
     "c7d1f765-e254-4a6f-ab29-21ec5a9f49e1" # Bbox-93F30CDB
   ];
 
+  # Public DNS name used by the HTTPS reverse proxy for self-hosted Anki sync.
+  # The migration runner validates that its IPv4 DNS record points at this
+  # Bbox before activation.
+  ankiSyncHostname = "ankisync.ddns.net";
+
   # Localization
   timezone = "Europe/Paris";
   locale = "en_GB.UTF-8";
