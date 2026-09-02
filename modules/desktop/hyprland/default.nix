@@ -3,11 +3,11 @@
   inputs,
   lib,
   pkgs,
-  workstationSettings,
+  workstationSelections,
   ...
 }: let
   inherit (lib) optional;
-  bar = workstationSettings.bar;
+  bar = workstationSelections.bar;
   barChoice = choices.hyprlandBars.${bar} or (throw "Unknown Hyprland bar choice: ${bar}");
   barModule =
     if barChoice.status == "supported"

@@ -173,7 +173,7 @@ handoff_paths() {
     network)
       printf '%s\n' flake.nix flake.lock hosts/Default/configuration.nix hosts/Default/variables.nix \
         modules/options/workstation.nix modules/core/network.nix modules/core/dns.nix \
-        modules/core/syncthing.nix modules/core/services.nix modules/core/games.nix scripts/check-variants.sh
+        modules/services/syncthing/default.nix modules/core/services.nix modules/programs/games/default.nix scripts/check-variants.sh
       ;;
     storage)
       printf '%s\n' flake.nix flake.lock hosts/Default/configuration.nix modules/core/nh.nix \

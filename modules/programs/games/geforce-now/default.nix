@@ -63,8 +63,7 @@ in {
   services.flatpak.remotes = lib.mkOptionDefault [
     {
       name = appOrigin;
-      location =
-        "https://international.download.nvidia.com/GFNLinux/flatpak/geforcenow.flatpakrepo";
+      location = "https://international.download.nvidia.com/GFNLinux/flatpak/geforcenow.flatpakrepo";
     }
   ];
 
@@ -87,11 +86,10 @@ in {
     };
 
   # force = true intentionally adopts/replaces the manually copied test file.
-  home-manager.users.${userName}.xdg.dataFile."applications/${appId}.desktop" =
-    lib.mkIf isHyprland {
-      source = "${desktopItem}/share/applications/${appId}.desktop";
-      force = true;
-    };
+  home-manager.users.${userName}.xdg.dataFile."applications/${appId}.desktop" = lib.mkIf isHyprland {
+    source = "${desktopItem}/share/applications/${appId}.desktop";
+    force = true;
+  };
 
   environment.systemPackages = lib.optionals isHyprland [launcher];
 }

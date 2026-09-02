@@ -108,13 +108,19 @@
     }: let
       baseWorkstationSettings = import ./hosts/${host}/variables.nix;
       workstationSettings = lib.recursiveUpdate baseWorkstationSettings settingsOverride;
+      # Only import-time selectors belong in specialArgs outside the host module.
+      # `imports` is resolved before the module fixed point, so these values
+      # cannot be sourced from config.workstation without recursion.
+      workstationSelections = {
+        inherit (workstationSettings) bar waybarTheme;
+      };
     in
       lib.nixosSystem {
         system = "x86_64-linux";
         modules = [./hosts/${host}/configuration.nix];
         specialArgs = {
           overlays = import ./overlays {inherit inputs;};
-          inherit self inputs outputs host workstationSettings choices;
+          inherit self inputs outputs host workstationSettings workstationSelections choices;
         };
       };
 
@@ -331,8 +337,28 @@
           nativeBuildInputs = [pkgs.ripgrep];
           src = ./.;
         } ''
-          if rg -n 'hosts/.*/variables\.nix' "$src/modules" --glob '*.nix'; then
-            echo "ordinary modules must consume config.workstation, not host variables.nix" >&2
+          if rg -n \
+            -e 'hosts/.*/variables\.nix' \
+            -e '\bworkstationSettings\b' \
+            "$src/modules" --glob '*.nix'; then
+            echo "ordinary modules must consume config.workstation; raw workstationSettings is host-only" >&2
+            exit 1
+          fi
+
+          expected_selector_users="$(printf '%s\n' \
+            modules/desktop/hyprland/default.nix \
+            modules/desktop/hyprland/programs/waybar/default.nix)"
+          actual_selector_users="$(
+            rg -l '\bworkstationSelections\b' "$src/modules" --glob '*.nix' \
+              | sed "s#^$src/##" \
+              | sort
+          )"
+          if [ "$actual_selector_users" != "$expected_selector_users" ]; then
+            echo "workstationSelections is an import-time escape hatch; its consumers must remain explicit" >&2
+            echo "expected:" >&2
+            printf '%s\n' "$expected_selector_users" >&2
+            echo "actual:" >&2
+            printf '%s\n' "$actual_selector_users" >&2
             exit 1
           fi
           touch "$out"

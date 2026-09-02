@@ -21,6 +21,20 @@ layer also rejects a raw host setting whose catalogue entry is not supported, so
 stale or experimental module cannot be enabled accidentally by bypassing option
 validation.
 
+## Composition boundary
+
+`hosts/Default/variables.nix` is raw host-composition input. `flake.nix` merges variant
+overrides into that data and passes the result to the host module as
+`workstationSettings`. Ordinary modules must not consume that raw set; after module
+composition they read the typed `config.workstation.*` interface instead.
+
+There is one deliberately narrower import-time exception. Hyprland's bar and Waybar's
+theme determine module paths, and NixOS resolves `imports` before the module fixed
+point. `flake.nix` therefore exposes only `bar` and `waybarTheme` as
+`workstationSelections` for those nested import decisions. The structural boundary
+check rejects `workstationSettings` anywhere under `modules/`, preventing the raw host
+interface from leaking back into reusable modules.
+
 ## Current exceptions
 
 - Plasma 6 is pending until its Plasma Manager integration is refreshed against the

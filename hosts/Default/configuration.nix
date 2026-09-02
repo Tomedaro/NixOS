@@ -19,10 +19,10 @@ in {
       ./hardware-configuration.nix
       ./host-packages.nix
 
-      # Core modules
+      # Baseline modules
       ../../modules/scripts
       ../../modules/core/boot.nix
-      ../../modules/core/starship.nix
+      ../../modules/programs/cli/starship
       ../../modules/core/fonts.nix
       ../../modules/core/hardware.nix
       ../../modules/core/network.nix
@@ -32,7 +32,7 @@ in {
       ../../modules/core/sddm.nix
       ../../modules/core/security.nix
       ../../modules/core/services.nix
-      ../../modules/core/syncthing.nix
+      ../../modules/services/syncthing
       ../../modules/core/system.nix
       ../../modules/core/users.nix
 
@@ -69,7 +69,7 @@ in {
       # (select "browser" choices.browsers vars.browser)
     ]
     ++ lib.optionals vars.games [
-      ../../modules/core/games.nix
+      ../../modules/programs/games
       ../../modules/core/flatpak.nix
       ../../modules/programs/games/geforce-now
     ];

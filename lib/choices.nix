@@ -106,8 +106,8 @@ in {
   };
 
   shells = {
-    zsh = supported ../modules/core/zsh.nix {packageName = "zsh";};
-    bash = supported ../modules/core/bash.nix {packageName = "bash";};
+    zsh = supported ../modules/programs/shell/zsh {packageName = "zsh";};
+    bash = supported ../modules/programs/shell/bash {packageName = "bash";};
   };
 
   videoDrivers = {

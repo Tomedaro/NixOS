@@ -1,9 +1,9 @@
 {
   choices,
-  workstationSettings,
+  workstationSelections,
   ...
 }: let
-  theme = workstationSettings.waybarTheme;
+  theme = workstationSelections.waybarTheme;
   themeChoice = choices.waybarThemes.${theme} or (throw "Unknown Waybar theme choice: ${theme}");
   themeModule =
     if themeChoice.status == "supported"

@@ -1,5 +1,5 @@
 {
-  username = "daniil"; # Temporary host settings interface; composed only by flake.nix.
+  username = "daniil"; # Host composition input; variant overrides are merged by flake.nix.
 
   # Desktop Environment
   desktop = "hyprland"; # Choice catalogue: lib/choices.nix
