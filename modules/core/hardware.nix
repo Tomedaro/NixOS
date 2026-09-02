@@ -1,5 +1,5 @@
 {config, ...}: let
-  hostname = config.workstation.hostName;
+  hostname = config.networking.hostName;
   bluetoothSupport = config.workstation.hardware.bluetooth;
 in {
   hardware = {

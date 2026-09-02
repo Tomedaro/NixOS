@@ -1,13 +1,13 @@
 # Workstation choice contract
 
-The repository intentionally supports more than the currently selected `Default`
+The repository intentionally supports more than the currently selected `Singularity`
 configuration, but a module existing in the tree is not by itself a support claim.
 
 ## Choice states
 
 Every selectable family is catalogued in `lib/choices.nix` with one of four states:
 
-- `supported`: selectable through `hosts/Default/variables.nix` and covered by a
+- `supported`: selectable through `hosts/Singularity/variables.nix` and covered by a
   one-factor NixOS evaluation check.
 - `pending`: retained source with a known integration gap. It is deliberately not
   accepted by the typed workstation options until repaired.
@@ -23,7 +23,7 @@ validation.
 
 ## Composition boundary
 
-`hosts/Default/variables.nix` is raw host-composition input. `flake.nix` merges variant
+`hosts/Singularity/variables.nix` is raw host-composition input. `flake.nix` merges variant
 overrides into that data and passes the result to the host module as
 `workstationSettings`. Ordinary modules must not consume that raw set; after module
 composition they read the typed `config.workstation.*` interface instead.
@@ -63,7 +63,7 @@ This keeps the lock graph aligned with functionality the repository actually pro
 
 ## Variant checks
 
-Routine `nix flake check` validates the real `Default` host plus cheap structural
+Routine `nix flake check` validates the real `Singularity` host plus cheap structural
 invariants. Alternate full-system configurations deliberately do not live under
 `checks.*`: `nix flake check --no-build` still evaluates every check derivation, so a
 large matrix there makes ordinary validation slow and memory-heavy.
@@ -82,7 +82,7 @@ runs the complete serial matrix in addition to the normal flake checks.
 
 The matrix is one-factor-at-a-time. Context-dependent choices carry their
 prerequisites explicitly: bar checks force Hyprland, and Waybar-theme checks force
-Hyprland + Waybar. Choices already exercised by the current `Default` configuration
+Hyprland + Waybar. Choices already exercised by the current `Singularity` configuration
 are omitted from the alternate matrix, avoiding redundant evaluation.
 
 Variant evaluation catches missing inputs, removed or renamed options, module

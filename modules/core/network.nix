@@ -4,7 +4,6 @@
   pkgs,
   ...
 }: let
-  hostname = config.workstation.hostName;
   trustedConnectionUuids = config.workstation.network.trustedConnectionUuids;
   nmcli = "${pkgs.networkmanager}/bin/nmcli";
   zoneStateDir = "/run/workstation-network-zones";
@@ -44,7 +43,6 @@
   '';
 in {
   networking = {
-    hostName = "${hostname}";
     networkmanager = {
       enable = true;
       # Keep global DNS injection empty. The active connection owns DNS.

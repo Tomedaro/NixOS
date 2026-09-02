@@ -23,7 +23,7 @@ for arg in "$@"; do
   esac
 done
 
-LOG="${AI_DEV_LOG:-/tmp/ai-rebuild-default-$(date +%Y%m%d-%H%M%S).txt}"
+LOG="${AI_DEV_LOG:-/tmp/ai-rebuild-nixos-$(date +%Y%m%d-%H%M%S).txt}"
 mkdir -p "$(dirname "$LOG")"
 
 finish() {
@@ -65,8 +65,9 @@ echo "===== available flake nixos configurations ====="
 nix eval --json "$REPO_ROOT#nixosConfigurations" --apply 'builtins.attrNames' || true
 
 echo
-echo "===== rebuild Default ====="
-sudo nixos-rebuild switch --flake "$REPO_ROOT#Default"
+HOST="${NIXOS_HOST:-$(hostname)}"
+echo "===== rebuild $HOST ====="
+sudo nixos-rebuild switch --flake "$REPO_ROOT#$HOST"
 
 echo
 echo "===== restart user AI services touched by recent workflow ====="

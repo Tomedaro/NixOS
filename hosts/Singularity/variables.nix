@@ -20,7 +20,6 @@
   games = true; # Enable/disable gaming applications and services.
 
   # Hardware
-  hostname = "Singularity";
   videoDriver = "intel"; # Choice catalogue: lib/choices.nix
   bluetoothSupport = true;
 

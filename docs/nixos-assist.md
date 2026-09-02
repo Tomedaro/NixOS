@@ -46,19 +46,11 @@ The generic harness owns:
 Phase-specific facts belong in a small bundle (`phase.json` + optional hooks),
 not in `nixos-assist` itself.
 
-## Install into the repository
+## Repository usage
 
-From this extracted directory:
+`nixos-assist` is already tracked as `scripts/nixos-assist`; no bootstrap installer is required.
 
-```bash
-./install.sh
-```
-
-This adds `scripts/nixos-assist` and `docs/nixos-assist.md` to the Git working
-tree and marks them intent-to-add so `git diff` can inspect them. It does not
-rebuild NixOS, stage their contents, or commit anything.
-
-Then:
+From the repository:
 
 ```bash
 cd ~/NixOS
@@ -105,7 +97,7 @@ Example `phase.json`:
   "name": "phase-example",
   "expected_head": "FULL_GIT_COMMIT",
   "expected_branch": "feat/example",
-  "host": "Default",
+  "host": "Singularity",
   "patch": "change.patch",
   "network_preflight": true,
   "full_variants": true,

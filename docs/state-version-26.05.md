@@ -19,7 +19,7 @@ Before this migration is considered complete on the real workstation:
 
 1. Review NixOS and Home Manager state-version changes between 23.11 and 26.05
    that affect enabled modules.
-2. Build the complete `Default` closure.
+2. Build the complete `Singularity` closure.
 3. Run `nixos-rebuild test` and verify the active user session and mutable
    application state.
 4. Reboot a switched 26.05 generation and verify boot, login, networking,

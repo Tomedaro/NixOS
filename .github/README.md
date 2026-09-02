@@ -59,74 +59,34 @@
 
 ## Installation
 
-> [!Note]
-> Before proceeding with the installation, check these files and adjust them for your system:
->
-> - `hosts/Default/variables.nix`: Contains host-specific variables.
-> - `hosts/Default/host-packages.nix`: Lists installed packages for the host.
-> - `hosts/Default/configuration.nix`: Module imports for the host and extra configuration.
+This repository currently has one concrete NixOS host: **Singularity**.
 
-<!-- You can install this configuration either on a running system or from the NixOS live installer. The minimal ISO is recommended and can be downloaded from the [official NixOS website](https://nixos.org/download/#nixos-iso). -->
+The old `install.sh` / `live-install.sh` workflow has been retired because it
+created new machines by copying an existing host directory, which could carry
+disk UUIDs, hardware configuration, tuning, and other installation-specific
+state onto unrelated hardware.
 
-You can install on a running system or from the NixOS live installer. Get the minimal ISO from the [NixOS website](https://nixos.org/download/#nixos-iso).
+For the current machine, the canonical configuration is:
 
-### Installation Steps
-
-1. Clone the Repository:
-
-```bash
-git clone https://github.com/Sly-Harvey/NixOS.git ~/NixOS
+```text
+nixosConfigurations.Singularity
+hosts/Singularity/
+networking.hostName = "Singularity"
 ```
 
-<!-- 2. Navigate to the Directory: -->
-
-2. Change Directory:
-
-```bash
-cd ~/NixOS
-```
-
-3. Run the Installer:
-
-```bash
-./install.sh
-```
-
-<!-- The script handles host setup, username configuration, and automatically generates `hardware-configuration.nix` based on your hardware. -->
-
-The install and rebuild scripts automate the setup process, including hosts, username, and applying the configuration. It also automatically generates the hardware-configuration.nix file based on your system's detected hardware, eliminating the need to manually generate it.
+For a reinstall or a future second machine, see
+[`docs/host-onboarding.md`](../docs/host-onboarding.md). Do **not** create a new
+host by copying `hosts/Singularity`. New hardware must get its own generated
+hardware configuration and explicit machine-specific storage/network facts.
 
 ## Usage
 
 ### Managing Hosts
 
-**Method 1: Automatic** - run the installer again to select or create another host:
-
-```bash
-./install.sh
-```
-
-**Method 2: Manual:**
-
-1. Copy `hosts/Default` to a new directory (e.g., `hosts/Laptop`)
-2. Edit the new host's `variables.nix` and `host-packages.nix`
-3. Add the host to `flake.nix`:
-
-   ```nix
-   nixosConfigurations = {
-     Default = mkHost "Default";
-     Laptop = mkHost "Laptop";
-   };
-   ```
-
-4. Track the new host with git:
-   ```bash
-   git add hosts/Laptop
-   ```
-
-<!-- 4. Rebuild with the new hostname (see below) -->
-
-5. Rebuild with the new hostname using either `nixos-rebuild` or `nh` (see [Rebuilding](#rebuilding) below). Once rebuilt, any rebuilding method can be used, as the host name will be implicitly recognised.
+`Singularity` is currently the only registered real host. Additional machines
+will be added as explicit `nixosConfigurations.<HostName>` entries after their
+own hardware/install facts are created. Support variants such as alternate
+editors/desktops are tests, not additional hosts.
 
 ### Rebuilding
 
@@ -135,9 +95,10 @@ Apply configuration changes:
 - **Keyboard shortcut:** `Super + U`
 - **rebuild script:** `rebuild`
 - **nixos-rebuild:** `sudo nixos-rebuild switch --flake ~/NixOS#<HOST>`
-- **nh:** `nh os switch --hostname <HOST>`
+- **nh (current host; `NH_FLAKE` is configured):** `nh os switch`
+- **nh (explicit host):** `nh os switch -H <HOST>`
 
-Replace `<HOST>` with the name of your host (e.g., `Laptop`).
+For this machine, use `Singularity`. When additional real hosts are registered, use their canonical configuration names.
 
 ### Rollbacks
 

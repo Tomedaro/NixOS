@@ -20,7 +20,7 @@ pkgs.writeShellScriptBin "rebuild" ''
       cat <<'USAGE'
   Usage: rebuild [--full] [--path] [--test-only]
 
-  Safely validate and activate the Default NixOS configuration without modifying
+  Safely validate and activate the current NixOS configuration without modifying
   repository source files or the Git index.
 
     --full       Build all flake checks, not only the active system closure.

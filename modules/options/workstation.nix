@@ -10,11 +10,6 @@ in {
       description = "Primary workstation user name.";
     };
 
-    hostName = mkOption {
-      type = types.str;
-      description = "Network hostname for this workstation.";
-    };
-
     network.trustedConnectionUuids = mkOption {
       type = types.listOf (types.strMatching "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$");
       default = [];

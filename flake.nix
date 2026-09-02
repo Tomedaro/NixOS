@@ -117,7 +117,10 @@
     in
       lib.nixosSystem {
         system = "x86_64-linux";
-        modules = [./hosts/${host}/configuration.nix];
+        modules = [
+          ./hosts/${host}
+          {networking.hostName = lib.mkDefault host;}
+        ];
         specialArgs = {
           overlays = import ./overlays {inherit inputs;};
           inherit self inputs outputs host workstationSettings workstationSelections choices;
@@ -187,15 +190,15 @@
         gaming-disabled = {games = false;};
       };
 
-    defaultWorkstationSettings = import ./hosts/Default/variables.nix;
-    isDefaultOverride = settingsOverride:
+    baselineWorkstationSettings = import ./hosts/Singularity/variables.nix;
+    isBaselineOverride = settingsOverride:
       lib.all
       (name:
-        builtins.hasAttr name defaultWorkstationSettings
-        && defaultWorkstationSettings.${name} == settingsOverride.${name})
+        builtins.hasAttr name baselineWorkstationSettings
+        && baselineWorkstationSettings.${name} == settingsOverride.${name})
       (builtins.attrNames settingsOverride);
     supportedAlternativeOverrides =
-      lib.filterAttrs (_: settingsOverride: !isDefaultOverride settingsOverride)
+      lib.filterAttrs (_: settingsOverride: !isBaselineOverride settingsOverride)
       supportedVariantOverrides;
     supportedAlternativeNames = builtins.attrNames supportedAlternativeOverrides;
 
@@ -237,18 +240,18 @@
     formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.alejandra);
 
     nixosConfigurations = {
-      Default = mkHost {host = "Default";};
+      Singularity = mkHost {host = "Singularity";};
     };
 
     # Variant configurations are deliberately lazy and live outside `checks`.
-    # Routine `nix flake check` therefore validates the real Default host and
+    # Routine `nix flake check` therefore validates the real Singularity host and
     # cheap structural invariants without evaluating every alternate full system.
     # `nix run .#check-variants` evaluates these paths serially on demand.
     lib.workstation.variantDrvPaths =
       lib.mapAttrs
       (_: settingsOverride:
         (mkHost {
-          host = "Default";
+          host = "Singularity";
           inherit settingsOverride;
         }).config.system.build.toplevel.drvPath)
       supportedAlternativeOverrides;
@@ -269,12 +272,12 @@
     in {
       type = "app";
       program = "${checkVariants}/bin/check-variants";
-      meta.description = "Evaluate supported non-default workstation variants serially";
+      meta.description = "Evaluate supported non-baseline workstation variants serially";
     };
 
     checks.x86_64-linux = let
       pkgs = nixpkgs.legacyPackages.x86_64-linux;
-      policyConfig = self.nixosConfigurations.Default.config;
+      policyConfig = self.nixosConfigurations.Singularity.config;
       policyUsername = policyConfig.workstation.user.name;
       policyGroups = builtins.sort builtins.lessThan policyConfig.users.users.${policyUsername}.extraGroups;
       expectedPolicyGroups = builtins.sort builtins.lessThan [

@@ -32,7 +32,7 @@ Keep this file small because it is always-loaded context. Prefer prompts or skil
 Then run:
 
 ```bash
-sudo nixos-rebuild test --flake /home/daniil/NixOS#Default
+sudo nixos-rebuild test --flake /home/daniil/NixOS#Singularity
 pi-admin sync global
 pi-admin drift
 ```
@@ -49,7 +49,7 @@ Edit:
 Then run:
 
 ```bash
-sudo nixos-rebuild test --flake /home/daniil/NixOS#Default
+sudo nixos-rebuild test --flake /home/daniil/NixOS#Singularity
 pi-admin sync global
 pi-admin compat
 pi-admin drift
@@ -69,7 +69,7 @@ Edit:
 Then run:
 
 ```bash
-sudo nixos-rebuild test --flake /home/daniil/NixOS#Default
+sudo nixos-rebuild test --flake /home/daniil/NixOS#Singularity
 pi-admin sync global
 pi-admin drift
 ```

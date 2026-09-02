@@ -68,7 +68,7 @@ For durable global behavior changes:
 1. Edit `/home/daniil/NixOS/modules/programs/cli/pi/resources/global/AGENTS.md`.
 2. Do not edit `/home/daniil/.pi/agent/AGENTS.md` directly.
 3. Run:
-   - `sudo nixos-rebuild test --flake /home/daniil/NixOS#Default`
+   - `sudo nixos-rebuild test --flake /home/daniil/NixOS#Singularity`
    - `pi-admin sync global`
    - `pi-admin drift`
 4. Show `git diff --stat` and relevant `git diff`.

@@ -45,7 +45,7 @@ Stabilize source/runtime truth → enforce compatibility and permissions → pin
 - No duplicate raw Engram MCP tools
 
 ### Dev tooling packages — ✅ DONE
-- Added to `hosts/Default/host-packages.nix`: nixd, nixfmt, statix, deadnix, ruff, pyright, python3/pytest, lua-language-server, stylua, luajit, luacheck
+- Added to `hosts/Singularity/host-packages.nix`: nixd, nixfmt, statix, deadnix, ruff, pyright, python3/pytest, lua-language-server, stylua, luajit, luacheck
 
 ---
 

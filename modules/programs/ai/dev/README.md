@@ -82,16 +82,16 @@ Use verbose mode when investigating details:
 modules/programs/ai/dev/audit-ai-project.sh --verbose
 ```
 
-### Rebuild Default
+### Rebuild NixOS host
 
 ```bash
-modules/programs/ai/dev/rebuild-default.sh
+modules/programs/ai/dev/rebuild-nixos.sh
 ```
 
-Rebuilds and switches the NixOS flake configuration `#Default`. It refuses to run from a dirty tree unless called with:
+Rebuilds and switches the configuration matching the current runtime hostname (currently `#Singularity`). Set `NIXOS_HOST` to override it explicitly. It refuses to run from a dirty tree unless called with:
 
 ```bash
-modules/programs/ai/dev/rebuild-default.sh --allow-dirty
+modules/programs/ai/dev/rebuild-nixos.sh --allow-dirty
 ```
 
 ### Phone bridge focused check

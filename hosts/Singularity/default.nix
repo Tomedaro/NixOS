@@ -80,8 +80,6 @@ in {
 
   workstation = {
     user.name = vars.username;
-    hostName = vars.hostname;
-
     desktop = {
       environment = vars.desktop;
       bar = vars.bar;

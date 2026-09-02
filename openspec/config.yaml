@@ -1,9 +1,9 @@
 strict_tdd: false
 context: |
-  This repository is a polyglot NixOS/Home Manager flake for host "Default".
+  This repository is a polyglot NixOS/Home Manager flake for host "Singularity".
 
   Primary integration layer:
-  - Nix flake / NixOS system configuration (nixosConfigurations.Default)
+  - Nix flake / NixOS system configuration (nixosConfigurations.Singularity)
   - Home Manager configuration
   - Nix modules under modules/
   - Host configuration under hosts/
@@ -38,9 +38,9 @@ rules:
   tasks:
     protect_review_workload: true
   apply:
-    test_command: "pi-source-check && nix build .#nixosConfigurations.Default.config.system.build.toplevel --no-link --show-trace"
+    test_command: "pi-source-check && nix build .#nixosConfigurations.Singularity.config.system.build.toplevel --no-link --show-trace"
   verify:
-    test_command: "pi-source-check && nix flake check --show-trace && nix build .#nixosConfigurations.Default.config.system.build.toplevel --no-link --show-trace"
+    test_command: "pi-source-check && nix flake check --show-trace && nix build .#nixosConfigurations.Singularity.config.system.build.toplevel --no-link --show-trace"
 
 testing:
   detected: "2026-06-12"
@@ -64,11 +64,11 @@ testing:
         command: "nix flake check --show-trace"
         framework: "Nix flake checks"
       - scope: "NixOS system closure build"
-        command: "nix build .#nixosConfigurations.Default.config.system.build.toplevel --no-link --show-trace"
+        command: "nix build .#nixosConfigurations.Singularity.config.system.build.toplevel --no-link --show-trace"
         framework: "NixOS closure build without activation"
     e2e:
       - scope: "live system activation test"
-        command: "sudo nixos-rebuild test --flake .#Default"
+        command: "sudo nixos-rebuild test --flake .#Singularity"
         framework: "manual only; explicit approval required"
   coverage:
     command: ""
@@ -112,7 +112,7 @@ quality:
   typecheck: ""
   typecheck_commands:
     - scope: "NixOS evaluation/build (gate)"
-      command: "nix build .#nixosConfigurations.Default.config.system.build.toplevel --no-link --show-trace"
+      command: "nix build .#nixosConfigurations.Singularity.config.system.build.toplevel --no-link --show-trace"
       tier: gate
     - scope: "Python typecheck (disabled)"
       command: "pyright"

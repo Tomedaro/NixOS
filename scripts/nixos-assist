@@ -4,7 +4,7 @@ umask 077
 
 PROGRAM=${0##*/}
 OUTPUT_DIR=${NIXOS_ASSIST_OUTPUT_DIR:-$HOME/Downloads}
-HOST=${NIXOS_ASSIST_HOST:-Default}
+HOST=${NIXOS_ASSIST_HOST:-$(hostname)}
 
 usage() {
   cat <<'USAGE'
@@ -171,12 +171,12 @@ handoff_paths() {
       git ls-files
       ;;
     network)
-      printf '%s\n' flake.nix flake.lock hosts/Default/configuration.nix hosts/Default/variables.nix \
+      printf '%s\n' flake.nix flake.lock "hosts/$HOST/default.nix" "hosts/$HOST/variables.nix" \
         modules/options/workstation.nix modules/core/network.nix modules/core/dns.nix \
         modules/services/syncthing/default.nix modules/core/services.nix modules/programs/games/default.nix scripts/check-variants.sh
       ;;
     storage)
-      printf '%s\n' flake.nix flake.lock hosts/Default/configuration.nix modules/core/nh.nix \
+      printf '%s\n' flake.nix flake.lock "hosts/$HOST/default.nix" "hosts/$HOST/hardware-configuration.nix" modules/core/nh.nix \
         modules/core/system.nix modules/core/packages.nix modules/hardware scripts/check-variants.sh
       ;;
     *) die "unknown handoff profile: $profile" ;;

@@ -14,7 +14,7 @@ Pinned packages make normal rebuilds and bootstraps reproducible. Do not switch 
 2. Check the current version in `~/.pi/agent/npm/package-lock.json` or with intentional npm metadata lookup: `PI_COMPAT_ONLINE=1 pi-compat-check`.
 3. Read the package changelog/source for the new version.
 4. Edit `modules/programs/cli/pi/settings/global.json`.
-5. Run `sudo nixos-rebuild test --flake /home/daniil/NixOS#Default`.
+5. Run `sudo nixos-rebuild test --flake /home/daniil/NixOS#Singularity`.
 6. Run `pi-bootstrap`.
 7. Run `pi-compat-check`, `pi-doctor`, and `pi-drift-check`.
 8. Run `pi update --extensions` only when you intentionally want Pi to install/update the pinned resources.
@@ -53,7 +53,7 @@ When updating any Pi extension or package pin:
    - Source/runtime drift after activation (via `pi-admin drift`)
 
 5. **Activate and confirm.**
-   - `sudo nixos-rebuild switch --flake .#Default`
+   - `sudo nixos-rebuild switch --flake .#Singularity`
    - Re-run all validation checks
    - Confirm `pi-admin drift` is clean
 
