@@ -25,38 +25,9 @@
   services.flatpak = {
     enable = true;
 
-    # Keep nix-flatpak's default Flathub remote (needed for GFN's Freedesktop
-    # runtime) and add NVIDIA's official GeForce NOW repository.
-    remotes = lib.mkOptionDefault [
-      {
-        name = "GeForceNOW";
-        location = "https://international.download.nvidia.com/GFNLinux/flatpak/geforcenow.flatpakrepo";
-      }
-    ];
-
-    packages = [
-      {
-        appId = "com.nvidia.geforcenow";
-        origin = "GeForceNOW";
-      }
-    ];
-
-    # Empirically required GFN compatibility settings. Do not leak them into
-    # the global graphics environment or unrelated Flatpaks.
-    overrides."com.nvidia.geforcenow" =
-      {
-        # GFN's forced EGL Wayland backend crashes its CEF GPU process on this
-        # setup. Let EGL choose the backend while keeping the Wayland session.
-        Context."unset-environment" = ["EGL_PLATFORM"];
-      }
-      // lib.optionalAttrs (config.workstation.hardware.videoDriver == "intel") {
-        # Intel ANV hides Vulkan Video decode behind this opt-in flag. GFN
-        # requires the Vulkan Video H.264/H.265 decode extensions.
-        Environment.ANV_DEBUG = "video-decode";
-      };
-
-    # Preserve Flatpaks installed outside this declaration. Avoid updating
-    # applications during routine NixOS activation; use the timer instead.
+    # Flatpak state is mutable outside the Nix store. Preserve packages the
+    # user installed independently, avoid network work during normal NixOS
+    # activation, and update managed applications on a separate timer.
     uninstallUnmanaged = false;
     update = {
       onActivation = false;
@@ -67,7 +38,7 @@
     };
 
     # Repository/network failures should recover without an endless 60-second
-    # retry loop hammering NVIDIA/Flathub.
+    # retry loop hammering remotes.
     restartOnFailure = {
       enable = true;
       restartDelay = "1m";

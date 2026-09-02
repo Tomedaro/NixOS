@@ -71,6 +71,7 @@ in {
     ++ lib.optionals vars.games [
       ../../modules/core/games.nix
       ../../modules/core/flatpak.nix
+      ../../modules/programs/games/geforce-now
     ];
 
   # Keep automatic garbage collection off during the staged hardening rollout.
