@@ -19,9 +19,9 @@ and home directory from the corresponding NixOS user.
 
 ## Transitional rule
 
-47 feature/host modules still contribute through `home-manager.sharedModules`.
-The extracted CLI user layer now includes Starship, tmux, lazygit, Cava, and
-direnv as `homeManager`-class modules imported directly by
+46 feature/host modules still contribute through `home-manager.sharedModules`.
+The extracted CLI user layer now includes Starship, tmux, lazygit, Cava,
+direnv, and btop as `homeManager`-class modules imported directly by
 `users/daniil/default.nix`. This remains safe only because
 `modules/core/users.nix` asserts exactly one managed Home Manager user while the
 remaining shared-module payloads are migrated incrementally.
@@ -47,11 +47,17 @@ Direnv is fully user-owned: its warning threshold is written through
 `DIRENV_WARN_TIMEOUT` system environment variable, and Home Manager is the sole
 owner of Bash/Zsh direnv hook generation.
 
-Btop remains intentionally deferred as a whole. Its current package override enables
-both CUDA and ROCm support even though Singularity selects the Intel video-driver
-profile, and Hyprland separately installs a generic `pkgs.btop`. That package-policy
-debt should be corrected deliberately rather than formalized during user-ownership
-extraction.
+Btop uses Home Manager's default `pkgs.btop` package, with the existing settings
+and Catppuccin theme. The old unconditional CUDA/ROCm override is removed for
+Singularity's Intel configuration. The pinned package already builds Intel GPU
+collection; CUDA and ROCm package options add vendor-specific library lookup
+support. Compiled support does not guarantee access to GPU counters, and this
+change grants no additional privileges.
+
+Hyprland no longer installs a second, system-wide btop package. Daniil's Home
+Manager profile owns the executable, including its existing Hyprland key binding.
+A future AMD/NVIDIA installation should explicitly review its btop runtime library
+requirements; evaluation of the video-driver variants is not a telemetry test.
 
 Do not use `osConfig` or `home-manager.extraSpecialArgs` as a universal escape
 hatch. A user module should depend on NixOS state only when the user behavior is

@@ -36,7 +36,6 @@ in {
     playerctl
     pamixer
     hyprsunset
-    btop
     hyprpicker
   ];
 
