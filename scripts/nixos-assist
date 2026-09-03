@@ -176,8 +176,9 @@ handoff_paths() {
         modules/services/syncthing/default.nix modules/core/services.nix modules/programs/games/default.nix scripts/check-variants.sh
       ;;
     storage)
-      printf '%s\n' flake.nix flake.lock "hosts/$HOST/default.nix" "hosts/$HOST/hardware-configuration.nix" modules/core/nh.nix \
-        modules/core/system.nix modules/core/packages.nix modules/hardware scripts/check-variants.sh
+      printf '%s\n' flake.nix flake.lock "hosts/$HOST/default.nix" "hosts/$HOST/hardware-configuration.nix" \
+        "hosts/$HOST/storage.nix" "hosts/$HOST/boot.nix" "hosts/$HOST/network.nix" modules/core/nh.nix \
+        modules/core/boot.nix modules/core/system.nix modules/core/packages.nix modules/hardware scripts/check-variants.sh
       ;;
     *) die "unknown handoff profile: $profile" ;;
   esac

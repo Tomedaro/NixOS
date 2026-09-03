@@ -98,5 +98,4 @@ in {
       # allowUnfreePredicate = _: true;
     };
   };
-  system.stateVersion = "26.05"; # Intentionally migrated from 23.11; see docs/state-version-26.05.md
 }

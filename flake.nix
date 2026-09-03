@@ -313,9 +313,7 @@
       ankiLoadCredential = ankiServiceConfig.LoadCredential;
       ankiCaddyGlobalConfig = policyConfig.services.caddy.globalConfig;
       ankiCaddyConfig = policyConfig.services.caddy.virtualHosts.${ankiSyncHostname}.extraConfig;
-      expectedTrustedConnectionUuids = [
-        "c7d1f765-e254-4a6f-ab29-21ec5a9f49e1"
-      ];
+      trustedConnectionUuids = policyConfig.workstation.network.trustedConnectionUuids;
     in {
       system = policyConfig.system.build.toplevel;
 
@@ -367,12 +365,75 @@
           touch "$out"
         '';
 
+      installation-boundary =
+        pkgs.runCommand "installation-boundary-check" {
+          nativeBuildInputs = [pkgs.ripgrep];
+          src = ./.;
+        } ''
+          reject_matches() {
+            local message="$1"
+            shift
+            local output rc
+            set +e
+            output="$(rg -n "$@" 2>&1)"
+            rc=$?
+            set -e
+            case "$rc" in
+              0)
+                printf '%s\n' "$output" >&2
+                echo "$message" >&2
+                exit 1
+                ;;
+              1) ;;
+              *)
+                printf '%s\n' "$output" >&2
+                echo "installation-boundary scan failed: $message" >&2
+                exit "$rc"
+                ;;
+            esac
+          }
+
+          reject_matches \
+            "concrete installation identifiers/stateVersion/foreign boot entries must live under hosts/<name>/" \
+            -e '/dev/disk/by-(uuid|partuuid|label|partlabel)/' \
+            -e 'fileSystems\."/mnt/' \
+            -e 'root=(UUID|PARTUUID|LABEL|PARTLABEL)=' \
+            -e '\bsystem\.stateVersion[[:space:]]*=' \
+            -e '\bboot\.loader\.grub\.extraEntries[[:space:]]*=' \
+            -e 'device[[:space:]]*=[[:space:]]*"/swapfile"' \
+            "$src/modules" --glob '*.nix'
+
+          reject_matches \
+            "generated hardware-configuration.nix must not own deliberate /mnt/* storage mounts" \
+            -e 'fileSystems\."/mnt/' \
+            "$src/hosts" --glob 'hardware-configuration.nix'
+
+          reject_matches \
+            "physical NetworkManager trust identifiers must not live in raw host selector variables" \
+            -e '\btrustedConnectionUuids[[:space:]]*=' \
+            "$src/hosts" --glob 'variables.nix'
+
+          reject_matches \
+            "generic flake policy must consume host-owned connection UUIDs, not duplicate literal lists" \
+            -e 'ConnectionUuids[[:space:]]*=[[:space:]]*\[' \
+            "$src/flake.nix"
+
+          if [ -d "$src/modules/hardware/drives" ]; then
+            echo "concrete host storage must not live under modules/hardware/drives" >&2
+            exit 1
+          fi
+
+          touch "$out"
+        '';
+
       choice-catalog = assert choiceCatalogIsValid;
         pkgs.runCommand "workstation-choice-catalog-check" {} ''
           touch "$out"
         '';
 
-      system-policy = assert policyConfig.services.openssh.enable == false;
+      system-policy = assert policyConfig.system.stateVersion == "26.05";
+      assert policyConfig.home-manager.users.${policyUsername}.home.stateVersion == "26.05";
+      assert policyConfig.services.openssh.enable == false;
       assert policyConfig.users.users.${policyUsername}.initialPassword == null;
       assert policyGroups == expectedPolicyGroups;
       assert policyConfig.services.printing.enable == false;
@@ -417,7 +478,7 @@
       assert policyConfig.services.firewalld.zones.home.forwardPorts == [];
       assert policyConfig.services.firewalld.zones.public.rules == [];
       assert policyConfig.services.firewalld.zones.home.rules == [];
-      assert policyConfig.workstation.network.trustedConnectionUuids == expectedTrustedConnectionUuids;
+      assert trustedConnectionUuids != [];
       assert firewallPublicServices == expectedPublicServices;
       assert firewallHomeServices == expectedHomeServices;
       assert firewallPublicPorts == expectedPublicPorts;

@@ -17,6 +17,9 @@ in {
     [
       ../../modules/options/workstation.nix
       ./hardware-configuration.nix
+      ./storage.nix
+      ./boot.nix
+      ./network.nix
       ./host-packages.nix
 
       # Baseline modules
@@ -39,7 +42,6 @@ in {
       # Hardware and selected user-facing modules. Choice lookup is explicit so
       # a typo fails here instead of becoming an accidental filesystem import.
       (select "video driver" choices.videoDrivers vars.videoDriver)
-      ../../modules/hardware/drives
       (select "desktop" choices.desktops vars.desktop)
       (select "terminal" choices.terminals vars.terminal)
       (select "editor" choices.editors vars.editor)
@@ -107,10 +109,7 @@ in {
       bluetooth = vars.bluetoothSupport;
     };
 
-    network = {
-      trustedConnectionUuids = vars.trustedConnectionUuids;
-      ankiSyncHostname = vars.ankiSyncHostname;
-    };
+    network.ankiSyncHostname = vars.ankiSyncHostname;
 
     localization = {
       timeZone = vars.timezone;
@@ -123,13 +122,9 @@ in {
     };
   };
 
-  # Swap
-  swapDevices = [
-    {
-      device = "/swapfile";
-      size = 8192;
-    }
-  ];
+  # Compatibility baseline belongs to this concrete NixOS installation.
+  # Keep the migrated value stable; see docs/state-version-26.05.md.
+  system.stateVersion = "26.05";
 
   programs.kdeconnect = {
     enable = true;
