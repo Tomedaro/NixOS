@@ -13,11 +13,11 @@ The values are now retained deliberately. They are compatibility baselines,
 not package-channel selectors: package freshness continues to be determined by
 the flake inputs and lock file.
 
-Ownership is intentionally asymmetric: Singularity's `system.stateVersion` is
-set by `hosts/Singularity/default.nix`, because it belongs to this concrete
-NixOS installation. The current Home Manager value remains in the existing
-single-user integration until the user/Home Manager ownership phase; it is not
-a portable preference to copy blindly to future machines.
+Both compatibility baselines now belong to concrete installations.
+`hosts/Singularity/default.nix` owns Singularity's `system.stateVersion` and the
+`daniil@Singularity` Home Manager `home.stateVersion`. The reusable
+`users/daniil/default.nix` module deliberately owns neither value; a future
+Home Manager installation may legitimately begin at a different state version.
 
 ## Migration contract
 

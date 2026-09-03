@@ -431,6 +431,23 @@
             -e 'ConnectionUuids[[:space:]]*=[[:space:]]*\[' \
             "$src/flake.nix"
 
+          reject_matches \
+            "Home Manager compatibility state must not live in reusable NixOS modules" \
+            -e '\bhome\.stateVersion[[:space:]]*=' \
+            -U -e 'home[[:space:]]*=[[:space:]]*\{[^}]*stateVersion[[:space:]]*=' \
+            "$src/modules" --glob '*.nix'
+
+          reject_matches \
+            "core/users.nix must not own nested Home Manager installation state" \
+            -e '^[[:space:]]*stateVersion[[:space:]]*=' \
+            "$src/modules/core/users.nix"
+
+          reject_matches \
+            "reusable user modules must not own installation-specific home.stateVersion" \
+            -e '\bhome\.stateVersion[[:space:]]*=' \
+            -U -e 'home[[:space:]]*=[[:space:]]*\{[^}]*stateVersion[[:space:]]*=' \
+            "$src/users" --glob '*.nix'
+
           if [ -d "$src/modules/hardware/drives" ]; then
             echo "concrete host storage must not live under modules/hardware/drives" >&2
             exit 1

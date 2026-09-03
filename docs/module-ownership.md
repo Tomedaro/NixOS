@@ -16,6 +16,9 @@ it happened to be imported first.
 - `hosts/<name>/`: concrete installation facts and overrides that must not leak to
   another machine: filesystem UUIDs/mounts, explicit foreign-OS boot entries,
   installation compatibility baselines, and host-specific network identifiers.
+- `users/<name>/`: reusable Home Manager configuration owned by a person rather
+  than a physical machine. Concrete `user@host` compatibility state stays with
+  the host/integration and must not be copied into the reusable user entrypoint.
 
 A module should have one canonical owner. Do not keep a second inactive implementation
 under another namespace as a migration fallback; Git history is the archive. Raw host

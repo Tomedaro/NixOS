@@ -122,6 +122,13 @@ in {
     };
   };
 
+  # Concrete Home Manager installation for daniil on Singularity. The reusable
+  # user module intentionally does not own compatibility state.
+  home-manager.users.${vars.username} = {
+    imports = [../../users/daniil];
+    home.stateVersion = "26.05";
+  };
+
   # Compatibility baseline belongs to this concrete NixOS installation.
   # Keep the migrated value stable; see docs/state-version-26.05.md.
   system.stateVersion = "26.05";

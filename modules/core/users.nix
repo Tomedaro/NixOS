@@ -26,8 +26,9 @@ in {
     {
       assertion = homeManagerUsers == [username];
       message = ''
-        This workstation intentionally uses home-manager.sharedModules under a
-        single-user Home Manager contract. Expected exactly the primary user
+        This workstation still has transitional home-manager.sharedModules, so
+        it intentionally enforces a single managed Home Manager user. Expected
+        exactly the primary user
         '${username}', but found: ${builtins.concatStringsSep ", " homeManagerUsers}
       '';
     }
@@ -40,19 +41,11 @@ in {
     useUserPackages = true;
     overwriteBackup = true;
     backupFileExtension = "backup";
-    users.${username} = {
-      programs.home-manager.enable = true;
-      xdg.enable = true;
-
-      home = {
-        stateVersion = "26.05"; # Intentionally migrated from 23.11; see docs/state-version-26.05.md
-        sessionVariables = {
-          EDITOR = editorCommand;
-          VISUAL = editorCommand;
-          BROWSER = browserCommand;
-          TERMINAL = terminalCommand;
-        };
-      };
+    users.${username}.home.sessionVariables = {
+      EDITOR = editorCommand;
+      VISUAL = editorCommand;
+      BROWSER = browserCommand;
+      TERMINAL = terminalCommand;
     };
   };
 
