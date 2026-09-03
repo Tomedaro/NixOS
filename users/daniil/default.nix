@@ -7,6 +7,8 @@
     ../../modules/programs/cli/lazygit
     ../../modules/programs/cli/cava
     ../../modules/programs/cli/direnv
+    ../../modules/programs/media/obs-studio
+    ../../modules/programs/media/mpv
   ];
 
   # Reusable personal Home Manager baseline. Installation-specific compatibility

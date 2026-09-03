@@ -19,7 +19,7 @@ and home directory from the corresponding NixOS user.
 
 ## Transitional rule
 
-49 feature/host modules still contribute through `home-manager.sharedModules`.
+47 feature/host modules still contribute through `home-manager.sharedModules`.
 The extracted CLI user layer now includes Starship, tmux, lazygit, Cava, and
 direnv as `homeManager`-class modules imported directly by
 `users/daniil/default.nix`. This remains safe only because
@@ -31,6 +31,16 @@ Singularity currently sets `home-manager.useGlobalPkgs = true`, so this is the s
 package set that the old NixOS wrappers captured. Standalone Home Manager reuse can
 therefore use its own package set naturally instead of depending on NixOS module
 context.
+
+MPV and OBS Studio are also `homeManager`-class modules selected directly by
+`users/daniil/default.nix`. MPV takes `config.home.homeDirectory` from Home Manager;
+both modules receive its `pkgs`. Their application settings, script/plugin lists,
+and enabled state are preserved. No NixOS arguments are passed into these modules.
+
+Discord's direct `home.packages` contribution remains for the package-ownership
+tranche, where ordering can be reviewed with the rest of the personal package list.
+Spicetify and Thunderbird still have system/input boundaries, and YouTube Music
+has no active import; this migration does not activate or rewrite them.
 
 Direnv is fully user-owned: its warning threshold is written through
 `programs.direnv.config.global.warn_timeout` rather than the deprecated
