@@ -19,10 +19,10 @@ and home directory from the corresponding NixOS user.
 
 ## Transitional rule
 
-50 feature/host modules still contribute through `home-manager.sharedModules`.
-The first extracted family is the hardware-independent always-on CLI user layer:
-Starship, tmux, lazygit, and Cava are now `homeManager`-class modules imported
-directly by `users/daniil/default.nix`. This remains safe only because
+49 feature/host modules still contribute through `home-manager.sharedModules`.
+The extracted CLI user layer now includes Starship, tmux, lazygit, Cava, and
+direnv as `homeManager`-class modules imported directly by
+`users/daniil/default.nix`. This remains safe only because
 `modules/core/users.nix` asserts exactly one managed Home Manager user while the
 remaining shared-module payloads are migrated incrementally.
 
@@ -32,9 +32,16 @@ package set that the old NixOS wrappers captured. Standalone Home Manager reuse 
 therefore use its own package set naturally instead of depending on NixOS module
 context.
 
-Btop is intentionally not part of this family: its current package override enables
-both CUDA and ROCm support, so its user settings and hardware/package policy need to
-be separated before it belongs in the reusable user composition.
+Direnv is fully user-owned: its warning threshold is written through
+`programs.direnv.config.global.warn_timeout` rather than the deprecated
+`DIRENV_WARN_TIMEOUT` system environment variable, and Home Manager is the sole
+owner of Bash/Zsh direnv hook generation.
+
+Btop remains intentionally deferred as a whole. Its current package override enables
+both CUDA and ROCm support even though Singularity selects the Intel video-driver
+profile, and Hyprland separately installs a generic `pkgs.btop`. That package-policy
+debt should be corrected deliberately rather than formalized during user-ownership
+extraction.
 
 Do not use `osConfig` or `home-manager.extraSpecialArgs` as a universal escape
 hatch. A user module should depend on NixOS state only when the user behavior is

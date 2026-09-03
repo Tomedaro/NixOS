@@ -49,7 +49,6 @@ in {
 
       ../../modules/programs/cli/pi
       ../../modules/programs/cli/omp
-      ../../modules/programs/cli/direnv
       ../../modules/programs/cli/btop
       ../../modules/programs/media/discord
       ../../modules/programs/media/spicetify

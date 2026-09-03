@@ -6,6 +6,7 @@
     ../../modules/programs/cli/tmux
     ../../modules/programs/cli/lazygit
     ../../modules/programs/cli/cava
+    ../../modules/programs/cli/direnv
   ];
 
   # Reusable personal Home Manager baseline. Installation-specific compatibility

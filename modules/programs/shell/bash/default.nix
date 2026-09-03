@@ -15,11 +15,6 @@
             if command -v starship &>/dev/null; then
               eval "$(starship init bash)"
             fi
-
-            # Direnv Hook
-            if command -v direnv &>/dev/null; then
-              eval "$(direnv hook bash)"
-            fi
           '';
           # bashrcExtra = ''
           #   export TERM="xterm-256color" # Get correct colour
