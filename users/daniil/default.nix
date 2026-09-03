@@ -2,6 +2,8 @@
   _class = "homeManager";
 
   imports = [
+    ./packages.nix
+    ../../modules/programs/media/discord
     ../../modules/programs/cli/starship
     ../../modules/programs/cli/tmux
     ../../modules/programs/cli/lazygit

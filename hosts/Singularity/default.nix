@@ -49,7 +49,6 @@ in {
 
       ../../modules/programs/cli/pi
       ../../modules/programs/cli/omp
-      ../../modules/programs/media/discord
       ../../modules/programs/media/spicetify
       ../../modules/programs/media/thunderbird
       ../../modules/programs/misc/tlp

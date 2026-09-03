@@ -19,7 +19,7 @@ and home directory from the corresponding NixOS user.
 
 ## Transitional rule
 
-46 feature/host modules still contribute through `home-manager.sharedModules`.
+44 feature/host modules still contribute through `home-manager.sharedModules`.
 The extracted CLI user layer now includes Starship, tmux, lazygit, Cava,
 direnv, and btop as `homeManager`-class modules imported directly by
 `users/daniil/default.nix`. This remains safe only because
@@ -37,8 +37,24 @@ MPV and OBS Studio are also `homeManager`-class modules selected directly by
 both modules receive its `pkgs`. Their application settings, script/plugin lists,
 and enabled state are preserved. No NixOS arguments are passed into these modules.
 
-Discord's direct `home.packages` contribution remains for the package-ownership
-tranche, where ordering can be reviewed with the rest of the personal package list.
+Daniil's existing 30 personal Home Manager packages are declared in
+`users/daniil/packages.nix`, imported by the user root. This is a personal package
+selection, not a generic feature module. `hosts/Singularity/host-packages.nix`
+currently retains the separate system package list, including the Anki wrapper,
+flake-input packages, browser integration, and administrator tools.
+
+Discord is a reusable `homeManager`-class module selected by the user root. Its
+existing package override and Vencord files are preserved. The system package
+overlay still supplies the existing Discord build customizations. No new Discord
+settings file is introduced.
+
+Moving these direct package contributions changes their list positions. Package
+identities, multiplicities, priorities, and the relative order of other packages
+are preserved. The migration checks the package link trees in both orders, using
+the same candidate packages. This avoids encoding historical import positions as
+numeric ordering rules. Home Manager's MIME/font cache commands remain unchanged;
+the link-tree comparison excludes those generated caches.
+
 Spicetify and Thunderbird still have system/input boundaries, and YouTube Music
 has no active import; this migration does not activate or rewrite them.
 
