@@ -1,8 +1,4 @@
-{
-  host,
-  pkgs,
-  ...
-}: let
+{pkgs, ...}: let
   variant = "mocha";
   accent = "mauve";
   catppuccin-kvantum-pkg = pkgs.catppuccin-kvantum.override {inherit variant accent;};

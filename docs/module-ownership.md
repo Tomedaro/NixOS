@@ -20,5 +20,9 @@ it happened to be imported first.
 A module should have one canonical owner. Do not keep a second inactive implementation
 under another namespace as a migration fallback; Git history is the archive. Raw host
 composition data belongs in `hosts/` and may select imports there. Reusable modules
-consume `config.workstation.*`, except for narrowly scoped `specialArgs` values that are
-strictly required to resolve `imports` before the module fixed point.
+consume `config.workstation.*`. `specialArgs` is reserved for values that are strictly
+required while resolving `imports` before the module fixed point; ordinary module context
+belongs in canonical options, lexical composition, or `_module.args`. The current repo-supplied import-time
+set is intentionally limited to flake `inputs`, `choices`, `workstationSettings`, and
+`workstationSelections`. A host's target architecture is owned by `nixpkgs.hostPlatform` in
+its hardware configuration; repository tooling systems are a separate flake-output concern.

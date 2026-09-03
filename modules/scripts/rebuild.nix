@@ -1,5 +1,5 @@
 {
-  host,
+  nixosConfigurationName,
   pkgs,
   ...
 }:
@@ -88,7 +88,7 @@ pkgs.writeShellScriptBin "rebuild" ''
     cd "$repo"
 
     printf '%bRepository:%b %s\n' "$GREEN" "$NC" "$repo"
-    printf '%bConfiguration:%b ${host}\n' "$GREEN" "$NC"
+    printf '%bConfiguration:%b ${nixosConfigurationName}\n' "$GREEN" "$NC"
 
     if [[ "$use_path_source" -eq 0 ]]; then
       mapfile -t untracked_nix < <(${pkgs.git}/bin/git ls-files --others --exclude-standard -- '*.nix')
@@ -130,7 +130,7 @@ pkgs.writeShellScriptBin "rebuild" ''
     fi
 
     system_path="$(${pkgs.nix}/bin/nix build --no-link --print-out-paths \
-      "$flake_ref#nixosConfigurations.${host}.config.system.build.toplevel")"
+      "$flake_ref#nixosConfigurations.${nixosConfigurationName}.config.system.build.toplevel")"
 
     if [[ -z "$system_path" || ! -x "$system_path/bin/switch-to-configuration" ]]; then
       printf '%bCould not resolve the built NixOS system closure.%b\n' "$RED" "$NC" >&2

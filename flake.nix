@@ -75,11 +75,15 @@
     nixpkgs,
     ...
   } @ inputs: let
-    inherit (self) outputs;
     lib = nixpkgs.lib;
     choices = import ./lib/choices.nix;
-    systems = ["x86_64-linux"];
-    forAllSystems = lib.genAttrs systems;
+    repoOverlays = import ./overlays {inherit inputs;};
+
+    # Systems on which the generic formatter/dev-shell outputs are exposed.
+    # This is independent of each NixOS host target platform, which is owned by
+    # nixpkgs.hostPlatform. Apps/checks remain explicitly x86_64-linux for now.
+    toolSystems = ["x86_64-linux"];
+    forAllToolSystems = lib.genAttrs toolSystems;
 
     templates = import ./dev-shells;
     devShellEntries = builtins.readDir ./dev-shells;
@@ -116,14 +120,23 @@
       };
     in
       lib.nixosSystem {
-        system = "x86_64-linux";
         modules = [
           ./hosts/${host}
-          {networking.hostName = lib.mkDefault host;}
+          {
+            networking.hostName = lib.mkDefault host;
+            nixpkgs.overlays = [repoOverlays.default];
+
+            # These values are ordinary module context, not import selectors.
+            # Keep them out of specialArgs so the import-time boundary stays explicit.
+            _module.args = {
+              inherit self;
+              nixosConfigurationName = host;
+            };
+          }
         ];
         specialArgs = {
-          overlays = import ./overlays {inherit inputs;};
-          inherit self inputs outputs host workstationSettings workstationSelections choices;
+          # Every value here is currently required while resolving imports.
+          inherit inputs workstationSettings workstationSelections choices;
         };
       };
 
@@ -236,8 +249,8 @@
       && lib.all (choice: choice ? packageName) (builtins.attrValues choices.shells);
   in {
     templates = templates;
-    overlays = import ./overlays {inherit inputs;};
-    formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.alejandra);
+    overlays = repoOverlays;
+    formatter = forAllToolSystems (system: nixpkgs.legacyPackages.${system}.alejandra);
 
     nixosConfigurations = {
       Singularity = mkHost {host = "Singularity";};
@@ -590,7 +603,7 @@
         '';
     };
 
-    devShells = forAllSystems (system: let
+    devShells = forAllToolSystems (system: let
       pkgs = import nixpkgs {
         inherit system;
         config.allowUnfree = true;

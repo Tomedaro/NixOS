@@ -1,8 +1,4 @@
-{
-  host,
-  pkgs,
-  ...
-}: let
+{pkgs, ...}: let
   # Choose the desired variant: "main", "moon", or "dawn"
   variant = "main";
 

@@ -1,9 +1,7 @@
 {
   config,
-  self,
   inputs,
   pkgs,
-  overlays,
   ...
 }: let
   inherit
@@ -92,7 +90,6 @@ in {
 
   console.keyMap = "${consoleKeymap}";
   nixpkgs = {
-    overlays = [overlays.default];
     config = {
       allowUnfree = true;
       # allowUnfreePredicate = _: true;

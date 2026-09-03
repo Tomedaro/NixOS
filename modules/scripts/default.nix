@@ -1,14 +1,14 @@
 {
   pkgs,
   lib,
-  host,
+  nixosConfigurationName,
   config,
   ...
 }: let
   terminal = config.workstation.apps.terminal;
 in let
   scriptArgs = {
-    inherit host pkgs lib config terminal;
+    inherit nixosConfigurationName pkgs lib config terminal;
   };
 
   scripts = [
