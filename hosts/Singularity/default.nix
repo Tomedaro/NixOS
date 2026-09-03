@@ -25,7 +25,6 @@ in {
       # Baseline modules
       ../../modules/scripts
       ../../modules/core/boot.nix
-      ../../modules/programs/cli/starship
       ../../modules/core/fonts.nix
       ../../modules/core/hardware.nix
       ../../modules/core/network.nix
@@ -48,12 +47,9 @@ in {
       (select "file manager" choices.fileManagers vars.fileManager)
       (select "shell" choices.shells vars.shell)
 
-      ../../modules/programs/cli/tmux
       ../../modules/programs/cli/pi
       ../../modules/programs/cli/omp
       ../../modules/programs/cli/direnv
-      ../../modules/programs/cli/lazygit
-      ../../modules/programs/cli/cava
       ../../modules/programs/cli/btop
       ../../modules/programs/media/discord
       ../../modules/programs/media/spicetify
