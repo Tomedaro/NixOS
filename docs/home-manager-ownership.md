@@ -12,7 +12,8 @@ transport model to explicit user-owned Home Manager composition.
   Manager installation compatibility baseline (`home.stateVersion = "26.05"`).
 - `users/daniil/default.nix` is the reusable Home Manager entrypoint for Daniil.
   Its constructor accepts the explicit Spicetify module/package dependencies and
-  returns a `homeManager`-class module. It deliberately does not set
+  Thunderbird theme source, then returns a `homeManager`-class module. It
+  deliberately does not set
   `home.stateVersion`, username, UID, or home directory.
 
 Pinned Home Manager's NixOS integration derives username, UID (when defined),
@@ -85,8 +86,24 @@ unfree predicate is removed: the existing central `allowUnfree = true` policy
 already permits it. A standalone caller must supply a package set whose unfree
 policy permits Spotify; a reusable user feature does not set system policy.
 
-Thunderbird still has a system/input boundary, and YouTube Music has no active
-import; this migration does not activate or rewrite them.
+Thunderbird is a `homeManager`-class module selected by the user root. It receives
+only the Catppuccin Thunderbird theme source lexically, not the complete flake
+input set. The pinned Home Manager module embeds enterprise policies in its final
+Thunderbird package. The previous NixOS policy is preserved explicitly: application
+updates remain disabled, the Catppuccin extension remains installed, and the
+do-not-track preference remains locked. Thunderbird is no longer installed in the
+host-global profile, so other accounts do not inherit Daniil's mail client and
+theme. No profiles, accounts, credentials, or mutable mail state are declared.
+Home Manager also creates its canonical shared Mozilla native-messaging-host
+directory using recursive per-file links. Before integration, the migration
+builds that directory's actual source and checks candidate filenames for content
+collisions. Unrelated existing manifests, such as FirefoxPWA's, are preserved;
+same-name files must have identical content, and adopting a regular file must
+not overwrite an existing backup. Symlinked parent directories,
+conflicting files, and concurrent changes cause integration to be refused.
+
+YouTube Music has no active import; this migration does not activate or rewrite
+it.
 
 Direnv is fully user-owned: its warning threshold is written through
 `programs.direnv.config.global.warn_timeout` rather than the deprecated

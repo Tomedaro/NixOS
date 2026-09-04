@@ -50,7 +50,6 @@ in {
 
       ../../modules/programs/cli/pi
       ../../modules/programs/cli/omp
-      ../../modules/programs/media/thunderbird
       ../../modules/programs/misc/tlp
       ../../modules/programs/misc/thunar
       ../../modules/programs/misc/virt-manager
@@ -120,6 +119,7 @@ in {
       (import ../../users/daniil {
         spicetifyModule = inputs.spicetify-nix.homeManagerModules.default;
         spicetifyPackages = inputs.spicetify-nix.legacyPackages;
+        thunderbirdTheme = inputs.thunderbird-catppuccin;
       })
     ];
     home.stateVersion = "26.05";

@@ -1,6 +1,7 @@
 {
   spicetifyModule,
   spicetifyPackages,
+  thunderbirdTheme,
 }: {
   _class = "homeManager";
 
@@ -17,6 +18,9 @@
     ../../modules/programs/media/mpv
     (import ../../modules/programs/media/spicetify {
       inherit spicetifyModule spicetifyPackages;
+    })
+    (import ../../modules/programs/media/thunderbird {
+      inherit thunderbirdTheme;
     })
   ];
 
