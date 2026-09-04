@@ -39,5 +39,17 @@
     stylua
     luajit
     lua51Packages.luacheck
+
+    # Personal applications, also available outside the selected desktop.
+    freetube
+    qimgv
+    feh
+    feh.doc # Preserve the documentation output previously installed by NixOS.
+    foliate
+    sioyek
+    guvcview
+    obsidian
+    ludusavi
+    github-desktop
   ];
 }

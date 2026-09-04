@@ -14,19 +14,13 @@
   };
 in {
   environment.systemPackages = with pkgs; [
-    # Personal tools
+    # Remaining host-side tools and integrations; see home-manager-ownership.md.
     easyeffects
-    freetube
     anki-wayland-fixed
     captive-browser
     bleachbit
-    qimgv
     android-tools
-    feh
-    foliate
-    sioyek
     woeusb
-    guvcview
     sedutil
 
     # From flake inputs
@@ -35,9 +29,6 @@ in {
 
     # Dev tools
     lean-ctx
-    obsidian
-    ludusavi
-    github-desktop
     firefoxpwa
     (inputs.zen-browser.packages.${stdenv.hostPlatform.system}.beta.override {
       nativeMessagingHosts = [pkgs.firefoxpwa];
