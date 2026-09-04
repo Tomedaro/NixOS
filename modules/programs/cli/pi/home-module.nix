@@ -1,11 +1,13 @@
-{inputs ? {}}: {
+{mkMcpNixos}: {
   config,
   pkgs,
   lib,
   ...
 }: let
   paths = import ./lib/paths.nix {inherit config;};
-  package = import ./package.nix {inherit pkgs inputs paths;};
+  package = import ./package.nix {
+    inherit pkgs mkMcpNixos paths;
+  };
   scripts = import ./scripts.nix {
     inherit pkgs lib paths;
     inherit

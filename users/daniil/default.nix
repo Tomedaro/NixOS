@@ -1,4 +1,5 @@
 {
+  mkMcpNixos,
   spicetifyModule,
   spicetifyPackages,
   thunderbirdTheme,
@@ -14,6 +15,7 @@
     ../../modules/programs/cli/cava
     ../../modules/programs/cli/direnv
     ../../modules/programs/cli/btop
+    (import ../../modules/programs/cli/pi {inherit mkMcpNixos;})
     ../../modules/programs/media/obs-studio
     ../../modules/programs/media/mpv
     (import ../../modules/programs/media/spicetify {

@@ -1,15 +1,11 @@
 {
   pkgs,
-  inputs ? {},
+  mkMcpNixos,
   paths,
 }: let
-  system = pkgs.stdenv.hostPlatform.system;
   nodejs = pkgs.nodejs_24;
 
-  piPackage =
-    if inputs ? piNix
-    then inputs.piNix.packages.${system}.coding-agent
-    else pkgs.pi-coding-agent;
+  piPackage = pkgs.pi-coding-agent;
 
   piNpm = pkgs.writeShellScriptBin "pi-npm" ''
     set -euo pipefail
@@ -49,7 +45,7 @@
   # fastmcp3 overlay, which forces fastmcp 3.2.4 onto nixpkgs' split
   # fastmcp/fastmcp-slim packaging and leaves fastmcp-slim with an invalid
   # sourceRoot.
-  mcpNixosPackage = inputs.mcp-nixos.lib.mkMcpNixos {inherit pkgs;};
+  mcpNixosPackage = mkMcpNixos {inherit pkgs;};
 
   mcpNixosWrapper = pkgs.writeShellScriptBin "mcp-nixos" ''
     exec ${mcpNixosPackage}/bin/mcp-nixos "$@"

@@ -1,5 +1,6 @@
-{inputs ? {}, ...}: {
-  home-manager.sharedModules = [
-    (import ./home-module.nix {inherit inputs;})
+{mkMcpNixos}: {
+  _class = "homeManager";
+  imports = [
+    (import ./home-module.nix {inherit mkMcpNixos;})
   ];
 }

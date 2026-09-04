@@ -11,9 +11,9 @@ transport model to explicit user-owned Home Manager composition.
 - `hosts/Singularity/default.nix` owns the concrete `daniil@Singularity` Home
   Manager installation compatibility baseline (`home.stateVersion = "26.05"`).
 - `users/daniil/default.nix` is the reusable Home Manager entrypoint for Daniil.
-  Its constructor accepts the explicit Spicetify module/package dependencies and
-  Thunderbird theme source, then returns a `homeManager`-class module. It
-  deliberately does not set
+  Its constructor accepts the explicit Pi MCP package constructor, Spicetify
+  module/package dependencies, and Thunderbird theme source, then returns a
+  `homeManager`-class module. It deliberately does not set
   `home.stateVersion`, username, UID, or home directory.
 
 Pinned Home Manager's NixOS integration derives username, UID (when defined),
@@ -21,7 +21,7 @@ and home directory from the corresponding NixOS user.
 
 ## Transitional rule
 
-43 feature/host modules still contribute through `home-manager.sharedModules`.
+42 feature/host modules still contribute through `home-manager.sharedModules`.
 The extracted CLI user layer now includes Starship, tmux, lazygit, Cava,
 direnv, and btop as `homeManager`-class modules imported directly by
 `users/daniil/default.nix`. This remains safe only because
@@ -61,6 +61,18 @@ EasyEffects session behavior, captive-browser, the Anki wrapper, and the Pi-rela
 lean-ctx tool remain pending integration-specific review. Browser/input packages
 remain with their selection and input boundaries; device/administrator utilities
 are not presumed to be personal applications.
+
+Pi is a reusable `homeManager`-class module selected directly by the user root.
+Its package, wrappers, scripts, session path, and home-derived runtime paths are
+unchanged. The module receives only the `mcp-nixos` package constructor used to
+build its pinned MCP server; it no longer receives the complete flake input set.
+The dormant `piNix` package override was removed because this flake has no such
+input and the active package remains Home Manager's `pkgs.pi-coding-agent`.
+
+`lean-ctx` intentionally remains host-installed for now. Pi's copied mutable
+runtime configuration still names `/run/current-system/sw/bin/lean-ctx`; moving
+the package before that runtime boundary is redesigned and synchronized would
+create an avoidable activation-time compatibility gap.
 
 Discord is a reusable `homeManager`-class module selected by the user root. Its
 existing package override and Vencord files are preserved. The system package

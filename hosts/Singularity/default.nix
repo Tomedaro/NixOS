@@ -48,7 +48,6 @@ in {
       (select "file manager" choices.fileManagers vars.fileManager)
       (select "shell" choices.shells vars.shell)
 
-      ../../modules/programs/cli/pi
       ../../modules/programs/cli/omp
       ../../modules/programs/misc/tlp
       ../../modules/programs/misc/thunar
@@ -117,6 +116,7 @@ in {
   home-manager.users.${vars.username} = {
     imports = [
       (import ../../users/daniil {
+        mkMcpNixos = inputs.mcp-nixos.lib.mkMcpNixos;
         spicetifyModule = inputs.spicetify-nix.homeManagerModules.default;
         spicetifyPackages = inputs.spicetify-nix.legacyPackages;
         thunderbirdTheme = inputs.thunderbird-catppuccin;
