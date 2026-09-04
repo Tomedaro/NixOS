@@ -1,4 +1,5 @@
 {
+  inputs,
   lib,
   pkgs,
   choices,
@@ -49,7 +50,6 @@ in {
 
       ../../modules/programs/cli/pi
       ../../modules/programs/cli/omp
-      ../../modules/programs/media/spicetify
       ../../modules/programs/media/thunderbird
       ../../modules/programs/misc/tlp
       ../../modules/programs/misc/thunar
@@ -116,7 +116,12 @@ in {
   # Concrete Home Manager installation for daniil on Singularity. The reusable
   # user module intentionally does not own compatibility state.
   home-manager.users.${vars.username} = {
-    imports = [../../users/daniil];
+    imports = [
+      (import ../../users/daniil {
+        spicetifyModule = inputs.spicetify-nix.homeManagerModules.default;
+        spicetifyPackages = inputs.spicetify-nix.legacyPackages;
+      })
+    ];
     home.stateVersion = "26.05";
   };
 

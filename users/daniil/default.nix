@@ -1,4 +1,7 @@
 {
+  spicetifyModule,
+  spicetifyPackages,
+}: {
   _class = "homeManager";
 
   imports = [
@@ -12,6 +15,9 @@
     ../../modules/programs/cli/btop
     ../../modules/programs/media/obs-studio
     ../../modules/programs/media/mpv
+    (import ../../modules/programs/media/spicetify {
+      inherit spicetifyModule spicetifyPackages;
+    })
   ];
 
   # Reusable personal Home Manager baseline. Installation-specific compatibility

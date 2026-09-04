@@ -11,7 +11,8 @@ transport model to explicit user-owned Home Manager composition.
 - `hosts/Singularity/default.nix` owns the concrete `daniil@Singularity` Home
   Manager installation compatibility baseline (`home.stateVersion = "26.05"`).
 - `users/daniil/default.nix` is the reusable Home Manager entrypoint for Daniil.
-  It is a `homeManager`-class module and deliberately does not set
+  Its constructor accepts the explicit Spicetify module/package dependencies and
+  returns a `homeManager`-class module. It deliberately does not set
   `home.stateVersion`, username, UID, or home directory.
 
 Pinned Home Manager's NixOS integration derives username, UID (when defined),
@@ -19,7 +20,7 @@ and home directory from the corresponding NixOS user.
 
 ## Transitional rule
 
-44 feature/host modules still contribute through `home-manager.sharedModules`.
+43 feature/host modules still contribute through `home-manager.sharedModules`.
 The extracted CLI user layer now includes Starship, tmux, lazygit, Cava,
 direnv, and btop as `homeManager`-class modules imported directly by
 `users/daniil/default.nix`. This remains safe only because
@@ -72,8 +73,20 @@ the same candidate packages. This avoids encoding historical import positions as
 numeric ordering rules. Home Manager's MIME/font cache commands remain unchanged;
 the link-tree comparison excludes those generated caches.
 
-Spicetify and Thunderbird still have system/input boundaries, and YouTube Music
-has no active import; this migration does not activate or rewrite them.
+Spicetify is selected by the user root as a reusable `homeManager`-class module.
+Singularity binds two explicit constructor arguments: the upstream Home Manager
+module and its platform-indexed package collection. The feature selects the
+platform using Home Manager's `pkgs`; neither reusable module receives the general
+flake `inputs` set, `osConfig`, or extra Home Manager special arguments.
+
+The configured Spotify package, theme, extensions, custom apps, Wayland setting,
+and disabled window-manager patch are preserved. The old NixOS wrapper's Spotify
+unfree predicate is removed: the existing central `allowUnfree = true` policy
+already permits it. A standalone caller must supply a package set whose unfree
+policy permits Spotify; a reusable user feature does not set system policy.
+
+Thunderbird still has a system/input boundary, and YouTube Music has no active
+import; this migration does not activate or rewrite them.
 
 Direnv is fully user-owned: its warning threshold is written through
 `programs.direnv.config.global.warn_timeout` rather than the deprecated
