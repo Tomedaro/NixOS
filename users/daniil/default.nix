@@ -22,10 +22,24 @@
   browserChoice = selectChoice "browser" choices.browsers userSelections.browser;
   fileManagerChoice = selectChoice "file manager" choices.fileManagers userSelections.fileManager;
   shellChoice = selectChoice "shell" choices.shells userSelections.shell;
+  desktopChoice = selectChoice "desktop" choices.desktops userSelections.desktop;
 
   homeModuleArgs = {
-    inherit devShellsPath nixpkgsSource nixvimPackages nvchadModule;
-    terminal = userSelections.terminal;
+    inherit choices devShellsPath nixpkgsSource nixvimPackages nvchadModule;
+    inherit
+      (userSelections)
+      bar
+      browser
+      capslockAsEscape
+      clock24h
+      fileManager
+      kbdLayout
+      kbdVariant
+      lockWallpaper
+      terminal
+      wallpaper
+      waybarTheme
+      ;
   };
 in {
   _class = "homeManager";
@@ -52,6 +66,7 @@ in {
     (editorChoice.homeModule homeModuleArgs)
     (fileManagerChoice.homeModule homeModuleArgs)
     (shellChoice.homeModule homeModuleArgs)
+    (desktopChoice.homeModule homeModuleArgs)
   ];
 
   home.sessionVariables = {

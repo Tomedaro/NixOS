@@ -12,8 +12,8 @@ transport model to explicit user-owned Home Manager composition.
   Manager installation compatibility baseline (`home.stateVersion = "26.05"`).
 - `users/daniil/default.nix` is the reusable Home Manager entrypoint for Daniil.
   Its constructor accepts the user-facing choice catalog and selections plus
-  the explicit Pi, editor, Spicetify, and Thunderbird dependencies, then
-  returns a `homeManager`-class module. It deliberately does not set
+  the explicit Pi, editor, desktop, Spicetify, and Thunderbird dependencies,
+  then returns a `homeManager`-class module. It deliberately does not set
   `home.stateVersion`, username, UID, or home directory.
 
 Pinned Home Manager's NixOS integration derives username, UID (when defined),
@@ -21,7 +21,7 @@ and home directory from the corresponding NixOS user.
 
 ## Transitional rule
 
-30 feature/host modules still contribute through `home-manager.sharedModules`.
+15 feature/host modules still contribute through `home-manager.sharedModules`.
 The extracted CLI user layer now includes Starship, tmux, lazygit, Cava,
 direnv, and btop as `homeManager`-class modules imported directly by
 `users/daniil/default.nix`. This remains safe only because
@@ -51,9 +51,32 @@ NvChad receives only its upstream Home Manager module; Helix receives only the
 pinned nixpkgs source used in its nixd expression; Bash and Zsh receive only the
 pinned `dev-shells` path used by their template aliases.
 
-Ten active shared-module payloads remain on Singularity after this slice: nine
-from the selected Hyprland desktop stack and one gaming-dependent MangoHud
-payload. Those are the next B4 ownership boundaries.
+Supported desktops now expose both sides of their ownership boundary in the
+choice catalog. Hyprland, GNOME, and i3 retain NixOS modules for display-manager,
+window-manager, package, and service policy, while their personal configuration
+is composed by `users/daniil/default.nix`. Supported Waybar and its minimal and
+stylish configurations are user-only choice constructors. The selected desktop
+receives only the concrete bar, theme, application, appearance, and localization
+values its Home Manager constructor needs.
+
+Gruvbox and Catppuccin were already entirely personal configuration despite
+being transported through NixOS wrappers. They are now direct
+`homeManager`-class modules. Hyprland wallpaper/configuration files, variables,
+idle/lock behavior, Rofi, SwayNotificationCenter, Waybar, and wlogout are likewise
+user-owned. GNOME dconf and i3/picom/Dunst/Polybar configuration follow the same
+boundary. GNOME derives personal paths from `config.home.username`, so standalone
+composition follows the selected Home Manager identity rather than a NixOS user
+option.
+
+The former `workstationSelections` import-time escape hatch is removed. Desktop,
+bar, and Waybar-theme selection now occurs in explicit user composition; system
+selection still uses the typed desktop catalog. Legacy, experimental, and pending
+desktop/theme modules remain dormant and are not silently legitimized by this
+migration.
+
+One active shared-module payload remains on Singularity: gaming-dependent
+MangoHud. B4C will split that final active transport, remove the transitional
+single-user assertion, and establish zero active `sharedModules` payloads.
 
 On NixOS, these extracted modules now receive Home Manager's `pkgs` argument.
 Singularity currently sets `home-manager.useGlobalPkgs = true`, so this is the same

@@ -31,6 +31,13 @@ let
     }
     // extra;
 
+  supportedHybridWith = module: homeModule: extra:
+    {
+      inherit module homeModule;
+      status = "supported";
+    }
+    // extra;
+
   pending = module: reason: extra:
     {
       inherit module reason;
@@ -53,9 +60,68 @@ let
     // extra;
 in {
   desktops = {
-    hyprland = supported ../modules/desktop/hyprland {};
-    gnome = supported ../modules/desktop/gnome {};
-    i3 = supported ../modules/desktop/i3 {};
+    hyprland =
+      supportedHybridWith
+      ../modules/desktop/hyprland/system.nix
+      (
+        {
+          bar,
+          browser,
+          capslockAsEscape,
+          choices,
+          clock24h,
+          fileManager,
+          kbdLayout,
+          kbdVariant,
+          lockWallpaper,
+          terminal,
+          wallpaper,
+          waybarTheme,
+          ...
+        }:
+          import ../modules/desktop/hyprland {
+            inherit
+              bar
+              browser
+              capslockAsEscape
+              choices
+              clock24h
+              fileManager
+              kbdLayout
+              kbdVariant
+              lockWallpaper
+              terminal
+              wallpaper
+              waybarTheme
+              ;
+          }
+      )
+      {};
+    gnome =
+      supportedHybridWith
+      ../modules/desktop/gnome/system.nix
+      (
+        {
+          kbdLayout,
+          wallpaper,
+          ...
+        }:
+          import ../modules/desktop/gnome {inherit kbdLayout wallpaper;}
+      )
+      {};
+    i3 =
+      supportedHybridWith
+      ../modules/desktop/i3/system.nix
+      (
+        {
+          browser,
+          terminal,
+          wallpaper,
+          ...
+        }:
+          import ../modules/desktop/i3 {inherit browser terminal wallpaper;}
+      )
+      {};
     plasma6 =
       pending ../modules/desktop/plasma6
       "Plasma itself is maintained, but this repository's plasma-manager integration must be refreshed before the selector is re-enabled."
@@ -63,9 +129,23 @@ in {
   };
 
   hyprlandBars = {
-    waybar = supported ../modules/desktop/hyprland/programs/waybar {
-      providesNotifications = false;
-    };
+    waybar =
+      supportedHomeWith
+      (
+        {
+          choices,
+          clock24h,
+          terminal,
+          waybarTheme,
+          ...
+        }:
+          import ../modules/desktop/hyprland/programs/waybar {
+            inherit choices clock24h terminal waybarTheme;
+          }
+      )
+      {
+        providesNotifications = false;
+      };
     hyprpanel =
       legacy ../modules/desktop/hyprland/programs/hyprpanel
       "HyprPanel was archived upstream on 2026-04-27 in favor of Wayle. Keep the old module as historical source, but do not advertise it as a maintained selectable shell."
@@ -87,8 +167,24 @@ in {
   };
 
   waybarThemes = {
-    minimal = supported ../modules/desktop/hyprland/programs/waybar/minimal.nix {};
-    stylish = supported ../modules/desktop/hyprland/programs/waybar/stylish.nix {};
+    minimal =
+      supportedHomeWith
+      (
+        {clock24h, ...}:
+          import ../modules/desktop/hyprland/programs/waybar/minimal.nix {inherit clock24h;}
+      )
+      {};
+    stylish =
+      supportedHomeWith
+      (
+        {
+          clock24h,
+          terminal,
+          ...
+        }:
+          import ../modules/desktop/hyprland/programs/waybar/stylish.nix {inherit clock24h terminal;}
+      )
+      {};
   };
 
   terminals = {

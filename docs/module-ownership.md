@@ -26,6 +26,8 @@ composition data belongs in `hosts/` and may select imports there. Reusable modu
 consume `config.workstation.*`. `specialArgs` is reserved for values that are strictly
 required while resolving `imports` before the module fixed point; ordinary module context
 belongs in canonical options, lexical composition, or `_module.args`. The current repo-supplied import-time
-set is intentionally limited to flake `inputs`, `choices`, `workstationSettings`, and
-`workstationSelections`. A host's target architecture is owned by `nixpkgs.hostPlatform` in
-its hardware configuration; repository tooling systems are a separate flake-output concern.
+set is intentionally limited to flake `inputs`, `choices`, and `workstationSettings`.
+Concrete user selections are passed to the user's Home Manager composition root rather
+than exposed as NixOS-wide special arguments. A host's target architecture is owned by
+`nixpkgs.hostPlatform` in its hardware configuration; repository tooling systems are a
+separate flake-output concern.

@@ -112,12 +112,6 @@
     }: let
       baseWorkstationSettings = import ./hosts/${host}/variables.nix;
       workstationSettings = lib.recursiveUpdate baseWorkstationSettings settingsOverride;
-      # Only import-time selectors belong in specialArgs outside the host module.
-      # `imports` is resolved before the module fixed point, so these values
-      # cannot be sourced from config.workstation without recursion.
-      workstationSelections = {
-        inherit (workstationSettings) bar waybarTheme;
-      };
     in
       lib.nixosSystem {
         modules = [
@@ -136,7 +130,7 @@
         ];
         specialArgs = {
           # Every value here is currently required while resolving imports.
-          inherit inputs workstationSettings workstationSelections choices;
+          inherit inputs workstationSettings choices;
         };
       };
 
@@ -256,14 +250,18 @@
       && lib.all (choice: choice ? command) (builtins.attrValues choices.browsers)
       && lib.all (choice: choice ? packageName) (builtins.attrValues choices.shells)
       && supportedChoicesHave "module" choices.desktops
-      && supportedChoicesHave "module" choices.hyprlandBars
-      && supportedChoicesHave "module" choices.waybarThemes
       && supportedChoicesHave "module" choices.browsers
       && supportedChoicesHave "module" choices.videoDrivers
+      && supportedChoicesHave "homeModule" choices.desktops
+      && supportedChoicesHave "homeModule" choices.hyprlandBars
+      && supportedChoicesHave "homeModule" choices.waybarThemes
       && supportedChoicesHave "homeModule" choices.terminals
       && supportedChoicesHave "homeModule" choices.editors
       && supportedChoicesHave "homeModule" choices.fileManagers
       && supportedChoicesHave "homeModule" choices.shells
+      && supportedHomeModulesAreFunctions choices.desktops
+      && supportedHomeModulesAreFunctions choices.hyprlandBars
+      && supportedHomeModulesAreFunctions choices.waybarThemes
       && supportedHomeModulesAreFunctions choices.terminals
       && supportedHomeModulesAreFunctions choices.editors
       && supportedHomeModulesAreFunctions choices.fileManagers
@@ -380,20 +378,8 @@
             exit 1
           fi
 
-          expected_selector_users="$(printf '%s\n' \
-            modules/desktop/hyprland/default.nix \
-            modules/desktop/hyprland/programs/waybar/default.nix)"
-          actual_selector_users="$(
-            rg -l '\bworkstationSelections\b' "$src/modules" --glob '*.nix' \
-              | sed "s#^$src/##" \
-              | sort
-          )"
-          if [ "$actual_selector_users" != "$expected_selector_users" ]; then
-            echo "workstationSelections is an import-time escape hatch; its consumers must remain explicit" >&2
-            echo "expected:" >&2
-            printf '%s\n' "$expected_selector_users" >&2
-            echo "actual:" >&2
-            printf '%s\n' "$actual_selector_users" >&2
+          if rg -n '\b[w]orkstationSelections\b' "$src" --glob '*.nix'; then
+            echo "the legacy aggregate selector argument was retired; user-side selectors belong in explicit Home Manager composition" >&2
             exit 1
           fi
           touch "$out"

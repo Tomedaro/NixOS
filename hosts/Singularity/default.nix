@@ -130,7 +130,23 @@ in {
         spicetifyPackages = inputs.spicetify-nix.legacyPackages;
         thunderbirdTheme = inputs.thunderbird-catppuccin;
         userSelections = {
-          inherit (vars) terminal editor browser fileManager shell;
+          inherit
+            (vars)
+            bar
+            browser
+            clock24h
+            desktop
+            editor
+            fileManager
+            kbdLayout
+            kbdVariant
+            shell
+            terminal
+            waybarTheme
+            ;
+          capslockAsEscape = vars.capslockAsESC;
+          lockWallpaper = vars.hyprlockWallpaper;
+          wallpaper = vars.defaultWallpaper;
         };
       })
     ];

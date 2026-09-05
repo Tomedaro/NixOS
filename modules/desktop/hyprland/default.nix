@@ -1,85 +1,65 @@
 {
+  bar,
+  browser,
+  capslockAsEscape,
   choices,
-  inputs,
-  lib,
-  pkgs,
-  workstationSelections,
-  ...
-}: let
+  clock24h,
+  fileManager,
+  kbdLayout,
+  kbdVariant,
+  lockWallpaper,
+  terminal,
+  wallpaper,
+  waybarTheme,
+}: {lib, ...}: let
   inherit (lib) optional;
-  bar = workstationSelections.bar;
   barChoice = choices.hyprlandBars.${bar} or (throw "Unknown Hyprland bar choice: ${bar}");
   barModule =
     if barChoice.status == "supported"
-    then barChoice.module
+    then
+      barChoice.homeModule {
+        inherit choices clock24h terminal waybarTheme;
+      }
     else throw "Hyprland bar choice '${bar}' is ${barChoice.status}: ${barChoice.reason}";
 in {
+  _class = "homeManager";
+
   imports =
     [
-      ../../themes/Gruvbox # Gruvbox GTK and QT themes
-      ./variables.nix
+      ../../themes/Gruvbox
+      (import ./variables.nix {
+        inherit
+          bar
+          browser
+          capslockAsEscape
+          fileManager
+          kbdLayout
+          kbdVariant
+          terminal
+          wallpaper
+          ;
+      })
       barModule
       ./programs/wlogout
-      ./programs/rofi
+      (import ./programs/rofi {inherit terminal;})
       ./programs/hypridle
-      ./programs/hyprlock
+      (import ./programs/hyprlock {inherit lockWallpaper;})
     ]
     ++ optional (!barChoice.providesNotifications) ./programs/swaync;
 
-  environment.systemPackages = with pkgs; [
-    pavucontrol
-    swappy
-    cliphist
-    wl-clipboard
-    wl-clip-persist
-    brightnessctl
-    playerctl
-    pamixer
-    hyprsunset
-    hyprpicker
-  ];
+  services.awww.enable = true;
 
-  systemd.user.services.hyprpolkitagent = {
-    description = "Hyprpolkitagent - Polkit authentication agent";
-    wantedBy = ["graphical-session.target"];
-    wants = ["graphical-session.target"];
-    after = ["graphical-session.target"];
-    serviceConfig = {
-      Type = "simple";
-      ExecStart = "${pkgs.hyprpolkitagent}/libexec/hyprpolkitagent";
-      Restart = "on-failure";
-      RestartSec = 1;
-      TimeoutStopSec = 10;
+  xdg.configFile = {
+    "hypr/hyprland.lua".source = ./lua/hyprland.lua;
+    "hypr/monitors.lua".source = ./lua/monitors.lua;
+    "hypr/settings.lua".source = ./lua/settings.lua;
+    "hypr/animations.lua".source = ./lua/animations.lua;
+    "hypr/binds.lua".source = ./lua/binds.lua;
+    "hypr/rules.lua".source = ./lua/rules.lua;
+
+    "hypr/icons" = {
+      source = ./icons;
+      recursive = true;
     };
   };
-  services.displayManager.defaultSession = "hyprland";
-
-  programs.hyprland = {
-    enable = true;
-    package = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
-    portalPackage = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland;
-    # withUWSM = true;
-  };
-
-  home-manager.sharedModules = [
-    (_: {
-      # Set wallpaper
-      services.awww.enable = true;
-
-      # Hyprland config
-      xdg.configFile = {
-        "hypr/hyprland.lua".source = ./lua/hyprland.lua;
-        "hypr/monitors.lua".source = ./lua/monitors.lua;
-        "hypr/settings.lua".source = ./lua/settings.lua;
-        "hypr/animations.lua".source = ./lua/animations.lua;
-        "hypr/binds.lua".source = ./lua/binds.lua;
-        "hypr/rules.lua".source = ./lua/rules.lua;
-
-        "hypr/icons" = {
-          source = ./icons;
-          recursive = true;
-        };
-      };
-    })
-  ];
 }

@@ -28,12 +28,20 @@ overrides into that data and passes the result to the host module as
 `workstationSettings`. Ordinary modules must not consume that raw set; after module
 composition they read the typed `config.workstation.*` interface instead.
 
-There is one deliberately narrower import-time exception. Hyprland's bar and Waybar's
-theme determine module paths, and NixOS resolves `imports` before the module fixed
-point. `flake.nix` therefore exposes only `bar` and `waybarTheme` as
-`workstationSelections` for those nested import decisions. The structural boundary
-check rejects `workstationSettings` anywhere under `modules/`, preventing the raw host
-interface from leaking back into reusable modules.
+The concrete host passes the selected user-facing values to
+`users/daniil/default.nix`. That Home Manager composition root resolves desktop, bar,
+Waybar-theme, terminal, editor, file-manager, and shell modules through the same typed
+catalogue. Choice constructors receive only the scalar selections and explicit
+dependencies their user module needs. There is no aggregate import-time selector
+argument shared with ordinary NixOS modules.
+
+Supported desktop entries are hybrid boundaries: their `module` is the NixOS side and
+their `homeModule` constructor is the personal Home Manager side. Hyprland, GNOME, and
+i3 therefore retain display-manager, window-manager, service, package, and policy
+configuration in NixOS while Daniil's desktop files and preferences are composed by
+his user root. The structural boundary check rejects `workstationSettings` anywhere
+under `modules/`, preventing the raw host interface from leaking back into reusable
+modules.
 
 ## Current exceptions
 
@@ -92,14 +100,16 @@ requires its own smoke test.
 
 ## Home Manager ownership
 
-The configuration intentionally has exactly one Home Manager user. Modules may use
-`home-manager.sharedModules`; this is Home Manager's native mechanism for applying a
-module to every configured Home Manager user and avoids routing dozens of modules
-through a custom accumulator.
+The configuration currently has exactly one Home Manager user. Supported personal
+features are composed explicitly by `users/daniil/default.nix`; they do not use
+`home-manager.sharedModules` to apply personal policy to every managed account.
 
-`modules/core/users.nix` asserts the single-user invariant so `sharedModules` cannot
-silently start configuring a future second user. `home-manager.useGlobalPkgs = true`
-is retained so NixOS and Home Manager share the same `pkgs` instance and overlays.
+One active shared payload remains: gaming-dependent MangoHud. Until B4C moves that
+final payload, `modules/core/users.nix` retains the single-user assertion so it cannot
+silently configure a future second account. The remaining shared-module assignment
+sites belong to dormant pending, experimental, or legacy choices.
+`home-manager.useGlobalPkgs = true` remains so NixOS and Home Manager share the same
+`pkgs` instance and overlays.
 
 ## Commands versus selector names
 
