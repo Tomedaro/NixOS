@@ -104,10 +104,12 @@ The configuration currently has exactly one Home Manager user. Supported persona
 features are composed explicitly by `users/daniil/default.nix`; they do not use
 `home-manager.sharedModules` to apply personal policy to every managed account.
 
-One active shared payload remains: gaming-dependent MangoHud. Until B4C moves that
-final payload, `modules/core/users.nix` retains the single-user assertion so it cannot
-silently configure a future second account. The remaining shared-module assignment
-sites belong to dormant pending, experimental, or legacy choices.
+MangoHud follows the explicit gaming choice in Daniil's root. All supported
+configurations have zero active shared payloads. `modules/core/users.nix` asserts
+that `home-manager.sharedModules` stays empty, replacing the former single-user
+restriction. The 14 remaining assignment sites are dormant; they must be migrated
+before activation. A second user's Home Manager configuration must select its own
+personal features. This boundary does not make host-global policy user-specific.
 `home-manager.useGlobalPkgs = true` remains so NixOS and Home Manager share the same
 `pkgs` instance and overlays.
 

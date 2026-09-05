@@ -1,13 +1,13 @@
 # Home Manager ownership
 
-The repository is migrating from a single-user `home-manager.sharedModules`
-transport model to explicit user-owned Home Manager composition.
+Supported configurations use explicit user-owned Home Manager composition.
+Active `home-manager.sharedModules` transport has been eliminated.
 
 ## Ownership layers
 
 - `modules/core/users.nix` owns NixOS/Home Manager integration, NixOS user
   creation, integration policy (`useGlobalPkgs`, `useUserPackages`, backup
-  behavior), and the transitional single-user assertion.
+  behavior), and the assertion that `home-manager.sharedModules` stays empty.
 - `hosts/Singularity/default.nix` owns the concrete `daniil@Singularity` Home
   Manager installation compatibility baseline (`home.stateVersion = "26.05"`).
 - `users/daniil/default.nix` is the reusable Home Manager entrypoint for Daniil.
@@ -19,14 +19,16 @@ transport model to explicit user-owned Home Manager composition.
 Pinned Home Manager's NixOS integration derives username, UID (when defined),
 and home directory from the corresponding NixOS user.
 
-## Transitional rule
+## Explicit user composition
 
-15 feature/host modules still contribute through `home-manager.sharedModules`.
+14 dormant modules still contain `home-manager.sharedModules` assignments;
+none are active in the supported configurations. The integration assertion
+rejects any attempt to reintroduce shared payloads, including through a dormant
+module, until its ownership is migrated explicitly.
 The extracted CLI user layer now includes Starship, tmux, lazygit, Cava,
 direnv, and btop as `homeManager`-class modules imported directly by
-`users/daniil/default.nix`. This remains safe only because
-`modules/core/users.nix` asserts exactly one managed Home Manager user while the
-remaining shared-module payloads are migrated incrementally.
+`users/daniil/default.nix`. There is no longer an assertion limiting Home Manager
+to one managed user; each account must compose its own personal features.
 
 Supported terminal, editor, terminal file-manager, and shell choices expose a
 user-side module constructor in `lib/choices.nix`. The concrete host binds the
@@ -74,9 +76,20 @@ selection still uses the typed desktop catalog. Legacy, experimental, and pendin
 desktop/theme modules remain dormant and are not silently legitimized by this
 migration.
 
-One active shared-module payload remains on Singularity: gaming-dependent
-MangoHud. B4C will split that final active transport, remove the transitional
-single-user assertion, and establish zero active `sharedModules` payloads.
+MangoHud is a direct `homeManager`-class module at
+`modules/programs/games/mangohud.nix`. Daniil's root imports it only when its
+explicit `userSelections.games` is true. Singularity passes the same gaming
+choice to both system and user composition. Steam, GameMode, Gamescope,
+graphics, firewall, and gaming package policy remain in the system module.
+MangoHud's settings, session-wide integration, and MPV override are preserved.
+
+B4C validation evaluates a temporary second Home Manager user, checks that
+Daniil's personal payloads do not appear there, and tests that injecting a shared
+module fails the new ownership assertion. It also evaluates standalone Daniil
+composition with gaming enabled and disabled under an alternate identity.
+These probes add no real account. They do not claim full multi-user runtime
+isolation: host-global packages, services, and Nix access policy remain shared
+system decisions.
 
 On NixOS, these extracted modules now receive Home Manager's `pkgs` argument.
 Singularity currently sets `home-manager.useGlobalPkgs = true`, so this is the same

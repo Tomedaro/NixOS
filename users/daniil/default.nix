@@ -44,30 +44,36 @@
 in {
   _class = "homeManager";
 
-  imports = [
-    ./packages.nix
-    ../../modules/programs/media/discord
-    ../../modules/programs/cli/starship
-    ../../modules/programs/cli/tmux
-    ../../modules/programs/cli/lazygit
-    ../../modules/programs/cli/cava
-    ../../modules/programs/cli/direnv
-    ../../modules/programs/cli/btop
-    (import ../../modules/programs/cli/pi {inherit mkMcpNixos;})
-    ../../modules/programs/media/obs-studio
-    ../../modules/programs/media/mpv
-    (import ../../modules/programs/media/spicetify {
-      inherit spicetifyModule spicetifyPackages;
-    })
-    (import ../../modules/programs/media/thunderbird {
-      inherit thunderbirdTheme;
-    })
-    (terminalChoice.homeModule homeModuleArgs)
-    (editorChoice.homeModule homeModuleArgs)
-    (fileManagerChoice.homeModule homeModuleArgs)
-    (shellChoice.homeModule homeModuleArgs)
-    (desktopChoice.homeModule homeModuleArgs)
-  ];
+  imports =
+    [
+      ./packages.nix
+      ../../modules/programs/media/discord
+      ../../modules/programs/cli/starship
+      ../../modules/programs/cli/tmux
+      ../../modules/programs/cli/lazygit
+      ../../modules/programs/cli/cava
+      ../../modules/programs/cli/direnv
+      ../../modules/programs/cli/btop
+      (import ../../modules/programs/cli/pi {inherit mkMcpNixos;})
+      ../../modules/programs/media/obs-studio
+      ../../modules/programs/media/mpv
+      (import ../../modules/programs/media/spicetify {
+        inherit spicetifyModule spicetifyPackages;
+      })
+      (import ../../modules/programs/media/thunderbird {
+        inherit thunderbirdTheme;
+      })
+      (terminalChoice.homeModule homeModuleArgs)
+      (editorChoice.homeModule homeModuleArgs)
+      (fileManagerChoice.homeModule homeModuleArgs)
+      (shellChoice.homeModule homeModuleArgs)
+      (desktopChoice.homeModule homeModuleArgs)
+    ]
+    ++ (
+      if userSelections.games
+      then [../../modules/programs/games/mangohud.nix]
+      else []
+    );
 
   home.sessionVariables = {
     EDITOR = editorChoice.command;

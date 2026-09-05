@@ -138,6 +138,7 @@ in {
             desktop
             editor
             fileManager
+            games
             kbdLayout
             kbdVariant
             shell
