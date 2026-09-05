@@ -232,12 +232,20 @@
       choices.shells
       choices.videoDrivers
     ];
+    supportedChoicesHave = field: set:
+      lib.all
+      (choice: choice.status != "supported" || builtins.hasAttr field choice)
+      (builtins.attrValues set);
+    supportedHomeModulesAreFunctions = set:
+      lib.all
+      (choice: choice.status != "supported" || builtins.isFunction choice.homeModule)
+      (builtins.attrValues set);
     choiceCatalogIsValid =
       lib.all
       (set:
         lib.all
         (choice:
-          choice ? module
+          (choice ? module || choice ? homeModule)
           && choice ? status
           && builtins.elem choice.status validChoiceStatuses
           && (choice.status == "supported" || choice ? reason))
@@ -246,7 +254,20 @@
       && lib.all (choice: choice ? command) (builtins.attrValues choices.terminals)
       && lib.all (choice: choice ? command) (builtins.attrValues choices.editors)
       && lib.all (choice: choice ? command) (builtins.attrValues choices.browsers)
-      && lib.all (choice: choice ? packageName) (builtins.attrValues choices.shells);
+      && lib.all (choice: choice ? packageName) (builtins.attrValues choices.shells)
+      && supportedChoicesHave "module" choices.desktops
+      && supportedChoicesHave "module" choices.hyprlandBars
+      && supportedChoicesHave "module" choices.waybarThemes
+      && supportedChoicesHave "module" choices.browsers
+      && supportedChoicesHave "module" choices.videoDrivers
+      && supportedChoicesHave "homeModule" choices.terminals
+      && supportedChoicesHave "homeModule" choices.editors
+      && supportedChoicesHave "homeModule" choices.fileManagers
+      && supportedChoicesHave "homeModule" choices.shells
+      && supportedHomeModulesAreFunctions choices.terminals
+      && supportedHomeModulesAreFunctions choices.editors
+      && supportedHomeModulesAreFunctions choices.fileManagers
+      && supportedHomeModulesAreFunctions choices.shells;
   in {
     templates = templates;
     overlays = repoOverlays;

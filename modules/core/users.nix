@@ -6,17 +6,7 @@
   ...
 }: let
   username = config.workstation.user.name;
-  inherit
-    (config.workstation.apps)
-    editor
-    terminal
-    browser
-    shell
-    ;
-
-  editorCommand = choices.editors.${editor}.command;
-  browserCommand = choices.browsers.${browser}.command;
-  terminalCommand = choices.terminals.${terminal}.command;
+  shell = config.workstation.apps.shell;
   shellPackageName = choices.shells.${shell}.packageName;
   homeManagerUsers = builtins.attrNames config.home-manager.users;
 in {
@@ -41,12 +31,6 @@ in {
     useUserPackages = true;
     overwriteBackup = true;
     backupFileExtension = "backup";
-    users.${username}.home.sessionVariables = {
-      EDITOR = editorCommand;
-      VISUAL = editorCommand;
-      BROWSER = browserCommand;
-      TERMINAL = terminalCommand;
-    };
   };
 
   users = {

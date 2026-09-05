@@ -2,17 +2,22 @@
   inputs,
   lib,
   pkgs,
+  self,
   choices,
   workstationSettings,
   ...
 }: let
   vars = workstationSettings;
-  select = kind: set: name: let
+  selectChoice = kind: set: name: let
     choice = set.${name} or (throw "Unknown ${kind} choice: ${name}");
   in
     if choice.status == "supported"
-    then choice.module
+    then choice
     else throw "${kind} choice '${name}' is ${choice.status}: ${choice.reason}";
+  selectedVideo = selectChoice "video driver" choices.videoDrivers vars.videoDriver;
+  selectedDesktop = selectChoice "desktop" choices.desktops vars.desktop;
+  selectedTerminal = selectChoice "terminal" choices.terminals vars.terminal;
+  selectedEditor = selectChoice "editor" choices.editors vars.editor;
 in {
   imports =
     [
@@ -39,14 +44,11 @@ in {
       ../../modules/core/system.nix
       ../../modules/core/users.nix
 
-      # Hardware and selected user-facing modules. Choice lookup is explicit so
-      # a typo fails here instead of becoming an accidental filesystem import.
-      (select "video driver" choices.videoDrivers vars.videoDriver)
-      (select "desktop" choices.desktops vars.desktop)
-      (select "terminal" choices.terminals vars.terminal)
-      (select "editor" choices.editors vars.editor)
-      (select "file manager" choices.fileManagers vars.fileManager)
-      (select "shell" choices.shells vars.shell)
+      # Hardware, desktop, and optional system sides of user-facing choices.
+      # Choice lookup is explicit so a typo fails here instead of becoming an
+      # accidental filesystem import.
+      selectedVideo.module
+      selectedDesktop.module
 
       ../../modules/programs/cli/omp
       ../../modules/programs/misc/tlp
@@ -57,8 +59,10 @@ in {
       # Browser ownership remains in host-packages.nix for this behavior-preserving
       # tranche. The browser selector is still typed and consumed by desktop/app
       # defaults; moving package/profile ownership is a separate migration.
-      # (select "browser" choices.browsers vars.browser)
+      # (selectChoice "browser" choices.browsers vars.browser).module
     ]
+    ++ lib.optionals (selectedTerminal ? module) [selectedTerminal.module]
+    ++ lib.optionals (selectedEditor ? module) [selectedEditor.module]
     ++ lib.optionals vars.games [
       ../../modules/programs/games
       ../../modules/core/flatpak.nix
@@ -116,10 +120,18 @@ in {
   home-manager.users.${vars.username} = {
     imports = [
       (import ../../users/daniil {
+        inherit choices;
+        devShellsPath = "${self}/dev-shells";
         mkMcpNixos = inputs.mcp-nixos.lib.mkMcpNixos;
+        nixpkgsSource = inputs.nixpkgs;
+        nixvimPackages = inputs.nixvim.packages;
+        nvchadModule = inputs.nvchad4nix.homeManagerModules.default;
         spicetifyModule = inputs.spicetify-nix.homeManagerModules.default;
         spicetifyPackages = inputs.spicetify-nix.legacyPackages;
         thunderbirdTheme = inputs.thunderbird-catppuccin;
+        userSelections = {
+          inherit (vars) terminal editor browser fileManager shell;
+        };
       })
     ];
     home.stateVersion = "26.05";

@@ -11,9 +11,9 @@ transport model to explicit user-owned Home Manager composition.
 - `hosts/Singularity/default.nix` owns the concrete `daniil@Singularity` Home
   Manager installation compatibility baseline (`home.stateVersion = "26.05"`).
 - `users/daniil/default.nix` is the reusable Home Manager entrypoint for Daniil.
-  Its constructor accepts the explicit Pi MCP package constructor, Spicetify
-  module/package dependencies, and Thunderbird theme source, then returns a
-  `homeManager`-class module. It deliberately does not set
+  Its constructor accepts the user-facing choice catalog and selections plus
+  the explicit Pi, editor, Spicetify, and Thunderbird dependencies, then
+  returns a `homeManager`-class module. It deliberately does not set
   `home.stateVersion`, username, UID, or home directory.
 
 Pinned Home Manager's NixOS integration derives username, UID (when defined),
@@ -21,12 +21,39 @@ and home directory from the corresponding NixOS user.
 
 ## Transitional rule
 
-42 feature/host modules still contribute through `home-manager.sharedModules`.
+30 feature/host modules still contribute through `home-manager.sharedModules`.
 The extracted CLI user layer now includes Starship, tmux, lazygit, Cava,
 direnv, and btop as `homeManager`-class modules imported directly by
 `users/daniil/default.nix`. This remains safe only because
 `modules/core/users.nix` asserts exactly one managed Home Manager user while the
 remaining shared-module payloads are migrated incrementally.
+
+Supported terminal, editor, terminal file-manager, and shell choices expose a
+user-side module constructor in `lib/choices.nix`. The concrete host binds the
+selection values and exact external dependencies; `users/daniil/default.nix`
+selects and imports the resulting Home Manager modules. This keeps the choice
+catalog shared without giving reusable user modules `osConfig`, general flake
+`inputs`, or Home Manager `extraSpecialArgs`.
+
+The twelve supported user-side implementations—Kitty, Alacritty, WezTerm,
+Nixvim, NvChad, VS Code, Helix, Emacs, Yazi, lf, Zsh, and Bash—are explicitly
+`homeManager`-class modules. WezTerm retains its selected system font module,
+and VS Code retains its selected NixOS unfree predicate, as optional system
+sides of the same catalog entries. Other choices have no empty NixOS wrapper.
+
+The user root now owns `EDITOR`, `VISUAL`, `BROWSER`, and `TERMINAL`. Values are
+still derived from the typed choice catalog. Browser package/profile ownership
+is not activated by this change: the current Zen package remains host-owned,
+and the pending Firefox/Floorp profile migrations remain pending.
+
+Nixvim receives only its platform package collection and selected terminal;
+NvChad receives only its upstream Home Manager module; Helix receives only the
+pinned nixpkgs source used in its nixd expression; Bash and Zsh receive only the
+pinned `dev-shells` path used by their template aliases.
+
+Ten active shared-module payloads remain on Singularity after this slice: nine
+from the selected Hyprland desktop stack and one gaming-dependent MangoHud
+payload. Those are the next B4 ownership boundaries.
 
 On NixOS, these extracted modules now receive Home Manager's `pkgs` argument.
 Singularity currently sets `home-manager.useGlobalPkgs = true`, so this is the same
