@@ -120,6 +120,7 @@ in {
   home-manager.users.${vars.username} = {
     imports = [
       (import ../../users/daniil {
+        bzmenuPackage = inputs.bzmenu.packages.${pkgs.stdenv.hostPlatform.system}.default;
         inherit choices;
         devShellsPath = "${self}/dev-shells";
         mkMcpNixos = inputs.mcp-nixos.lib.mkMcpNixos;
@@ -129,6 +130,7 @@ in {
         spicetifyModule = inputs.spicetify-nix.homeManagerModules.default;
         spicetifyPackages = inputs.spicetify-nix.legacyPackages;
         thunderbirdTheme = inputs.thunderbird-catppuccin;
+        ytXPackage = inputs.yt-x.packages.${pkgs.stdenv.hostPlatform.system}.default;
         userSelections = {
           inherit
             (vars)

@@ -1,4 +1,5 @@
 {
+  bzmenuPackage,
   choices,
   devShellsPath,
   mkMcpNixos,
@@ -9,6 +10,7 @@
   spicetifyPackages,
   thunderbirdTheme,
   userSelections,
+  ytXPackage,
 }: let
   selectChoice = kind: set: name: let
     choice = set.${name} or (throw "Unknown ${kind} choice: ${name}");
@@ -46,7 +48,7 @@ in {
 
   imports =
     [
-      ./packages.nix
+      (import ./packages.nix {inherit bzmenuPackage ytXPackage;})
       ../../modules/programs/media/discord
       ../../modules/programs/cli/starship
       ../../modules/programs/cli/tmux

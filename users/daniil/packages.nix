@@ -1,4 +1,7 @@
-{pkgs, ...}: {
+{
+  bzmenuPackage,
+  ytXPackage,
+}: {pkgs, ...}: {
   _class = "homeManager";
 
   home.packages = with pkgs; [
@@ -20,6 +23,8 @@
     htop
     yt-dlg
     yt-dlp
+    bzmenuPackage
+    ytXPackage
 
     # Creative
     krita

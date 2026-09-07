@@ -23,11 +23,7 @@ in {
     woeusb
     sedutil
 
-    # From flake inputs
-    inputs.bzmenu.packages.${stdenv.hostPlatform.system}.default
-    inputs.yt-x.packages.${stdenv.hostPlatform.system}.default
-
-    # Dev tools
+    # Coupled development and browser integration
     lean-ctx
     firefoxpwa
     (inputs.zen-browser.packages.${stdenv.hostPlatform.system}.beta.override {

@@ -12,8 +12,9 @@ Active `home-manager.sharedModules` transport has been eliminated.
   Manager installation compatibility baseline (`home.stateVersion = "26.05"`).
 - `users/daniil/default.nix` is the reusable Home Manager entrypoint for Daniil.
   Its constructor accepts the user-facing choice catalog and selections plus
-  the explicit Pi, editor, desktop, Spicetify, and Thunderbird dependencies,
-  then returns a `homeManager`-class module. It deliberately does not set
+  the explicit Pi, editor, desktop, Spicetify, Thunderbird, and pinned personal
+  package dependencies, then returns a `homeManager`-class module. It deliberately
+  does not set
   `home.stateVersion`, username, UID, or home directory.
 
 Pinned Home Manager's NixOS integration derives username, UID (when defined),
@@ -102,11 +103,18 @@ MPV and OBS Studio are also `homeManager`-class modules selected directly by
 both modules receive its `pkgs`. Their application settings, script/plugin lists,
 and enabled state are preserved. No NixOS arguments are passed into these modules.
 
-Daniil's 40 personal Home Manager package/output entries are declared in
+Daniil's 42 personal Home Manager package/output entries are declared in
 `users/daniil/packages.nix`, imported by the user root. This is a personal package
 selection, not a generic feature module. `hosts/Singularity/host-packages.nix`
 currently retains the separate system package list, including the Anki wrapper,
-flake-input packages, browser integration, and administrator tools.
+browser integration, and coupled administrator/runtime tools.
+
+Bzmenu and yt-x remain the exact derivations selected from their locked flake
+inputs, but Singularity now passes them as explicit package constructor arguments
+to Daniil's user composition. They are personal commands rather than host policy:
+bzmenu remains a user-session client of the system BlueZ service, and yt-x retains
+its wrapped runtime dependency closure. Neither package installs a desktop entry,
+so this move does not add a Home Manager MIME-cache or default-application delta.
 
 FreeTube, qimgv, feh, Foliate, Sioyek, guvcview, Obsidian, Ludusavi, and GitHub
 Desktop are user-owned applications. Their packages are unchanged, but they are
@@ -121,9 +129,9 @@ package order outside the nine moved entries is preserved. No application
 service, MIME default, user permission, or runtime activation is added.
 
 EasyEffects session behavior, captive-browser, the Anki wrapper, and the Pi-related
-lean-ctx tool remain pending integration-specific review. Browser/input packages
-remain with their selection and input boundaries; device/administrator utilities
-are not presumed to be personal applications.
+lean-ctx tool remain pending integration-specific review. Browser packages remain
+with their selection and flake-input boundaries; device/administrator utilities are
+not presumed to be personal applications.
 
 Pi is a reusable `homeManager`-class module selected directly by the user root.
 Its package, wrappers, scripts, session path, and home-derived runtime paths are
