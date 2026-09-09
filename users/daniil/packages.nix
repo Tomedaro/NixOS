@@ -16,6 +16,7 @@
     onlyoffice-desktopeditors
     libreoffice-qt-fresh
     signal-desktop
+    anki-bin
 
     # Terminal tools
     fuzzel

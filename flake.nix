@@ -345,6 +345,10 @@
       ankiLoadCredential = ankiServiceConfig.LoadCredential;
       ankiCaddyGlobalConfig = policyConfig.services.caddy.globalConfig;
       ankiCaddyConfig = policyConfig.services.caddy.virtualHosts.${ankiSyncHostname}.extraConfig;
+      countPackage = name: packages:
+        builtins.length (builtins.filter (package: lib.getName package == name) packages);
+      homePackages = policyConfig.home-manager.users.${policyUsername}.home.packages;
+      systemPackages = policyConfig.environment.systemPackages;
       trustedConnectionUuids = policyConfig.workstation.network.trustedConnectionUuids;
     in {
       system = policyConfig.system.build.toplevel;
@@ -568,6 +572,14 @@
       assert toString ankiServiceConfig.MemorySwapMax == "1G";
       assert !(builtins.elem 27701 policyConfig.networking.firewall.allowedTCPPorts);
         pkgs.runCommand "workstation-anki-sync-policy-check" {} ''
+          touch "$out"
+        '';
+
+      anki-client-ownership = assert countPackage "anki-bin" homePackages == 1;
+      assert countPackage "anki" homePackages == 0;
+      assert countPackage "anki-bin" systemPackages == 0;
+      assert countPackage "anki" systemPackages == 0;
+        pkgs.runCommand "workstation-anki-client-ownership-check" {} ''
           touch "$out"
         '';
 

@@ -1,4 +1,4 @@
-# ~/NixOS/modules/programs/anki/default.nix
+# Anki sync service and host policy. The personal client is user-owned.
 {
   config,
   pkgs,

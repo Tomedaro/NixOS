@@ -103,11 +103,11 @@ MPV and OBS Studio are also `homeManager`-class modules selected directly by
 both modules receive its `pkgs`. Their application settings, script/plugin lists,
 and enabled state are preserved. No NixOS arguments are passed into these modules.
 
-Daniil's 42 personal Home Manager package/output entries are declared in
+Daniil's 43 personal Home Manager package/output entries are declared in
 `users/daniil/packages.nix`, imported by the user root. This is a personal package
 selection, not a generic feature module. `hosts/Singularity/host-packages.nix`
-currently retains the separate system package list, including the Anki wrapper,
-browser integration, and coupled administrator/runtime tools.
+currently retains the separate system package list, including browser integration
+and coupled administrator/runtime tools.
 
 Bzmenu and yt-x remain the exact derivations selected from their locked flake
 inputs, but Singularity now passes them as explicit package constructor arguments
@@ -128,10 +128,18 @@ metadata resolution using the actual NixOS system and per-user profiles. Existin
 package order outside the nine moved entries is preserved. No application
 service, MIME default, user permission, or runtime activation is added.
 
-EasyEffects session behavior, captive-browser, the Anki wrapper, and the Pi-related
-lean-ctx tool remain pending integration-specific review. Browser packages remain
-with their selection and flake-input boundaries; device/administrator utilities are
-not presumed to be personal applications.
+Anki's personal client is the stock pinned `pkgs.anki-bin` in Daniil's Home
+Manager package list. The former host-global wrapper forced
+`QTWEBENGINE_CHROMIUM_FLAGS=--no-sandbox`; it was removed after the exact stock
+package rendered and exited normally under the current Wayland session with a
+disposable empty Anki base. That test did not read the real collection or exercise
+add-ons. The sync server package, credential handling, systemd service, Caddy
+policy, ports, and mutable server state remain system-owned and unchanged.
+
+EasyEffects session behavior, captive-browser, and the Pi-related lean-ctx tool
+remain pending integration-specific review. Browser packages remain with their
+selection and flake-input boundaries; device/administrator utilities are not
+presumed to be personal applications.
 
 Pi is a reusable `homeManager`-class module selected directly by the user root.
 Its package, wrappers, scripts, session path, and home-derived runtime paths are
