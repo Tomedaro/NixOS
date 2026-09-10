@@ -93,6 +93,11 @@ memory is released between configurations. `--list` shows the matrix, and indivi
 names can be supplied when a change affects only one integration. `rebuild --full`
 runs the complete serial matrix in addition to the normal flake checks.
 
+Automatic CI also runs this exact serial matrix after evaluating every real
+`nixosConfigurations` host. It does not promote variants into hosts or build
+their complete closures. See `docs/validation.md` for the repository-wide test
+pyramid and the deliberately manual full-system build gate.
+
 The matrix is one-factor-at-a-time. Context-dependent choices carry their
 prerequisites explicitly: bar checks force Hyprland, and Waybar-theme checks force
 Hyprland + Waybar. Choices already exercised by the current `Singularity` configuration

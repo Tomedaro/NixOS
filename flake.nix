@@ -347,8 +347,6 @@
       systemPackages = policyConfig.environment.systemPackages;
       trustedConnectionUuids = policyConfig.workstation.network.trustedConnectionUuids;
     in {
-      system = policyConfig.system.build.toplevel;
-
       formatting =
         pkgs.runCommand "nix-formatting-check" {
           nativeBuildInputs = [pkgs.alejandra pkgs.findutils];
@@ -357,6 +355,54 @@
           cd "$src"
           find . -type f -name '*.nix' -print0 \
             | xargs -0 -r alejandra --check
+          touch "$out"
+        '';
+
+      shell-syntax =
+        pkgs.runCommand "shell-syntax-check" {
+          nativeBuildInputs = [pkgs.bash pkgs.findutils];
+          src = ./.;
+        } ''
+          cd "$src"
+          ${pkgs.bash}/bin/bash -n scripts/nixos-assist
+          find scripts -type f -name '*.sh' -print0 \
+            | xargs -0 -r ${pkgs.bash}/bin/bash -n
+          touch "$out"
+        '';
+
+      github-actions =
+        pkgs.runCommand "github-actions-check" {
+          nativeBuildInputs = [pkgs.actionlint pkgs.ripgrep pkgs.shellcheck];
+          src = ./.;
+        } ''
+          cd "$src"
+          workflow="$src/.github/workflows/nixos-validation.yml"
+          actionlint "$workflow"
+
+          uses_count="$(rg '^[[:space:]]+uses:' "$workflow" | wc -l)"
+          pinned_count="$(
+            rg '^[[:space:]]+uses:[[:space:]]+[^[:space:]@]+@[0-9a-f]{40}([[:space:]]|$)' \
+              "$workflow" \
+              | wc -l
+          )"
+          if [ "$uses_count" -ne 2 ] || [ "$pinned_count" -ne "$uses_count" ]; then
+            echo "every external GitHub Action must use a reviewed full-length commit SHA" >&2
+            exit 1
+          fi
+
+          if rg -n \
+            -e 'pull_request_target' \
+            -e 'runs-on:[[:space:]]*self-hosted' \
+            -e 'permissions:[[:space:]]*write-all' \
+            -e 'secrets\.' \
+            "$workflow"; then
+            echo "the validation workflow must remain unprivileged and secret-free" >&2
+            exit 1
+          fi
+
+          rg -q '^[[:space:]]+contents:[[:space:]]+read$' "$workflow"
+          rg -q '^[[:space:]]+persist-credentials:[[:space:]]+false$' "$workflow"
+          rg -q '^[[:space:]]+enable_kvm:[[:space:]]+false$' "$workflow"
           touch "$out"
         '';
 

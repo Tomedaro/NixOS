@@ -46,6 +46,11 @@ The generic harness owns:
 Phase-specific facts belong in a small bundle (`phase.json` + optional hooks),
 not in `nixos-assist` itself.
 
+The repository-wide split between automatic source/evaluation checks, explicit
+system builds, VM tests, and local runtime validation is documented in
+`docs/validation.md`. `nixos-assist` owns the stricter local migration and
+rollback path; it is not a CI runner.
+
 ## Repository usage
 
 `nixos-assist` is already tracked as `scripts/nixos-assist`; no bootstrap installer is required.
