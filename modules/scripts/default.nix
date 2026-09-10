@@ -1,16 +1,14 @@
 {
   pkgs,
   lib,
-  host,
+  nixosConfigurationName,
   config,
   ...
-}:
-let
-  inherit (import ../../hosts/${host}/variables.nix) terminal;
-in
-let
+}: let
+  terminal = config.workstation.apps.terminal;
+in let
   scriptArgs = {
-    inherit host pkgs lib config terminal;
+    inherit nixosConfigurationName pkgs lib config terminal;
   };
 
   scripts = [
@@ -23,7 +21,6 @@ let
     (import ./driverinfo.nix scriptArgs)
     (import ./underwatt.nix scriptArgs)
   ];
-in
-{
+in {
   environment.systemPackages = scripts;
 }

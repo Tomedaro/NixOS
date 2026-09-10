@@ -23,6 +23,10 @@ rec {
     path = ./cue;
     description = "Cue development environment";
   };
+  deno = {
+    path = ./deno;
+    description = "Deno development environment";
+  };
   dhall = {
     path = ./dhall;
     description = "Dhall development environment";
@@ -50,6 +54,10 @@ rec {
   hashi = {
     path = ./hashi;
     description = "HashiCorp DevOps tools development environment";
+  };
+  haxe = {
+    path = ./haxe;
+    description = "Haxe development environment";
   };
   haskell = {
     path = ./haskell;
@@ -94,6 +102,10 @@ rec {
   ocaml = {
     path = ./ocaml;
     description = "OCaml development environment";
+  };
+  odin = {
+    path = ./odin;
+    description = "Odin development environment";
   };
   opa = {
     path = ./opa;
@@ -154,6 +166,10 @@ rec {
   swift = {
     path = ./swift;
     description = "Swift development environment";
+  };
+  typst = {
+    path = ./typst;
+    description = "Typst development environment";
   };
   vlang = {
     path = ./vlang;

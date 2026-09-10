@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{pkgs, ...}:
 pkgs.writeShellScriptBin "togglepowermode" ''
   MODE_FILE="$HOME/.config/hypr/power_mode"
 

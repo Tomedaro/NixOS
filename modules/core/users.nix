@@ -1,54 +1,40 @@
 {
+  choices,
+  config,
   pkgs,
   inputs,
-  host,
   ...
-}:
-let
-  inherit (import ../../hosts/${host}/variables.nix)
-    username
-    editor
-    terminal
-    browser
-    shell
-    ;
-in
-{
-  imports = [ inputs.home-manager.nixosModules.home-manager ];
-  programs.dconf.enable = true; # Enable dconf for home-manager
+}: let
+  username = config.workstation.user.name;
+  shell = config.workstation.apps.shell;
+  shellPackageName = choices.shells.${shell}.packageName;
+in {
+  imports = [inputs.home-manager.nixosModules.home-manager];
+
+  assertions = [
+    {
+      assertion = builtins.length config.home-manager.sharedModules == 0;
+      message = ''
+        Home Manager ownership: home-manager.sharedModules must stay empty.
+        Import personal features into the intended user's composition instead.
+        Shared modules would silently apply personal policy to every managed account.
+      '';
+    }
+  ];
+
+  programs.dconf.enable = true;
+
   home-manager = {
     useGlobalPkgs = true;
     useUserPackages = true;
     overwriteBackup = true;
     backupFileExtension = "backup";
-    users.${username} = {
-      # Let Home Manager install and manage itself.
-      programs.home-manager.enable = true;
-      xdg.enable = true;
-
-      home = {
-        username = "${username}";
-        homeDirectory = "/home/${username}";
-        stateVersion = "26.05"; # Do not change!
-        sessionVariables = {
-          EDITOR =
-            if (editor == "nixvim" || editor == "neovim" || editor == "nvchad") then
-              "nvim"
-            else if editor == "vscode" then
-              "code"
-            else
-              "nano";
-          BROWSER = "${browser}";
-          TERMINAL = "${terminal}";
-        };
-      };
-    };
   };
+
   users = {
     mutableUsers = true;
     users.${username} = {
       isNormalUser = true;
-      initialPassword = "123";
       extraGroups = [
         "wheel" # sudo access
         "input"
@@ -57,16 +43,11 @@ in
         "audio"
         "libvirtd"
         "kvm"
-        "docker"
-        "disk"
-        "adbusers"
-        "lp"
-        "scanner"
-        "vboxusers" # Virtual Box
       ];
-      shell = pkgs.${shell};
+      shell = pkgs.${shellPackageName};
       ignoreShellProgramCheck = true;
     };
   };
-  nix.settings.allowed-users = [ "${username}" ];
+
+  nix.settings.allowed-users = [username];
 }

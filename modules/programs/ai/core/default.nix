@@ -1,7 +1,5 @@
 # modules/programs/ai/core/default.nix
-{ lib, ... }:
-
-{
+{lib, ...}: {
   options.my.ai.core = {
     vaultRoot = lib.mkOption {
       type = lib.types.str;

@@ -1,9 +1,6 @@
-{ config }:
-
-let
+{config}: let
   home = config.home.homeDirectory;
-in
-{
+in {
   inherit home;
 
   piAgentDir = "${home}/.pi/agent";

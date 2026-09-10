@@ -6,9 +6,7 @@
   piNpm,
   engramPackage,
   scripts,
-}:
-
-let
+}: let
   git = "${pkgs.git}/bin/git";
   date = "${pkgs.coreutils}/bin/date";
   mkdir = "${pkgs.coreutils}/bin/mkdir";
@@ -31,6 +29,32 @@ let
   srcNixosAgents = ./resources/nixos/AGENTS.md;
   srcNixosPrompts = ./resources/nixos/prompts;
   srcNixosSkill = ./resources/nixos/skills/pi-nix-self-maintenance;
+  analystWorkerOrchestratorSrc = pkgs.fetchFromGitHub {
+    owner = "UnicornGlade";
+    repo = "pi-analyst-worker-orchestrator";
+    rev = "0229ddc80b965e4ca11377a9730e46d0bd7701ac";
+    hash = "sha256-3V478/NqPlfZcepz+9sMPp2mFOKznJX58h9Q+02Bst4=";
+  };
+  analystWorkerOrchestrator = pkgs.runCommand "pi-analyst-worker-orchestrator-patched" {} ''
+        cp -R ${analystWorkerOrchestratorSrc} $out
+        chmod -R u+w $out
+        substituteInPlace $out/src/index.ts \
+          --replace-fail 'const MAX_AUTONOMOUS_WORKER_STEPS = 25;' 'const MAX_AUTONOMOUS_WORKER_STEPS = Number(process.env.PI_ANALYST_WORKER_MAX_AUTONOMOUS_WORKER_STEPS ?? "25");' \
+          --replace-fail '(run.workerStepsSinceOperator ?? 0) >= MAX_AUTONOMOUS_WORKER_STEPS' '(run.workerStepsSinceOperator ?? 0) >= (run.config.maxWorkerStepsBeforeOperator ?? MAX_AUTONOMOUS_WORKER_STEPS)'
+        AW_INDEX="$out/src/index.ts" ${pkgs.python3}/bin/python - <<'PY'
+    import os
+    from pathlib import Path
+    path = Path(os.environ['AW_INDEX'])
+    text = path.read_text()
+    d = chr(36)
+    old = f'const artifactDirInput = `./tmp/aw_{d}{{pathTimestamp()}}_{d}{{slugify(taskTitle)}}`;'
+    new = f'const artifactRoot = process.env.PI_ANALYST_WORKER_ARTIFACT_ROOT ?? "./tmp";\n\t\tconst artifactDirInput = join(artifactRoot, `aw_{d}{{pathTimestamp()}}_{d}{{slugify(taskTitle)}}`);'
+    if old not in text:
+        raise SystemExit('artifactDirInput pattern not found')
+    path.write_text(text.replace(old, new))
+    PY
+        grep -q 'PI_ANALYST_WORKER_ARTIFACT_ROOT' $out/src/index.ts
+  '';
 
   wrapperPrelude = profile: ''
     set -euo pipefail
@@ -294,6 +318,48 @@ let
     exec ${piWrapped}/bin/pi "$@"
   '';
 
+  piAw = pkgs.writeShellScriptBin "pi-aw" ''
+    set -euo pipefail
+
+    case "''${PI_PROFILE:-}" in
+      cautious|readonly|safe)
+        echo "pi-aw requires normal managed Pi extensions and is not supported in cautious/read-only mode." >&2
+        echo "Use PI_PROFILE=research|work|nixos pi-aw from a trusted workspace." >&2
+        exit 2
+        ;;
+    esac
+
+    shim_dir="$(${mktemp} -d)"
+    cleanup() { ${rm} -rf "$shim_dir"; }
+    trap cleanup EXIT
+
+    {
+      echo '#!/usr/bin/env bash'
+      echo 'exec ${piRaw}/bin/pi-raw "$@"'
+    } > "$shim_dir/pi"
+    ${chmod} +x "$shim_dir/pi"
+
+    export PATH="$shim_dir:$PATH"
+    export PI_ANALYST_WORKER_EXTENSION="${analystWorkerOrchestrator}/extensions/index.ts"
+    export PI_AW_PACK_ROOT="${./resources/analyst-worker}"
+    export PI_AW_POLICY="$PI_AW_PACK_ROOT/policy.yaml"
+    export PI_AW_ANALYST_INSTRUCTIONS="$PI_AW_PACK_ROOT/roles/analyst.md"
+    export PI_AW_WORKER_INSTRUCTIONS="$PI_AW_PACK_ROOT/roles/worker.md"
+    export PI_AW_SHARED_GUARDRAILS="$PI_AW_PACK_ROOT/shared/guardrails.md"
+    export PI_AW_STOP_MATRIX="$PI_AW_PACK_ROOT/shared/stop-matrix.md"
+    export PI_AW_TEMPLATES_DIR="$PI_AW_PACK_ROOT/templates"
+    export PI_AW_SIMPLIFY_CONVENTIONS="${./resources/global/simplify-conventions.md}"
+    export PI_ANALYST_WORKER_ARTIFACT_ROOT="${paths.piSessionsDir}/analyst-worker"
+    export PI_ANALYST_WORKER_MAX_AUTONOMOUS_WORKER_STEPS="1"
+    mkdir -p "$PI_ANALYST_WORKER_ARTIFACT_ROOT"
+
+    echo "Pi Analyst/Worker mode: managed parent Pi with normal extensions; child pi probes use pi-raw compatibility shim." >&2
+    echo "Artifact root: $PI_ANALYST_WORKER_ARTIFACT_ROOT" >&2
+    echo "Instruction pack: $PI_AW_PACK_ROOT" >&2
+    echo "Use /analyst-worker start --configure inside Pi." >&2
+    ${piSmart}/bin/pi -e "$PI_ANALYST_WORKER_EXTENSION" "$@"
+  '';
+
   piSmart = pkgs.writeShellScriptBin "pi" ''
     set -euo pipefail
 
@@ -390,6 +456,10 @@ let
       pi-admin drift
       pi-admin compat
       pi-admin mode
+      pi-admin policy-lint
+      pi-admin mcp-check
+      pi-admin npm-check
+      pi-admin resource-inventory
       pi-admin source-check
       pi-admin test-anki-safe-writer
       pi-admin security
@@ -545,6 +615,18 @@ let
           compat)
             exec ${scripts.piCompatCheck}/bin/pi-compat-check "$@"
             ;;
+          policy-lint)
+            exec ${scripts.piPolicyLint}/bin/pi-policy-lint "$@"
+            ;;
+          npm-check)
+            exec ${scripts.piNpmCheck}/bin/pi-npm-check "$@"
+            ;;
+          resource-inventory)
+            exec ${scripts.piResourceInventory}/bin/pi-resource-inventory "$@"
+            ;;
+          mcp-check)
+            exec ${scripts.piMcpCheck}/bin/pi-mcp-check "$@"
+            ;;
           test-anki-safe-writer)
             exec ${scripts.piTestAnkiSafeWriter}/bin/pi-test-anki-safe-writer "$@"
             ;;
@@ -567,8 +649,7 @@ let
             ;;
         esac
   '';
-in
-{
+in {
   inherit
     piSmart
     piRaw
@@ -582,5 +663,6 @@ in
     piWork
     piResearch
     piTrusted
+    piAw
     ;
 }

@@ -16,11 +16,15 @@ Read this file first for any question about this Pi/NixOS setup.
 - Secrets, trust, and safety: `docs/SECURITY.md`
 - Known security limitations: `docs/SECURITY_LIMITATIONS.md`
 - Sync, status, doctor, and drift checks: `docs/SYNC_AND_DRIFT.md`
+- Memory architecture: `docs/MEMORY.md`
 - Pi/package compatibility preflight: `docs/COMPATIBILITY.md`
 - Why decisions were made: `docs/DECISIONS.md`
 - Terms: `docs/GLOSSARY.md`
 - Package updates: `docs/PACKAGE_UPDATES.md`
 - Patch plan and progress tracking: `resources/analysis/TRACKING.md` and `resources/analysis/improvement-plan.md`
+- Agent capability roadmap: `resources/analysis/agent-capability-roadmap.md`
+- Analyst/Worker smart-model workflow: `docs/ANALYST_WORKER.md`
+- Analyst/Worker instruction pack: `resources/analyst-worker/README.md`
 
 Machine-readable route map: `docs/LOOKUP.json`.
 

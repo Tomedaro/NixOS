@@ -1,7 +1,10 @@
 # modules/programs/ai/activitywatch/default.nix
-{ config, lib, pkgs, ... }:
-
-let
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}: let
   cfg = config.my.ai.activitywatch;
 
   awatcherConfig = pkgs.writeText "awatcher.toml" ''
@@ -14,8 +17,7 @@ let
     poll-time-idle-seconds = ${toString cfg.pollTimeIdleSeconds}
     poll-time-window-seconds = ${toString cfg.pollTimeWindowSeconds}
   '';
-in
-{
+in {
   options.my.ai.activitywatch = {
     enable = lib.mkEnableOption "ActivityWatch-based productivity telemetry";
 
@@ -58,7 +60,7 @@ in
 
     systemd.user.services.aw-server-rust = {
       description = "ActivityWatch Rust server";
-      wantedBy = [ "default.target" ];
+      wantedBy = ["default.target"];
 
       serviceConfig = {
         ExecStart = "${cfg.serverPackage}/bin/aw-server";
@@ -69,10 +71,10 @@ in
 
     systemd.user.services.awatcher = {
       description = "Awatcher ActivityWatch window and idle watcher";
-      wantedBy = [ "default.target" ];
+      wantedBy = ["default.target"];
 
-      after = [ "aw-server-rust.service" ];
-      wants = [ "aw-server-rust.service" ];
+      after = ["aw-server-rust.service"];
+      wants = ["aw-server-rust.service"];
 
       serviceConfig = {
         ExecStart = "${cfg.watcherPackage}/bin/awatcher --config ${awatcherConfig}";

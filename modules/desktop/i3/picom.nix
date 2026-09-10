@@ -1,4 +1,6 @@
 {
+  _class = "homeManager";
+
   services.picom = {
     enable = true;
     settings = {

@@ -1,59 +1,183 @@
 # Roadmap
 
-This file is planned work only. Do not use it as current-state documentation.
+This file records dependency-ordered future work. It does not claim implementation and does not assign dates.
 
-## Priority 1 - Stabilize authority and direct mutation boundaries
+ADR 0008 resolves the architecture gate for the first product loop. The immediate roadmap is therefore deliberately narrow: prove a laptop-first Tasker-triggered task-initiation loop before expanding into general planning, broader automation, or durable commitment mutation.
 
-1. Preserve regression coverage for `recovery.target.start` default-off behavior and explicit opt-in success.
-2. Clarify and test `action-bridge` authority defaults before lowering broad numeric authority.
-3. Follow the `SAFETY_MODEL.md` named capability default-off migration checklist before flipping any additional named capability default.
-4. Treat `recovery.target.start` as the first completed default-off example; do not select or start another default-off candidate without a separate Research and Design plan.
-5. Keep direct TaskNotes mutation disabled until deterministic apply/promote exists.
-6. Keep Anki task output proposal/off only until deterministic TaskNotes apply/promote exists.
-7. Preserve regression coverage proving default/reviewable paths cannot mutate real TaskNotes.
+## Continuing invariants
 
-## Priority 2 - Canonicalize action and TaskNotes flows
+These are not roadmap features; they must remain true during every future change:
 
-1. Keep `dialog-bridge` answer handling canonical through `AI/inbox/actions/*.json`; add dialog dismiss emission only when the desktop UI has a real dismiss signal.
-2. Completed: first-class read-only `tasknotes.read_context` is implemented, exposed through `context_hub`, and available to LLM prompt packages as compact metadata.
-3. Define deterministic TaskNotes apply/promote schema.
-4. Implement apply/promote gate with idempotency, conflict handling, and events.
+- LLM/model paths remain proposal-side.
+- Ordinary software owns lifecycle, authority, queues, validation, and side effects.
+- Direct TaskNotes mutation remains disabled until a deterministic reviewed apply path is complete.
+- Default-off `recovery.target.start` regression coverage remains intact.
+- Dangerous authority is represented by explicit capabilities and gates, not prompt wording alone.
+- Remote model context is allowlisted, bounded, provenance-aware, and selected by code.
+- Ambiguous replay, conflict, or stale work moves to refusal/expiry/manual review rather than repeated side effects.
+- Product usefulness and user burden are evaluated separately from mechanical correctness.
 
-## Priority 3 - Protocol and audit hardening
+## Accepted baseline - ADR 0008
 
-1. Add schema lifecycle docs and versioning.
-2. Upgrade JSONL evidence logs or document/replace them with authoritative audit semantics.
-3. Add producer identity/provenance where needed.
-4. Add service hardening and safe default review.
+The first loop is:
 
-## Priority 4 - Product intelligence
+```text
+known task
+  -> Tasker Stuck trigger
+  -> laptop kernel
+  -> bounded blocker/next-action proposal
+  -> Start / Shrink / Blocked / Defer
+  -> outcome
+```
 
-1. Define evidence ledger and personal model hypothesis schema.
-2. Add correction/supersession semantics.
-3. Define goal hierarchy: values/life areas, goals, projects/habits, commitments/tasks, sessions, interventions, outcomes.
-4. Expand planner metadata: why now, evidence refs, confidence, user burden, capacity assumption, linked goal, expiry, alternatives.
-5. Define attention/receptivity policy: quiet hours, low-energy mode, repeated-ignore backoff, deep-work suppression, channel switching.
+Accepted boundaries:
 
-## Priority 5 - Product evaluation
+- laptop-hosted deterministic kernel;
+- Tasker as the first required adapter;
+- one API provider behind a narrow adapter;
+- SQLite-scale persistence is sufficient initially;
+- requests are queued during laptop/API unavailability and expire when stale;
+- context starts with an explicit allowlist;
+- the newer Obsidian proposal chain is canonical for future durable proposals;
+- real TaskNotes apply is deferred and not on the first-loop critical path;
+- the older Ollama planner is legacy/specialist rather than the canonical kernel.
 
-1. Add scenario evals for stale context, wrong inference, repeated ignored nudges, low energy, active deep work, conflicting goals, daily review quality, and recovery quality.
-2. Add voice/relationship quality checks: friendly, non-punitive, non-shaming, agency-preserving.
-3. Track outcome quality beyond mechanical smoke tests.
+## Milestone 1 - freeze boundary contracts, defer internal records  [COMPLETE]
 
-## Priority 6 - UI expansion only after protocols are boring
+Status: complete (commit `a7bffe6`). Five stable boundary contract validators, one private aggregate reducer, and pure smoke tests covering all lifecycle and ordering scenarios. Receipt remains provisional (Milestone 3); Outcome remains deferred (Milestone 5).
 
-Desktop popup UI, richer phone controls, and more autonomous behavior should wait until protocols, authority, and review gates are stable and well tested.
+Verification: 249 focused checks, 31/31 smoke files passing, documentation checks clean, patch-safety checks clean.
 
-## Extension-model follow-up
+Define five stable boundary contract candidates:
 
-Before adding many new goal-achievement instruments, add a lightweight module contract registry. This is separate from `ACTION_CAPABILITY_POLICY`, which remains the runtime action capability policy for `action-bridge`:
+- `task_initiation_stuck.v1` — Tasker ingress event with inline TaskRef, zero client expiry/idempotency;
+- `task_initiation_card.v1` — immutable display/countdown authorization with kernel-issued IDs and server expiry;
+- `task_initiation_response.v1` — minimal user action evidence; accepted before Receipt, first-response-wins;
+- `task_initiation_context.v1` — local disclosure/audit manifest with a derived minimal API payload;
+- `task_initiation_proposal.v1` — semantic-only blocker and tiny-start output.
 
-1. define the minimum Markdown module contract shape;
-2. treat `tasknotes.read_context` as the completed pressure test for the module contract shape;
-3. list context providers, planners, review surfaces, action adapters, memory modules, and evaluators;
-4. require each module to declare reads, writes, authority, schemas, tests, disable behavior, TaskNotes mutation status, and required action capabilities;
-5. defer JSON/YAML manifests and registry checkers until the Markdown contract proves useful.
+Document as provisional (not in frozen set):
 
-Completed pressure-test invariant: `tasknotes.read_context` has no required action capabilities, `may_mutate_tasknotes` is false, output includes provenance, freshness, limits, and safe-off/disabled behavior, context-hub exposure is compact, and prompt-facing metadata omits raw TaskNotes content plus absolute source roots/source paths. Future deterministic TaskNotes apply/promote remains separate planned work.
+- `task_initiation_card_receipt.v1` — Tasker notification-posted evidence; exact shape validated by live test in Milestone 3.
 
-This keeps future functionality easy to add without creating a giant unbounded agent.
+Document as deferred (not implemented):
+
+- Outcome evidence, metrics, and identifiers — designed and frozen only in Milestone 5 when all evidence producers exist.
+
+Keep one private unversioned InteractionAggregate with pure reducer functions covering server expiry, idempotency, first-response-wins, Response-before-Receipt ordering, delivery-evidence branches, revision limits, and terminal immutability. Keep all orchestration/persistence records (error, idempotency, interaction, run, queue, revision, transition) as private data without schema_version.
+
+Define task resolution as explicit task ID, then active session task, then short user description (no fallback from invalid explicit reference to description). Define which existing protocol paths are reused and which new paths are necessary before writing runtime code.
+
+Exit condition: five boundary contracts have exact owners, authority rules, and validators; task resolution, private lifecycle, idempotency, expiry, Response-before-Receipt ordering, and TaskNotes safety are executable as pure tests; Receipt and Outcome are explicitly assigned forward to Milestones 3 and 5.
+
+## Milestone 2 - establish the laptop kernel skeleton
+
+Implement the smallest deterministic local runtime capable of:
+
+- synthetic/local `Stuck` schema validation and deduplication;
+- SQLite-backed private aggregate, replay-result, and Card-routing state;
+- accepted known-task resolution precedence;
+- deterministic no-model Context, Proposal, and Card preparation;
+- first-response-wins with atomic Shrink/Blocked follow-up Cards;
+- explicit expiry/deadline reconciliation;
+- restart-safe replay without duplicate consequences;
+- a minimal local CLI for tests and diagnostics.
+
+Do not add general autonomous tool loops, multi-agent orchestration, or durable-workflow frameworks.
+
+Exit condition: a synthetic `Stuck` event reaches a deterministic Card and Response lifecycle through restart, replay, concurrency, corruption, and deadline tests without transport or a model.
+## Milestone 3 - add the Tasker transport and queue
+
+Implement one Tasker entry point and one response surface:
+
+- a `Stuck` widget/action;
+- authenticated delivery to the laptop over an approved private transport;
+- local Tasker queue when the laptop is unreachable;
+- visible queued/cancelled/expired states;
+- bounded retry with stable event IDs;
+- notification card rendering with `Start`, `Shrink`, `Blocked`, and `Defer`.
+
+Finalize the provisional `task_initiation_card_receipt.v1` shape after a live test verifies whether Tasker can reliably emit and replay `posted_at_epoch`, and whether Receipt needs device/notification-instance identity. Validate that the bounded Tasker countdown has no prohibited side effects (no TaskNotes write, no action.v1 emission, no session/recovery mutation, no app/URI launch).
+
+Exit condition: phone-to-laptop delivery, offline queueing, replay protection, expiry, cancellation, and button callbacks pass live tests on the target devices; Receipt shape is frozen or posting-anchored metrics are explicitly abandoned; bounded countdown is proven safe.
+
+## Milestone 4 - add bounded context and one API model worker
+
+Implement:
+
+- a narrow provider interface with one configured API provider;
+- local secret ownership;
+- schema-enforced model output;
+- request, token, latency, retry, and estimated-cost budgets;
+- an allowlisted context builder using only the current task/description, allowed project summary, last session capsule, recent outcomes, and explicitly helper-accessible material;
+- no whole-vault browsing by the model;
+- API-unavailable queueing with expiry and supersession;
+- deterministic fallback behavior for invalid or unsafe model output.
+
+The worker may classify the initiation barrier and propose one tiny starting action. It may not choose a different task, create a durable commitment, or execute external actions.
+
+Exit condition: recorded test cases produce schema-valid, bounded, relevant proposals without unauthorized context or authority expansion.
+
+## Milestone 5 - complete the interaction and outcome loop
+
+Connect proposals to Tasker action cards and record:
+
+- card shown time;
+- selected button;
+- time to `Start`;
+- repeated `Shrink`/`Blocked` paths;
+- proposed micro-action completion or ten-minute engagement;
+- dismissals, wrong-task reports, latency, retries, expiry, and annoyance feedback;
+- occasional subjective “made starting easier” feedback.
+
+Design and freeze `task_initiation_outcome.v1` only after the evidence producers listed above are implemented and live-tested: user action evidence, system terminal status/reason, delivery evidence, observation evidence, and feedback evidence. Define the four latency formulas using available timestamps; return unknown when ordering is contradictory or a required timestamp is absent.
+
+Repeated dismissal must not produce identical escalating prompts. A changed task must stale the old card.
+
+Exit condition: one run can be traced from Tasker trigger through context/model evidence to card, response, and later outcome; Outcome schema is frozen after evidence producers, precedence, finalization, and retention policy are proven.
+
+## Milestone 6 - run a bounded real-use trial
+
+Use the first loop in ordinary work for a predefined trial period, initially two weeks, without adding unrelated features during the evaluation window.
+
+Primary measures:
+
+- start within ten minutes;
+- meaningful engagement or micro-action completion;
+- subjective reduction in starting friction.
+
+Guardrails:
+
+- annoyance/dismissal rate;
+- wrong-task rate;
+- repeated shrinking;
+- stale or late queued cards;
+- privacy corrections;
+- API latency and cost.
+
+Exit condition: evidence supports one of three explicit decisions: retain and refine, redesign and repeat, or stop the loop.
+
+## Milestone 7 - consolidate only after evidence
+
+If the loop is retained:
+
+- make the new kernel the documented owner of this lifecycle;
+- adapt or retire overlapping older planner paths;
+- update `CURRENT_STATE.md`, `ARCHITECTURE.md`, `PROTOCOLS.md`, `MODULES.md`, and `docs/SCHEMA_REGISTRY.md` to implementation truth;
+- decide whether other loops should reuse the kernel;
+- decide whether the Ollama planner has a justified fallback/specialist role;
+- decide whether broader context, a second provider, or longer-lived workflow machinery is justified.
+
+Real TaskNotes apply remains a separate decision and should be implemented only for a product loop that genuinely requires durable commitment mutation.
+
+## Later capabilities - explicitly outside the first sequence
+
+- task selection and daily prioritization;
+- low-energy and stale-task loops;
+- broad coaching or personal-policy adaptation;
+- desktop and Obsidian command interfaces beyond review;
+- calendar, distraction-control, or body-doubling adapters;
+- multi-provider routing;
+- MCP or general agent harnesses;
+- long-running distributed workflow engines;
+- automatic TaskNotes apply.

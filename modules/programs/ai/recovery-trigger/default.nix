@@ -1,16 +1,18 @@
 # modules/programs/ai/recovery-trigger/default.nix
-{ config, lib, pkgs, ... }:
-
-let
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}: let
   cfg = config.my.ai.recoveryTrigger;
 
   recoveryTriggerScript = pkgs.writeShellScriptBin "ai-recovery-trigger" ''
     export PYTHONPATH="${../python}:$PYTHONPATH"
     exec ${pkgs.python3}/bin/python3 ${./recovery_trigger.py} "$@"
   '';
-in
-{
-  imports = [ ../core ];
+in {
+  imports = [../core];
   options.my.ai.recoveryTrigger = {
     enable = lib.mkEnableOption "local AI deterministic recovery nudge trigger";
 
@@ -74,7 +76,7 @@ in
     systemd.user.timers.ai-recovery-trigger = {
       description = "Run local AI deterministic recovery trigger";
 
-      wantedBy = [ "timers.target" ];
+      wantedBy = ["timers.target"];
 
       timerConfig = {
         OnCalendar = cfg.timerOnCalendar;

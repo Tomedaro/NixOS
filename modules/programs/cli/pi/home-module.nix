@@ -1,19 +1,23 @@
-{
-  inputs ? { },
-}:
-{
+{mkMcpNixos}: {
   config,
   pkgs,
   lib,
   ...
-}:
-
-let
-  paths = import ./lib/paths.nix { inherit config; };
-  package = import ./package.nix { inherit pkgs inputs paths; };
+}: let
+  paths = import ./lib/paths.nix {inherit config;};
+  package = import ./package.nix {
+    inherit pkgs mkMcpNixos paths;
+  };
   scripts = import ./scripts.nix {
     inherit pkgs lib paths;
-    inherit (package) piWrapped piNpm engramPackage;
+    inherit
+      (package)
+      piWrapped
+      piNpm
+      engramPackage
+      generatedMcpGlobal
+      generatedMcpNixos
+      ;
   };
   wrappers = import ./wrappers.nix {
     inherit
@@ -24,8 +28,7 @@ let
       ;
     inherit (package) piWrapped piNpm engramPackage;
   };
-in
-{
+in {
   home.packages = [
     package.engramPackage
     package.piNpm
@@ -40,6 +43,7 @@ in
     scripts.piSourceCheck
     scripts.ankiSafeWriter
     scripts.piTestAnkiSafeWriter
+    scripts.piResourceInventory
     wrappers.piSmart
     wrappers.piRaw
     wrappers.piAdmin
@@ -52,6 +56,7 @@ in
     wrappers.piWork
     wrappers.piResearch
     wrappers.piTrusted
+    wrappers.piAw
   ];
 
   home.sessionPath = [

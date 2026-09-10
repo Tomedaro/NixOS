@@ -87,6 +87,10 @@ tests=(
   modules/programs/ai/tests/interventions_smoke.py
   modules/programs/ai/tests/intervention_outcomes_smoke.py
   modules/programs/ai/tests/intervention_outcomes_reporter_smoke.py
+  modules/programs/ai/tests/task_initiation_contracts_smoke.py
+  modules/programs/ai/tests/task_initiation_kernel_smoke.py
+  modules/programs/ai/tests/task_initiation_acceptance_smoke.py
+  modules/programs/ai/tests/task_initiation_stateful.py
 )
 
 echo

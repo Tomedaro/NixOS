@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{pkgs, ...}:
 pkgs.writeShellScriptBin "clipmanager" ''
   tmp_dir="/tmp/cliphist_rofi_previews"
 

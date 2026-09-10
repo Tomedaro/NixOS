@@ -1,8 +1,8 @@
-# Module review register - draft
+# Module review register
 
-> Superseded status: later patches disabled the previously identified direct TaskNotes mutation paths. `36f5813` removed/hard-disabled Anki direct TaskNotes mode, and `ac274a9` disabled action-bridge `promote_task_proposal`. Reviewable proposal/draft paths remain; deterministic TaskNotes apply/promote is still future work.
+Snapshot date: 2026-07-22.
 
-This file records the accepted audit draft for `modules/programs/ai/docs/MODULE_REVIEW_REGISTER.md`.
+This register combines the original audit evidence with current module status. Code/tests remain authoritative where historical line references have drifted. Direct TaskNotes mutation is disabled; reviewed drafts and apply validation exist; real TaskNotes apply is not implemented.
 
 Severity legend: critical, high, medium, low, cleanup, docs-only.
 Authority legend: observe, draft/propose, review, local-state mutate, live-action, TaskNotes mutate.
@@ -107,7 +107,7 @@ Authority legend: observe, draft/propose, review, local-state mutate, live-actio
 ### `anki-bridge/anki_bridge.py`
 
 - Updated by 36f5813: Anki bridge emits proposal output; direct TaskNotes mode is removed/hard-disabled.
-- Current status: current; safer default but legacy direct mode remains.
+- Current status: current; proposal/off behavior only. Legacy raw direct mode falls back to proposal and performs no TaskNotes write.
 - Inputs:
   - AnkiConnect HTTP API;
   - configured deck list;
@@ -353,7 +353,7 @@ Authority legend: observe, draft/propose, review, local-state mutate, live-actio
 - Evidence: module doc says it does not edit Obsidian notes directly; rejects direct execution fields at lines 238-242; writes draft files at lines 379-384.
 - Tests: `obsidian_task_draft_smoke.py`.
 - Issues:
-  - MEDIUM: there is no deterministic apply/promote gate into real TaskNotes yet; docs must avoid implying drafts are real tasks.
+  - MEDIUM: deterministic dry-run apply validation exists, but there is no real atomic apply writer into TaskNotes yet; docs must avoid implying drafts are real tasks.
 - Actions:
   - Build deterministic apply/promote gate after authority split.
 
@@ -405,3 +405,75 @@ Authority legend: observe, draft/propose, review, local-state mutate, live-actio
   - LOW: move semantics are acceptable for local vault but should be documented as local-filesystem oriented.
 - Actions:
   - Document queue stability and same-filesystem expectations.
+
+## Current shared-kernel supplement
+
+The following implemented modules were not individually covered in the original audit register and are now first-class architecture components.
+
+### `python/ai_system/agent_context.py`
+
+- Purpose: assembles bounded current context and a `context_hub.v1` snapshot for planners/recovery components.
+- Authority: read/derive plus bounded local context artifacts.
+- Inputs: interaction, recovery, Anki, intervention, Obsidian, ActivityWatch, TaskNotes read context, and configured limits.
+- Issues: no canonical general runtime owns when/how this context is assembled for every event.
+- Tests: `agent_context_smoke.py`, `agent_context_hub_smoke.py`.
+
+### `python/ai_system/context_schema.py` and `context_providers.py`
+
+- Purpose: standardized read-only provider envelopes and bounded provider implementations.
+- Authority: read/derive; providers must not mutate durable commitments.
+- Current providers include interaction, Anki, recovery, intervention, Obsidian, current Obsidian intent, ActivityWatch, and TaskNotes context attachment.
+- Tests: context and agent-context smoke tests.
+
+### `python/ai_system/interaction_lifecycle.py`
+
+- Purpose: pure rules for active nudge expiry, user-action clearing, recovery-terminal clearing, and lifecycle reason reporting.
+- Authority: pure policy helper.
+- Tests: `interaction_lifecycle_smoke.py`.
+
+### `python/ai_system/interaction_projection.py`
+
+- Purpose: projects lifecycle/action/recovery evidence into current phone interaction state and projection events.
+- Authority: local-state projection; no broad execution.
+- Tests: `interaction_projection_smoke.py`.
+
+### `python/ai_system/interventions.py` and `intervention_outcomes.py`
+
+- Purpose: record intervention stages and derive mechanical outcome records/statistics.
+- Authority: evidence and summary state.
+- Current limitation: outcome semantics are mechanical and do not yet prove meaningful task progress or reduced burden.
+- Tests: `interventions_smoke.py`, `intervention_outcomes_smoke.py`.
+
+### `python/ai_system/obsidian_context.py`, `obsidian_contracts.py`, and `obsidian_interaction.py`
+
+- Purpose: shared bounded context, forbidden-field checks, schema/rendering, parsing, and interaction helpers for the Obsidian chain.
+- Authority: pure/read/derive plus review artifact construction.
+- Tests: `obsidian_context_smoke.py`, `obsidian_contracts_smoke.py`, `obsidian_interaction_smoke.py`.
+
+### `python/ai_system/recovery_proposals.py` and `recovery_targets.py`
+
+- Purpose: inspectable deterministic recovery reasoning/proposals and configured target lookup.
+- Authority: proposal/configuration only.
+- Tests: `recovery_proposals_smoke.py`, recovery smoke coverage.
+
+### `python/ai_system/tasknotes_apply_validator.py`
+
+- Purpose: deterministic dry-run validation of a reviewed TaskNotes draft and target.
+- Authority: validation only; it does not write TaskNotes.
+- Checks: reviewed proposal identity/schema, forbidden execution fields, target containment/safety, collision, required fields, and idempotency inputs.
+- Tests: `tasknotes_apply_validator_smoke.py`.
+- Remaining issue: no atomic real apply writer/result journal exists.
+
+### `dev/run-obsidian-agent-loop.sh`
+
+- Purpose: operator/development execution of the Obsidian intent-to-validation chain.
+- Status: useful integration harness, not the canonical always-running kernel.
+- Tests: `obsidian_agent_loop_smoke.py`.
+
+## Register-wide current issues
+
+- ADR 0008 selects a deterministic laptop-side kernel, but that canonical first-loop runtime is not implemented;
+- the implemented model planner remains Ollama-specific while the accepted first-loop direction uses one API provider behind a narrow adapter;
+- older and newer proposal surfaces still coexist in code, although the newer Obsidian chain is selected for future durable proposals;
+- protocol/schema inventory needs automated drift checks;
+- mechanical smoke tests are not product-usefulness evaluations.

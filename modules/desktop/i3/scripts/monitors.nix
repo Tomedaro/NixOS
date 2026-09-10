@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{pkgs, ...}:
 pkgs.writeShellScriptBin "monitors" ''
   set -euo pipefail
 

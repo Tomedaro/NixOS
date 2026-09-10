@@ -18,6 +18,7 @@ __pycache__/
 
 # Local session artifacts
 .corrections/
+/tmp/aw_*/
 
 # Backup/review artifacts
 *.bak
@@ -33,3 +34,18 @@ modules/programs/cli/pi/*.before-*
 # Engram database files (local state, not config)
 .engram/*.db
 .engram/*.db-*
+# Working artifacts
+consolidated-memory.md
+memory-consolidation.md
+*.zip
+tmp/
+
+# Python/test runtime state
+.pytest_cache/
+.hypothesis/
+.coverage
+.coverage.*
+
+# Generated verification artifacts
+/artifacts/
+/modules/programs/ai/artifacts/

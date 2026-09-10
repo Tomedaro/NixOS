@@ -1,0 +1,683 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+umask 077
+
+PROGRAM=${0##*/}
+OUTPUT_DIR=${NIXOS_ASSIST_OUTPUT_DIR:-$HOME/Downloads}
+HOST=${NIXOS_ASSIST_HOST:-$(hostname)}
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  nixos-assist doctor
+  nixos-assist report [generic|network|storage]
+  nixos-assist handoff [generic|network|storage]
+  nixos-assist gc-plan
+  nixos-assist bundle-run BUNDLE_DIR
+  nixos-assist postboot [BUNDLE_DIR]
+
+The bundle format is documented in README.md. bundle-run is intentionally
+non-persistent: it may test-activate an exact built closure, but never makes it
+the boot default and never commits source changes.
+USAGE
+}
+
+die() {
+  printf 'error: %s\n' "$*" >&2
+  exit 2
+}
+
+stamp() { date '+%Y%m%d-%H%M%S'; }
+
+repo_root() {
+  git rev-parse --show-toplevel 2>/dev/null || {
+    printf 'error: run this inside the NixOS Git repository\n' >&2
+    exit 2
+  }
+}
+
+section() { printf '\n=== %s ===\n' "$*"; }
+
+run() {
+  printf '\n$ '
+  printf '%q ' "$@"
+  printf '\n'
+  "$@"
+}
+
+run_optional() {
+  local label=$1
+  shift
+  printf '\n--- %s ---\n' "$label"
+  "$@" 2>&1 || true
+}
+
+safe_bundle_relpath() {
+  local rel=$1
+  [[ -n "$rel" ]] || return 1
+  [[ "$rel" != /* ]] || return 1
+  [[ "$rel" != '..' && "$rel" != ../* && "$rel" != */../* && "$rel" != */.. ]] || return 1
+  return 0
+}
+
+report_generic() {
+  local root
+  root=$(repo_root)
+  cd "$root"
+  printf 'timestamp: %s\n' "$(date --iso-8601=seconds)"
+  printf 'repo: %s\n' "$root"
+  printf 'head: %s\n' "$(git rev-parse HEAD)"
+  printf 'branch: %s\n' "$(git branch --show-current)"
+  printf 'nix: %s\n' "$(nix --version 2>&1 || true)"
+  printf 'current-system: %s\n' "$(readlink -f /run/current-system 2>/dev/null || true)"
+  printf 'booted-system: %s\n' "$(readlink -f /run/booted-system 2>/dev/null || true)"
+  printf 'boot-profile: %s\n' "$(readlink -f /nix/var/nix/profiles/system 2>/dev/null || true)"
+  printf '\n--- git status ---\n'
+  git status --short
+  run_optional 'failed system units' systemctl --failed --no-pager
+  run_optional 'failed user units' systemctl --user --failed --no-pager
+  run_optional 'filesystem usage' df -h / /nix/store
+}
+
+report_network() {
+  report_generic
+  printf '\n--- /etc/resolv.conf ---\n'
+  cat /etc/resolv.conf 2>&1 || true
+  run_optional 'NetworkManager active connections' nmcli -f NAME,UUID,TYPE,DEVICE connection show --active
+  run_optional 'NetworkManager DNS' nmcli -f GENERAL.DEVICE,GENERAL.CONNECTION,IP4.DNS,IP6.DNS device show
+  run_optional 'listeners' ss -lntup
+  if command -v firewall-cmd >/dev/null 2>&1; then
+    run_optional 'firewalld active zones' sudo -n firewall-cmd --get-active-zones
+    run_optional 'firewalld public' sudo -n firewall-cmd --zone=public --list-all
+    run_optional 'firewalld home' sudo -n firewall-cmd --zone=home --list-all
+  fi
+}
+
+list_system_generations_readonly() {
+  local link generation timestamp target current_profile
+  current_profile=$(readlink -f /nix/var/nix/profiles/system 2>/dev/null || true)
+  shopt -s nullglob
+  local -a links=(/nix/var/nix/profiles/system-*-link)
+  shopt -u nullglob
+  if ((${#links[@]} == 0)); then
+    echo 'no system generation links found'
+    return 0
+  fi
+  for link in "${links[@]}"; do
+    generation=${link##*/system-}
+    generation=${generation%-link}
+    timestamp=$(stat -c '%y' "$link" 2>/dev/null | cut -d. -f1 || true)
+    target=$(readlink -f "$link" 2>/dev/null || true)
+    printf '%s\t%s\t%s%s\n' \
+      "$generation" "${timestamp:-<unknown>}" "$target" \
+      "$([[ "$target" == "$current_profile" ]] && printf ' (profile-current)')"
+  done | sort -n -k1,1
+}
+
+report_storage() {
+  report_generic
+  run_optional 'block devices' lsblk -o NAME,PATH,FSTYPE,FSVER,LABEL,UUID,SIZE,MOUNTPOINTS
+  run_optional 'mounts' findmnt -rno TARGET,SOURCE,FSTYPE,OPTIONS
+  run_optional 'swap' swapon --show
+  run_optional 'system generations (lock-free)' list_system_generations_readonly
+  if command -v home-manager >/dev/null 2>&1; then
+    run_optional 'Home Manager generations' home-manager generations
+  fi
+}
+
+report_profile() {
+  case ${1:-generic} in
+    generic) report_generic ;;
+    network) report_network ;;
+    storage) report_storage ;;
+    *) die "unknown report profile: $1" ;;
+  esac
+}
+
+write_report() {
+  local profile=${1:-generic} root out
+  root=$(repo_root)
+  cd "$root"
+  mkdir -p "$OUTPUT_DIR"
+  out="$OUTPUT_DIR/nixos-${profile}-report-$(stamp).txt"
+  : > "$out"
+  chmod 600 "$out"
+  report_profile "$profile" 2>&1 | tee "$out"
+  printf '\nreport: %s\n' "$out"
+}
+
+doctor() {
+  local root
+  root=$(repo_root)
+  cd "$root"
+  report_generic
+  run_optional 'nh version' nh --version
+  run_optional 'nh cleanup timer' systemctl status nh-clean.timer --no-pager
+  printf '\n--- configured cleanup policy ---\n'
+  nix eval --json ".#nixosConfigurations.${HOST}.config.programs.nh.clean.enable" 2>/dev/null || true
+  printf '\n'
+  nix eval --json ".#nixosConfigurations.${HOST}.config.nix.gc.automatic" 2>/dev/null || true
+  printf '\n'
+}
+
+handoff_paths() {
+  local profile=${1:-generic}
+  case "$profile" in
+    generic)
+      # A generic handoff is the audit/debug snapshot: include every tracked
+      # repository file. `git ls-files` excludes .git and ignored machine-local
+      # state while avoiding a brittle hand-maintained allowlist that can miss
+      # newly added modules, scripts, overlays, dev shells, or documentation.
+      git ls-files
+      ;;
+    network)
+      printf '%s\n' flake.nix flake.lock "hosts/$HOST/default.nix" "hosts/$HOST/variables.nix" \
+        modules/options/workstation.nix modules/core/network.nix modules/core/dns.nix \
+        modules/services/syncthing/default.nix modules/core/services.nix modules/programs/games/default.nix scripts/check-variants.sh
+      ;;
+    storage)
+      printf '%s\n' flake.nix flake.lock "hosts/$HOST/default.nix" "hosts/$HOST/hardware-configuration.nix" \
+        "hosts/$HOST/storage.nix" "hosts/$HOST/boot.nix" "hosts/$HOST/network.nix" modules/core/nh.nix \
+        modules/core/boot.nix modules/core/system.nix modules/core/packages.nix modules/hardware scripts/check-variants.sh
+      ;;
+    *) die "unknown handoff profile: $profile" ;;
+  esac
+}
+
+make_handoff() {
+  local profile=${1:-generic} root tmp out path
+  local -a paths=() changed=()
+  root=$(repo_root)
+  cd "$root"
+  mapfile -t paths < <(handoff_paths "$profile")
+  mapfile -t changed < <(git status --porcelain=v1 | sed -E 's/^.. //' | sed -E 's/.* -> //' | sed '/^$/d')
+  paths+=("${changed[@]}")
+
+  tmp=$(mktemp -d)
+  trap 'rm -rf "$tmp"' RETURN
+  mkdir -p "$tmp/source"
+
+  # De-duplicate paths while preserving only files/directories that exist.
+  declare -A seen=()
+  for path in "${paths[@]}"; do
+    [[ -n "$path" && -z ${seen[$path]+x} ]] || continue
+    seen[$path]=1
+    [[ -e "$path" ]] || continue
+    mkdir -p "$tmp/source/$(dirname "$path")"
+    if [[ -d "$path" ]]; then
+      cp -a "$path" "$tmp/source/$(dirname "$path")/"
+    else
+      cp -a "$path" "$tmp/source/$path"
+    fi
+  done
+
+  {
+    printf 'timestamp: %s\n' "$(date --iso-8601=seconds)"
+    printf 'head: %s\n' "$(git rev-parse HEAD)"
+    printf 'branch: %s\n' "$(git branch --show-current)"
+    printf 'profile: %s\n' "$profile"
+    printf '\n--- status ---\n'
+    git status --short || true
+    printf '\n--- diff stat ---\n'
+    git diff HEAD --stat || true
+    printf '\n--- diagnostics ---\n'
+    report_profile "$profile"
+  } > "$tmp/report.txt"
+
+  git diff --binary HEAD > "$tmp/scoped.diff"
+  (cd "$tmp" && find source -type f -print0 | sort -z | xargs -0 -r sha256sum) > "$tmp/SHA256SUMS"
+
+  mkdir -p "$OUTPUT_DIR"
+  out="$OUTPUT_DIR/nixos-${profile}-handoff-$(stamp).tar.gz"
+  tar -C "$tmp" -czf "$out" .
+  chmod 600 "$out"
+  rm -rf "$tmp"
+  trap - RETURN
+  printf '%s\n' "$out"
+}
+
+gc_plan() {
+  local root out roots_tmp
+  root=$(repo_root)
+  cd "$root"
+  mkdir -p "$OUTPUT_DIR"
+  out="$OUTPUT_DIR/nixos-gc-plan-$(stamp).txt"
+  : > "$out"
+  chmod 600 "$out"
+  roots_tmp=$(mktemp)
+  trap 'rm -f "$roots_tmp"' RETURN
+
+  {
+    printf '=== Nix storage / rollback inventory (READ ONLY) ===\n'
+    printf 'timestamp: %s\n' "$(date --iso-8601=seconds)"
+    printf 'repo-head: %s\n' "$(git rev-parse HEAD)"
+    printf 'nix: %s\n' "$(nix --version 2>&1 || true)"
+    printf 'current-system: %s\n' "$(readlink -f /run/current-system 2>/dev/null || true)"
+    printf 'booted-system: %s\n' "$(readlink -f /run/booted-system 2>/dev/null || true)"
+    printf 'system-profile: %s\n' "$(readlink -f /nix/var/nix/profiles/system 2>/dev/null || true)"
+
+    printf '\n--- filesystem usage ---\n'
+    df -h / /nix/store 2>&1 || true
+
+    printf '\n--- current system closure size ---\n'
+    nix path-info --closure-size --human-readable /run/current-system 2>&1 || true
+
+    printf '\n--- system generations (lock-free) ---\n'
+    list_system_generations_readonly 2>&1 || true
+    printf 'generation_count: '
+    find /nix/var/nix/profiles -maxdepth 1 -type l -name 'system-*-link' 2>/dev/null | wc -l
+
+    printf '\n--- Home Manager generations (if available) ---\n'
+    if command -v home-manager >/dev/null 2>&1; then
+      home-manager generations 2>&1 || true
+    else
+      echo 'home-manager CLI not found'
+    fi
+
+    printf '\n--- cleanup configuration ---\n'
+    printf 'nh: '
+    nh --version 2>&1 || echo 'not found'
+    printf 'programs.nh.clean.enable: '
+    nix eval --json ".#nixosConfigurations.${HOST}.config.programs.nh.clean.enable" 2>/dev/null || echo '<unavailable>'
+    printf '\nnix.gc.automatic: '
+    nix eval --json ".#nixosConfigurations.${HOST}.config.nix.gc.automatic" 2>/dev/null || echo '<unavailable>'
+    printf '\n'
+
+    printf '\n--- repository result gcroots ---\n'
+    find "$root" -maxdepth 4 -type l -name 'result*' -printf '%p -> %l\n' 2>/dev/null || true
+
+    printf '\n--- GC roots summary ---\n'
+    if nix-store --gc --print-roots > "$roots_tmp" 2>&1; then
+      printf 'root_count: %s\n' "$(wc -l < "$roots_tmp")"
+      printf '\nselected roots under home/system profiles (first 120):\n'
+      grep -E "^($HOME|/nix/var/nix/profiles|/run/)" "$roots_tmp" | head -n 120 || true
+    else
+      cat "$roots_tmp"
+    fi
+
+    printf '\n--- currently unreachable store objects (DRY RUN; nothing deleted) ---\n'
+    nix store gc --dry-run 2>&1 || true
+
+    printf '\n--- notes ---\n'
+    printf '%s\n' \
+      '* This command did not delete generations or store paths.' \
+      '* The dry-run only measures objects unreachable with CURRENT GC roots.' \
+      '* Old system/Home Manager generations are GC roots, so pruning them can make additional space reclaimable.' \
+      '* Do not infer reclaimable space by adding generation closure sizes; generations share most of their closures.'
+  } | tee "$out"
+
+  rm -f "$roots_tmp"
+  trap - RETURN
+  printf '\nreport: %s\n' "$out"
+}
+
+
+verify_bundle_integrity() {
+  local bundle=$1 manifest=$2
+  local sums="$bundle/SHA256SUMS" hash rel actual required
+  local -a required_files=()
+  [[ -f "$sums" && ! -L "$sums" ]] || die 'bundle SHA256SUMS missing or is a symlink'
+
+  while read -r hash rel; do
+    [[ -n "$hash" ]] || continue
+    [[ "$hash" =~ ^[0-9a-fA-F]{64}$ ]] || die "invalid SHA256SUMS hash: $hash"
+    rel=${rel#\*}
+    rel=${rel# }
+    safe_bundle_relpath "$rel" || die "unsafe path in SHA256SUMS: $rel"
+    [[ -f "$bundle/$rel" && ! -L "$bundle/$rel" ]] || die "checksummed file missing/not regular: $rel"
+    actual=$(sha256sum "$bundle/$rel" | awk '{print $1}')
+    [[ "${actual,,}" == "${hash,,}" ]] || die "checksum mismatch: $rel"
+  done < "$sums"
+
+  required_files+=("phase.json")
+  required=$(jq -r '.patch' "$manifest")
+  required_files+=("$required")
+  for required in preflight_hook pre_activate_hook runtime_hook postboot_hook; do
+    required=$(jq -r --arg k "$required" '.[$k] // empty' "$manifest")
+    [[ -n "$required" ]] && required_files+=("$required")
+  done
+
+  for required in "${required_files[@]}"; do
+    safe_bundle_relpath "$required" || die "unsafe referenced bundle path: $required"
+    awk -v f="$required" '{name=$2; sub(/^\\*/, "", name); if (name==f) found=1} END{exit !found}' "$sums" \
+      || die "referenced file is not covered by SHA256SUMS: $required"
+  done
+  echo 'bundle checksums: PASS'
+}
+
+bundle_value() {
+  local manifest=$1 filter=$2
+  jq -er "$filter" "$manifest"
+}
+
+bundle_optional_string() {
+  local manifest=$1 filter=$2
+  jq -r "$filter // empty" "$manifest"
+}
+
+run_hook() {
+  local bundle=$1 rel=$2 name=$3
+  [[ -n "$rel" ]] || return 0
+  safe_bundle_relpath "$rel" || die "unsafe $name hook path: $rel"
+  [[ -f "$bundle/$rel" ]] || die "$name hook not found: $bundle/$rel"
+  section "$name hook"
+  run bash "$bundle/$rel"
+}
+
+assert_failed_units() {
+  local manifest=$1 failed unit allowed_json
+  failed=$(systemctl --failed --no-legend --plain --no-pager 2>/dev/null || true)
+  if [[ -n ${failed//[[:space:]]/} ]]; then
+    printf 'failed system units detected:\n%s\n' "$failed" >&2
+    return 1
+  fi
+
+  allowed_json=$(jq -c '.allowed_failed_user_units // []' "$manifest")
+  while IFS= read -r unit; do
+    [[ -n "$unit" ]] || continue
+    if ! jq -e --arg u "$unit" '(.allowed_failed_user_units // []) | index($u) != null' "$manifest" >/dev/null; then
+      printf 'unexpected failed user unit: %s\n' "$unit" >&2
+      return 1
+    fi
+  done < <(
+    systemctl --user --failed --no-legend --plain --no-pager 2>/dev/null \
+      | awk 'NF { if ($1 == "●") print $2; else print $1 }'
+  )
+  : "$allowed_json"
+}
+
+bundle_run() {
+  local bundle_input=$1 root bundle manifest report status
+  root=$(repo_root)
+  bundle=$(realpath "$bundle_input")
+  manifest="$bundle/phase.json"
+  [[ -f "$manifest" ]] || die "bundle manifest missing: $manifest"
+  command -v jq >/dev/null 2>&1 || die 'jq is required for bundle-run'
+
+  mkdir -p "$OUTPUT_DIR"
+  report="$OUTPUT_DIR/nixos-bundle-$(basename "$bundle")-$(stamp).txt"
+  : > "$report"
+  chmod 600 "$report"
+
+  set +e
+  (
+    set -Eeuo pipefail
+    cd "$root"
+
+    local schema name expected_head expected_branch host patch_rel patch network_preflight full_variants
+    local preflight_hook='' pre_activate_hook='' runtime_hook='' previous_system='' base_head='' base_branch=''
+    local base_git='' pretest_resolv='' tmpdir_run='' target_system='' default_if='' current_system=''
+    local patch_applied=0 rollback_armed=0 succeeded=0 sudo_keepalive_pid=''
+    local -a pretest_dns=() new_paths=()
+
+    cleanup_bundle_run() {
+      local rc=$?
+      local rollback_rc=0 post=''
+      trap - EXIT INT TERM
+      if [[ -n "$sudo_keepalive_pid" ]]; then
+        kill "$sudo_keepalive_pid" 2>/dev/null || true
+        wait "$sudo_keepalive_pid" 2>/dev/null || true
+      fi
+
+      if (( succeeded == 0 )); then
+        section 'automatic rollback'
+        if (( rollback_armed == 1 )) && [[ -x "$previous_system/bin/switch-to-configuration" ]]; then
+          echo "Restoring pre-test system: $previous_system"
+          sudo "$previous_system/bin/switch-to-configuration" test || rollback_rc=$?
+          hash -r
+          post=$(readlink -f /run/current-system 2>/dev/null || true)
+          echo "post-rollback current system: ${post:-<unknown>}"
+          if [[ "$post" != "$previous_system" ]]; then
+            echo "CRITICAL: runtime rollback did not restore the previous generation (switch rc=$rollback_rc)." >&2
+          fi
+
+          if ! getent ahostsv4 nixos.org >/dev/null 2>&1; then
+            echo 'WARNING: DNS unhealthy after rollback; restoring pre-test resolver file.' >&2
+            if [[ -s "$pretest_resolv" ]]; then
+              sudo tee /etc/resolv.conf < "$pretest_resolv" >/dev/null || true
+            fi
+            if ! getent ahostsv4 nixos.org >/dev/null 2>&1 && ((${#pretest_dns[@]})); then
+              {
+                for dns in "${pretest_dns[@]}"; do printf 'nameserver %s\n' "$dns"; done
+                printf 'options edns0\n'
+              } | sudo tee /etc/resolv.conf >/dev/null || true
+            fi
+          fi
+        fi
+
+        if (( patch_applied == 1 )); then
+          echo "Restoring repository to $base_head"
+          "$base_git" -C "$root" reset --hard "$base_head" || true
+          if ((${#new_paths[@]})); then
+            rm -rf -- "${new_paths[@]}" || true
+          fi
+        fi
+        echo 'Validation failed; no boot-persistent switch or commit was made.'
+      fi
+
+      rm -rf "$tmpdir_run"
+      printf '\nreport: %s\n' "$report"
+      exit "$rc"
+    }
+    trap cleanup_bundle_run EXIT INT TERM
+
+    schema=$(bundle_value "$manifest" '.schema')
+    [[ "$schema" == 1 ]] || die "unsupported bundle schema: $schema"
+    name=$(bundle_value "$manifest" '.name')
+    expected_head=$(bundle_value "$manifest" '.expected_head')
+    expected_branch=$(bundle_optional_string "$manifest" '.expected_branch')
+    host=$(bundle_optional_string "$manifest" '.host')
+    [[ -n "$host" ]] || host="$HOST"
+    patch_rel=$(bundle_value "$manifest" '.patch')
+    safe_bundle_relpath "$patch_rel" || die "unsafe patch path: $patch_rel"
+    patch="$bundle/$patch_rel"
+    network_preflight=$(jq -r '.network_preflight // true' "$manifest")
+    full_variants=$(jq -r '.full_variants // true' "$manifest")
+    preflight_hook=$(bundle_optional_string "$manifest" '.preflight_hook')
+    pre_activate_hook=$(bundle_optional_string "$manifest" '.pre_activate_hook')
+    runtime_hook=$(bundle_optional_string "$manifest" '.runtime_hook')
+
+    section 'bundle integrity / preflight'
+    printf 'name: %s\n' "$name"
+    printf 'bundle: %s\n' "$bundle"
+    printf 'repo: %s\n' "$root"
+    printf 'report: %s\n' "$report"
+    verify_bundle_integrity "$bundle" "$manifest"
+    [[ -f "$patch" && ! -L "$patch" ]] || die "patch missing/not regular: $patch"
+
+    previous_system=$(readlink -f /run/current-system)
+    base_git="$previous_system/sw/bin/git"
+    [[ -x "$base_git" ]] || base_git=$(command -v git)
+    base_head=$("$base_git" -C "$root" rev-parse HEAD)
+    base_branch=$("$base_git" -C "$root" branch --show-current)
+    printf 'head: %s\nbranch: %s\nprevious-system: %s\n' "$base_head" "$base_branch" "$previous_system"
+    [[ "$base_head" == "$expected_head" ]] || die "unexpected HEAD; expected $expected_head"
+    [[ -z "$expected_branch" || "$base_branch" == "$expected_branch" ]] || die "unexpected branch; expected $expected_branch"
+    [[ -z $("$base_git" -C "$root" status --porcelain=v1 --untracked-files=all) ]] || die 'repository is dirty; refusing to modify it'
+
+    tmpdir_run=$(mktemp -d)
+    pretest_resolv="$tmpdir_run/resolv.conf.pretest"
+    cat /etc/resolv.conf > "$pretest_resolv" 2>/dev/null || true
+    default_if=$(ip -4 route show default 2>/dev/null | awk '/^default / {print $5; exit}')
+    if [[ -n "$default_if" ]] && command -v nmcli >/dev/null 2>&1; then
+      mapfile -t pretest_dns < <(
+        {
+          nmcli --terse --escape no -g IP4.DNS device show "$default_if" 2>/dev/null || true
+          nmcli --terse --escape no -g IP6.DNS device show "$default_if" 2>/dev/null || true
+        } | sed '/^$/d' | grep -vE '^(127\.|::1$)' | awk '!seen[$0]++' || true
+      )
+    fi
+    printf 'default-interface: %s\n' "${default_if:-<none>}"
+    printf 'fallback-DNS: %s\n' "${pretest_dns[*]:-<none>}"
+    if [[ "$network_preflight" == true ]]; then
+      getent ahostsv4 cache.nixos.org >/dev/null || die 'network/DNS is unhealthy before validation'
+    fi
+
+    # Authenticate once and keep the timestamp warm throughout long builds.
+    run sudo -v
+    (
+      while sleep 45; do sudo -n -v >/dev/null 2>&1 || exit 0; done
+    ) &
+    sudo_keepalive_pid=$!
+
+    export NIXOS_ASSIST_REPO="$root"
+    export NIXOS_ASSIST_BUNDLE="$bundle"
+    export NIXOS_ASSIST_REPORT="$report"
+    export NIXOS_ASSIST_PREVIOUS_SYSTEM="$previous_system"
+    export NIXOS_ASSIST_TARGET_SYSTEM=''
+    export NIXOS_ASSIST_HOST="$host"
+
+    run_hook "$bundle" "$preflight_hook" 'preflight'
+    [[ -z $("$base_git" -C "$root" status --porcelain=v1 --untracked-files=all) ]] \
+      || die 'preflight hook dirtied the repository; hooks must leave source untouched'
+
+    run "$base_git" -C "$root" apply --check "$patch"
+    section 'apply patch'
+    run "$base_git" -C "$root" apply "$patch"
+    patch_applied=1
+
+    # Nix's git flake source ignores untracked paths. Capture exactly the paths
+    # introduced by this patch and mark them intent-to-add for evaluation.
+    mapfile -d '' -t new_paths < <("$base_git" -C "$root" ls-files --others --exclude-standard -z)
+    if ((${#new_paths[@]})); then
+      run "$base_git" -C "$root" add -N -- "${new_paths[@]}"
+    fi
+
+    run "$base_git" -C "$root" diff --check
+
+    section 'Nix evaluation / checks'
+    # Authoritative gate: fresh writable evaluation of the full `flake check`
+    # surface, with Import From Derivation forbidden explicitly. Writable
+    # evaluation may materialize ordinary source/store objects; IFD remains a
+    # hard error regardless of whether a derivation output is already present.
+    # After evaluation succeeds, `nix flake check` builds declared checks.
+    run nix flake check \
+      --no-eval-cache \
+      --option allow-import-from-derivation false \
+      --no-update-lock-file \
+      --no-write-lock-file
+
+    # Nix 2.34 makes `flake check --no-build` read-only as well as no-build.
+    # Keep that stricter mode as a diagnostic rather than conflating its extra
+    # store constraint with the no-IFD correctness invariant above.
+    run_optional 'read-only flake diagnostic (non-authoritative)' \
+      nix flake check --no-build \
+        --no-eval-cache \
+        --option allow-import-from-derivation false \
+        --no-update-lock-file \
+        --no-write-lock-file
+    if [[ "$full_variants" == true && -f scripts/check-variants.sh ]]; then
+      run bash -n scripts/check-variants.sh
+      run nix run \
+        --no-eval-cache \
+        --option allow-import-from-derivation false \
+        --no-update-lock-file \
+        --no-write-lock-file \
+        .#check-variants
+    fi
+
+    section 'build exact system closure'
+    run nix build \
+      --out-link "$tmpdir_run/system" \
+      --no-eval-cache \
+      --option allow-import-from-derivation false \
+      --no-update-lock-file \
+      --no-write-lock-file \
+      ".#nixosConfigurations.${host}.config.system.build.toplevel"
+    target_system=$(readlink -f "$tmpdir_run/system")
+    export NIXOS_ASSIST_TARGET_SYSTEM="$target_system"
+    printf 'target-system: %s\n' "$target_system"
+    [[ -x "$target_system/bin/switch-to-configuration" ]] || die 'built closure lacks switch-to-configuration'
+
+    section 'dry activation'
+    run sudo -n -v
+    run sudo "$target_system/bin/switch-to-configuration" dry-activate
+
+    # From this point on, any hook failure or activation failure restores the
+    # exact pre-test running generation.
+    rollback_armed=1
+    run_hook "$bundle" "$pre_activate_hook" 'pre-activate'
+
+    section 'test activation'
+    run sudo "$target_system/bin/switch-to-configuration" test
+    current_system=$(readlink -f /run/current-system)
+    printf 'current-system: %s\n' "$current_system"
+    [[ "$current_system" == "$target_system" ]] || die 'test activation did not select the exact built closure'
+
+    section 'generic runtime assertions'
+    assert_failed_units "$manifest"
+    run_hook "$bundle" "$runtime_hook" 'runtime'
+
+    section 'result'
+    mkdir -p "$root/.git/nixos-assist"
+    jq -n \
+      --arg name "$name" --arg bundle "$bundle" --arg target "$target_system" \
+      --arg previous "$previous_system" --arg head "$base_head" --arg branch "$base_branch" \
+      --arg report "$report" --arg timestamp "$(date --iso-8601=seconds)" \
+      '{schema:1,name:$name,bundle:$bundle,target_system:$target,previous_system:$previous,base_head:$head,branch:$branch,report:$report,timestamp:$timestamp}' \
+      > "$root/.git/nixos-assist/last-success.json"
+    chmod 600 "$root/.git/nixos-assist/last-success.json"
+    echo 'PASS: exact built closure test-activated and runtime validation passed.'
+    echo 'Nothing was made boot-persistent and nothing was committed.'
+    succeeded=1
+  ) 2>&1 | tee -a "$report"
+  status=${PIPESTATUS[0]}
+  set -e
+  return "$status"
+}
+
+postboot() {
+  local root state bundle manifest report target current hook
+  root=$(repo_root)
+  cd "$root"
+  state="$root/.git/nixos-assist/last-success.json"
+  [[ -f "$state" ]] || die 'no successful bundle-run state found'
+  command -v jq >/dev/null 2>&1 || die 'jq is required'
+  bundle=${1:-$(jq -r '.bundle' "$state")}
+  bundle=$(realpath "$bundle")
+  manifest="$bundle/phase.json"
+  [[ -f "$manifest" ]] || die "bundle manifest missing: $manifest"
+  target=$(jq -r '.target_system' "$state")
+  current=$(readlink -f /run/current-system)
+  hook=$(bundle_optional_string "$manifest" '.postboot_hook')
+
+  mkdir -p "$OUTPUT_DIR"
+  report="$OUTPUT_DIR/nixos-postboot-$(jq -r '.name' "$state")-$(stamp).txt"
+  : > "$report"
+  chmod 600 "$report"
+  {
+    section 'postboot verification'
+    printf 'expected-target: %s\ncurrent-system: %s\n' "$target" "$current"
+    [[ "$current" == "$target" ]] || die 'booted system is not the previously tested closure'
+    assert_failed_units "$manifest"
+    export NIXOS_ASSIST_REPO="$root" NIXOS_ASSIST_BUNDLE="$bundle" NIXOS_ASSIST_REPORT="$report"
+    export NIXOS_ASSIST_TARGET_SYSTEM="$target" NIXOS_ASSIST_HOST="$(bundle_optional_string "$manifest" '.host')"
+    run_hook "$bundle" "$hook" 'postboot'
+    echo 'PASS: postboot verification passed.'
+  } 2>&1 | tee "$report"
+  printf '\nreport: %s\n' "$report"
+}
+
+main() {
+  (($#)) || { usage; exit 2; }
+  local cmd=$1
+  shift
+  case "$cmd" in
+    doctor) doctor ;;
+    report) write_report "${1:-generic}" ;;
+    handoff|snapshot) make_handoff "${1:-generic}" ;;
+    gc-plan) gc_plan ;;
+    bundle-run)
+      (($# == 1)) || die 'bundle-run requires exactly one bundle directory'
+      bundle_run "$1"
+      ;;
+    postboot)
+      (($# <= 1)) || die 'postboot accepts at most one bundle directory'
+      postboot "${1:-}"
+      ;;
+    -h|--help|help) usage ;;
+    *) die "unknown command: $cmd" ;;
+  esac
+}
+
+main "$@"

@@ -1,28 +1,52 @@
-{ inputs, ... }:
 {
-  imports = [ inputs.nix-flatpak.nixosModules.nix-flatpak ];
-  services = {
-    flatpak = {
+  config,
+  inputs,
+  lib,
+  pkgs,
+  ...
+}: {
+  imports = [inputs.nix-flatpak.nixosModules.nix-flatpak];
+
+  # Flatpak requires a portal implementation on every desktop variant.
+  # Desktop environments/compositors can provide a more specific backend;
+  # GTK is only the low-priority fallback for variants that provide none.
+  xdg.portal = {
+    enable = true;
+    extraPortals = lib.mkDefault [pkgs.xdg-desktop-portal-gtk];
+
+    # i3 has no desktop-specific portal configuration in this repo. Keep this
+    # fallback scoped to that variant so Hyprland/GNOME retain their native
+    # portal selection.
+    config = lib.mkIf (config.workstation.desktop.environment == "i3") {
+      common.default = "gtk";
+    };
+  };
+
+  services.flatpak = {
+    enable = true;
+
+    # Flatpak state is mutable outside the Nix store. Preserve packages the
+    # user installed independently, avoid network work during normal NixOS
+    # activation, and update managed applications on a separate timer.
+    uninstallUnmanaged = false;
+    update = {
+      onActivation = false;
+      auto = {
+        enable = true;
+        onCalendar = "weekly";
+      };
+    };
+
+    # Repository/network failures should recover without an endless 60-second
+    # retry loop hammering remotes.
+    restartOnFailure = {
       enable = true;
-
-      # List the Flatpak applications you want to install
-      # Use the official Flatpak application ID (e.g., from flathub.org)
-      # Examples:
-      packages = [
-        "com.github.tchx84.Flatseal"     # Manage flatpak permissions - should always have this
-        "io.github.flattool.Warehouse"   # Manage flatpaks, clean data, remove flatpaks and deps
-        #"it.mijorus.gearlever"           # Manage and support AppImages
-        #"com.rtosta.zapzap"              # WhatsApp client
-        #"io.github.freedoom.Phase1"      #  Classic Doom FPS 1
-        #"io.github.freedoom.Phase2"      #  Classic Doom FPS 2
-        #"io.github.dvlv.boxbuddyrs"      #  Manage distroboxes
-        #"de.schmidhuberj.tubefeeder"     # watch YT videos
-
-        # Add other Flatpak IDs here, e.g., "org.mozilla.firefox"
-      ];
-
-      # Optional: Automatically update Flatpaks when you run nixos-rebuild swit ch
-      update.onActivation = true;
+      restartDelay = "1m";
+      exponentialBackoff = {
+        enable = true;
+        steps = 6;
+        maxDelay = "1h";
+      };
     };
   };
 }

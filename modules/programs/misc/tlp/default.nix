@@ -1,5 +1,4 @@
-{ ... }:
-{
+{...}: {
   services.tlp = {
     enable = true;
     settings = {
@@ -16,10 +15,8 @@
       # CPU_MIN_PERF_ON_BAT = 0;
 
       # Protect battery
-      START_CHARGE_THRESH_BAT0 = 82;
+      START_CHARGE_THRESH_BAT0 = 90;
       STOP_CHARGE_THRESH_BAT0 = 95;
-      START_CHARGE_THRESH_BAT1 = 82;
-      STOP_CHARGE_THRESH_BAT1 = 95;
     };
   };
 }

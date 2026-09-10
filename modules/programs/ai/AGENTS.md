@@ -33,6 +33,7 @@ Important top-level docs include:
 - `PHILOSOPHY.md`
 - `SAFETY_MODEL.md`
 - `PROTOCOLS.md`
+- `docs/SCHEMA_REGISTRY.md`
 - `MODULES.md`
 - `ARCHITECTURE.md`
 - `DEVELOPMENT.md`
@@ -40,6 +41,7 @@ Important top-level docs include:
 - `ROADMAP.md`
 - `GLOSSARY.md`
 - `EXTENSION_MODEL.md`
+- `workflow/OPEN_QUESTIONS.md`
 
 If docs disagree, do not guess. Flag the contradiction.
 

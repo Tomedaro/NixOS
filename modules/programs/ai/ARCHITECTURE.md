@@ -2,173 +2,215 @@
 
 ## Purpose
 
-This subsystem is a local-first adaptive AI goal-achievement companion. It helps with recovery, reflection, planning, review, and bounded action. It should become smarter over time, but only through inspectable evidence, reviewable proposals, explicit controls, and safe gates.
+This subsystem is a local-first, inspectable, recovery-oriented goal-achievement companion. It coordinates context, reflection, planning, review, bounded interaction, and selected live actions without turning a model into an unrestricted controller.
 
-## System context
+The architectural rule is:
 
 ```text
-User
-  -> Obsidian / TaskNotes / phone / desktop
-  -> AI vault files
-  -> local bridges, planners, context providers, and action processors
+ordinary software owns lifecycle and authority;
+models provide bounded proposal-side judgment.
 ```
 
-The AI subsystem does not replace the user's tools. It coordinates between them using local files:
+## System surfaces
 
-- Obsidian is the primary review and interaction surface.
-- TaskNotes is the durable human commitment surface.
-- The AI vault is the protocol, state, queue, draft, event, and evidence layer.
-- LLM/planner components generate proposals and summaries, not direct execution.
-- Action execution is constrained to explicit action queues and documented handlers.
+| Surface | Role |
+| --- | --- |
+| AI vault | Machine-readable queues, state, projections, drafts, events, reports, and evidence. |
+| Obsidian | Human review, explanation, planning, and interaction surface. |
+| TaskNotes | Durable human commitment surface. |
+| Phone/desktop | Low-friction capture, telemetry, notifications, and bounded commands. |
+| Context providers | Read-only normalization of relevant evidence. |
+| Planner/model workers | Structured proposals, summaries, classifications, and drafts. |
+| Deterministic gates | Validation, authority checks, idempotency, and safe mutation. |
 
-## Container view
-
-```text
-Context producers
-  -> AI/state/** and AI/outbox/**
-
-Obsidian protocol modules
-  -> AI/inbox/obsidian/messages/*.json
-  -> AI/inbox/obsidian/actions/*.json
-  -> AI/outbox/to-obsidian/**
-
-Planner / LLM proposal modules
-  -> proposed actions, task drafts, summaries
-  -> no direct live execution
-
-Phone / dialog bridges
-  -> current nudge/question surfaces
-  -> bounded user responses and telemetry
-
-Action bridge
-  <- AI/inbox/actions/*.json
-  -> AI/state/**
-  -> live side effects only through explicit handlers
-
-TaskNotes apply/promote path
-  -> target design: deterministic reviewed apply gate
-  -> current status: direct TaskNotes mutation paths are removed or disabled
-  -> future work: deterministic reviewed apply gate
-```
-
-## Building blocks
-
-### AI vault
-
-The AI vault is the machine-readable operational layer. It contains queues, state snapshots, event logs, outbox artifacts, and reviewable drafts. It should stay human-inspectable and stable across local-first sync.
-
-### Context hub and providers
-
-Context providers collect read-only facts and derived facts from local sources such as session state, phone status, Anki state, interventions, and recovery state. They should not mutate commitments. Future context providers should carry evidence, freshness, confidence, and expiry.
-
-### Obsidian protocol layer
-
-Obsidian-facing modules are review surfaces and bounded protocol adapters. They may write message/action intent files and reviewable artifacts. They must not call shell commands, mutate TaskNotes directly, write live action queue entries, or silently execute proposals.
-
-### Planner and LLM layer
-
-Planner/LLM-facing code should produce structured proposals, summaries, questions, and drafts. It should include uncertainty and evidence where possible. It must not gain direct write access to durable commitments or broad live execution.
-
-### Action bridge
-
-The action bridge owns intentional live actions from `AI/inbox/actions/*.json`. It is responsible for validation, idempotency, journaling, and side effects. Its current numeric authority model is transitional and should evolve toward named capabilities.
-
-### TaskNotes boundary
-
-TaskNotes is the durable human commitment surface. The long-term model is:
+## Current implementation topology
 
 ```text
-intent or proposal
-  -> reviewable proposal artifact
-  -> explicit human approval
+Phone telemetry ----------> phone-bridge -------------------+
+Tasker/live commands ------> AI/inbox/actions --------------+--> action-bridge
+Desktop question answer ---> dialog-bridge action file ------+       |
+                                                                  state/events/actions
+
+Local sources ---> context providers ---> context_hub / agent_context
+                                          |                  |
+                                          |                  +--> recovery trigger/proposals
+                                          +--> older llm-planner (Ollama)
+                                          +--> Obsidian prompt/proposal packages
+
+Obsidian input
+  -> obsidian ingress
+  -> intent
+  -> deterministic or LLM proposal contract
+  -> review action
+  -> approval bridge
+  -> reviewed proposal
   -> TaskNotes-compatible draft
-  -> deterministic apply/promote gate
-  -> atomic write to allowed TaskNotes target
-  -> event and provenance record
+  -> TaskNotes apply validator
+  -X-> real TaskNotes write (not implemented)
+
+Intervention/action/recovery evidence
+  -> interaction projection
+  -> intervention outcomes/statistics
 ```
 
-Current status: direct TaskNotes mutation paths are removed or disabled. `action-bridge promote_task_proposal` is disabled, and `anki-bridge` direct TaskNotes mode is removed/hard-disabled.
+This topology contains many kernel components, but orchestration is distributed. There is no implemented canonical general event router that owns every run from ingress through later outcome. ADR 0008 establishes the target owner for the first product loop without pretending that this runtime already exists.
 
-## Runtime views
+## Architectural layers
 
-### Obsidian proposal flow
+### 1. Interaction adapters
 
-```text
-Obsidian text/action intent
-  -> AI/inbox/obsidian/messages/*.json
-  -> ingress / intent planner
-  -> proposal artifact
-  -> AI/inbox/obsidian/actions/*.json approval/rejection/revision
-  -> approved proposal artifact
-  -> optional reviewable TaskNotes draft
-```
+Tasker, phone files, desktop notifications, Obsidian commands, and future launchers should translate user/environment signals into typed events or intents. They should contain little behavioral intelligence.
 
-This flow is strong because it produces reviewable artifacts and keeps live mutation out of the LLM-facing path.
+### 2. Event and state layer
 
-### Phone/dialog question flow
-
-```text
-current question state
-  -> phone/dialog surface
-  -> answer or dismiss
-  -> dialog-bridge queues AI/inbox/actions answer_question
-  -> action-bridge processes answer_question/dismiss_question and owns lifecycle/state mutation
-```
-
-Current status: `dialog-bridge` queues canonical `answer_question` action files; `action-bridge` owns answer/dismiss lifecycle and state mutation.
-
-### Live action flow
-
-```text
-user/UI writes action JSON
-  -> AI/inbox/actions/*.json
-  -> action bridge waits for stable file
-  -> validate action and authority
-  -> create/update journal
-  -> execute explicit handler
-  -> write result/state/event
-  -> archive or manual-review failed/ambiguous actions
-```
-
-Live action replay must be conservative. A stale processing journal from a prior run should not be replayed automatically.
-
-## Data and state principles
-
-- Queue entries are commands or intents.
+- Queue entries represent commands or intents.
 - State files are materialized current views.
-- Outbox files are reviewable artifacts or surface-specific current displays.
-- Events are evidence, not automatically authoritative audit records.
-- Drafts are not commitments.
-- TaskNotes entries are commitments and require the strongest boundary.
+- Projection modules derive interaction views from lifecycle evidence.
+- Event/JSONL records are evidence, not automatically authoritative audit history.
+- A future canonical run identity should connect trigger, context, proposal, decision, action, and outcome.
 
-## Future target: inspectable learning kernel
+### 3. Context layer
 
-The project should evolve toward this architecture:
+Context providers normalize bounded facts from local sources. Retrieval must decide what a model receives; a model should not roam the vault to choose its own private context.
+
+Provider results should carry:
+
+- source/provenance;
+- observed and generated timestamps;
+- freshness/expiry;
+- limits and omissions;
+- availability/warnings;
+- no mutation authority.
+
+### 4. Policy and routing layer
+
+Current policy is distributed across Nix options, environment variables, `ACTION_CAPABILITY_POLICY`, deterministic gates, lifecycle helpers, and producer-specific logic.
+
+ADR 0008 selects a deterministic laptop-side kernel as the target owner of first-loop route selection. Hard enforcement remains in deterministic validators and action adapters rather than in prompt instructions.
+
+### 5. Planner/model layer
+
+Models may classify, summarize, propose, draft, and explain. Model outputs that affect software behavior must cross a schema boundary and deterministic validation.
+
+Most events should remain model-free. Model calls are appropriate only when judgment is necessary, such as:
+
+- interpreting an ambiguous capture;
+- diagnosing a blocker;
+- proposing a small next action;
+- decomposing a project;
+- summarizing weekly patterns.
+
+### 6. Review and approval layer
+
+Obsidian-facing artifacts make proposals inspectable. Approval records must identify the proposal/intent being approved and must not be treated as broad execution authorization.
+
+### 7. Action adapters
+
+`action-bridge` currently owns intentional live actions from `AI/inbox/actions/*.json`. It validates capabilities, journals processing, enforces idempotency, and calls explicit handlers.
+
+The numeric authority level is transitional. Named capabilities are the direction of travel.
+
+### 8. Outcome and learning layer
+
+Interaction projection and intervention outcome modules provide mechanical outcome evidence. The future learning kernel should store:
 
 ```text
-context providers
-  -> evidence ledger
-  -> personal model hypotheses
-  -> proposal engine
-  -> review/control surfaces
-  -> bounded policy experiments
-  -> outcome summaries
-  -> revised hypotheses
+evidence
+  -> bounded hypothesis
+  -> proposed policy/intervention
+  -> human feedback
+  -> observed outcome
+  -> correction, expiry, or revision
 ```
 
-The important design constraint is reversibility. The system may learn, but the user must be able to inspect evidence, correct wrong inferences, reduce pressure, forget patterns, and understand why a proposal was made.
+It should not silently convert a few events into permanent personality claims.
+
+## TaskNotes boundary
+
+TaskNotes is not an LLM scratchpad.
+
+Current implemented chain:
+
+```text
+intent/proposal
+  -> explicit review decision
+  -> reviewed proposal
+  -> TaskNotes-compatible draft
+  -> deterministic apply validation
+```
+
+Current missing chain:
+
+```text
+validated apply request
+  -> atomic write to configured TaskNotes root
+  -> apply journal/result
+  -> conflict and replay handling
+```
+
+Direct legacy promotion remains disabled.
+
+## Proposal-surface transition
+
+Two proposal families coexist in the implementation:
+
+1. older `llm-planner` reports, nudges, questions, and `AI/proposed-tasks`;
+2. newer Obsidian intents, proposals, approvals, and task drafts.
+
+ADR 0008 selects the newer Obsidian chain as the canonical direction for future durable proposals. The older planner surface is legacy/specialist compatibility until deliberately adapted or retired. New features must not create a third proposal protocol.
+
+The first task-initiation loop produces an ephemeral action card and outcome evidence; it does not need to create a durable proposal or TaskNote.
+
+## Model-runtime transition
+
+The current planner is coupled to local Ollama. ADR 0008 accepts API-hosted reasoning for the first product loop because laptop hardware is limited.
+
+The target remains provider-neutral at the application boundary while deliberately supporting only one configured provider first:
+
+```text
+kernel/task contract
+  -> narrow provider adapter
+  -> schema-bound model result
+  -> deterministic validator
+```
+
+Changing providers must not widen authority. Remote use requires local secret ownership, allowlisted context minimization, cost/latency/request budgets, retry policy, and stale-request expiry. Multi-provider routing, autonomous harnesses, and model-controlled vault browsing are outside the first loop.
+
+## Accepted first-loop kernel shape - not yet implemented
+
+```text
+validated event
+  -> append evidence / reduce current state
+  -> deterministic route decision
+       -> no intervention
+       -> deterministic handler
+       -> bounded skill/model invocation
+  -> context packet selected by code
+  -> schema-bound proposal
+  -> validator and capability gate
+  -> human approval where required
+  -> deterministic action adapter
+  -> action/run result
+  -> later outcome linkage
+```
+
+The first implementation runs on the laptop and is triggered through Tasker. It addresses a known task that the user cannot begin; it does not select priorities or create durable commitments. Tasker and API outages are handled by bounded queues with idempotency, expiry, and supersession.
+
+The kernel should know when **not** to think. A done, snooze, start, dismiss, or fixed defer action usually requires no model call.
 
 ## Quality attributes
 
 | Attribute | Architectural implication |
 | --- | --- |
-| Local-first | Prefer local files, deterministic recovery, and sync-aware protocols. |
-| Inspectable | Store reviewable JSON/Markdown artifacts with evidence and provenance. |
-| Recovery-oriented | Optimize for humane next actions, not pressure or surveillance. |
-| Safe mutation | Centralize mutation behind explicit gates and tests. |
-| Future-proof | Separate current state, roadmap, protocols, and safety boundaries. |
-| Learnable | Introduce personal model changes through evidence, feedback, and evals. |
+| Local-first | Full personal state remains local; remote models receive minimized context packets. |
+| Inspectable | Important state, proposals, decisions, capabilities, and evidence are reviewable. |
+| Recovery-oriented | Optimize for humane re-entry and safe silence, not escalating pressure. |
+| Safe mutation | Side effects occur only through explicit deterministic adapters and gates. |
+| Idempotent | Repeated or resumed processing must not duplicate consequences. |
+| Modular | Skills/providers/adapters communicate through schemas and declared contracts. |
+| Evaluated | Mechanical tests and product-usefulness evaluations are separate and both required. |
+| Reversible | Personal-model claims and policies can be corrected, expired, or removed. |
 
-## Philosophy alignment
+## Current architecture questions
 
-The architecture should be read through [PHILOSOPHY.md](./PHILOSOPHY.md): the system exists to improve goal achievement through local-first context, inspectable memory, proposal-side intelligence, bounded agency, modular instruments, review surfaces, deterministic mutation gates, and outcome-driven learning.
+ADR 0008 resolves the blocking ownership questions for the first task-initiation loop. Remaining non-blocking implementation selections are tracked in `workflow/OPEN_QUESTIONS.md`. Future changes that alter the accepted boundary should be recorded in ADRs or `workflow/DECISIONS.md`, not buried in implementation comments.

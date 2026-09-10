@@ -576,7 +576,7 @@ systemctl --user list-timers --all 'ai-*' 'phone-*' --no-pager || true
 section "dev scripts executable"
 test -x modules/programs/ai/dev/run-smoke.sh
 test -x modules/programs/ai/dev/check-ai-live.sh
-test -x modules/programs/ai/dev/rebuild-default.sh
+test -x modules/programs/ai/dev/rebuild-nixos.sh
 echo "OK dev scripts executable"
 
 section "audit complete"

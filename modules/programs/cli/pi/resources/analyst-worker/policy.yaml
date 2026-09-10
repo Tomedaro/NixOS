@@ -1,0 +1,75 @@
+language: en-US
+artifacts_language: en-US
+
+stage_budget:
+  target_files: 3
+  warn_files: 5
+  stop_files: 8
+  target_net_loc: 150
+  warn_net_loc: 250
+  stop_net_loc: 400
+  max_subsystems: 1
+  mixed_change_classes_stop: true
+
+require_sdd_if:
+  product_or_architecture_ambiguity: true
+  touches_public_api: true
+  touches_data_model: true
+  touches_auth_or_permissions: true
+  adds_dependency: true
+  spans_multiple_subsystems: true
+  exceeds_warn_budget: true
+  user_requests_sdd: true
+
+require_human_if:
+  destructive_operation: true
+  secret_or_credential_access: true
+  policy_or_memory_config_change: true
+  unexpected_baseline_red: true
+  unresolved_requirement_conflict: true
+  irreversible_migration_or_publish: true
+
+require_advisor_if:
+  final_high_risk_acceptance: true
+  second_worker_failure_same_slice: true
+  conflicting_evidence_or_tool_results: true
+  changing_approach_after_failed_validation: true
+
+memory:
+  worker_can_write: false
+  analyst_can_write_during_planning: false
+  parent_can_write_after_acceptance: true
+  save_unverified_facts: false
+  save_secrets: false
+  save_transient_stage_state: false
+
+evidence:
+  done_requires_analyst_review: true
+  done_requires_validation_artifacts: true
+  tests_passed_requires_output_artifact: true
+  strict_tdd_when_project_declares_tests: true
+  no_test_harness_requires_explicit_label: true
+
+simplification:
+  before_analyst_review_when_files_changed: true
+  scope: changed_files_only
+  prefer_pi_simplify_when_available: true
+  fallback_to_manual_simplify_checklist: true
+  preserve_behavior: true
+  stop_on_uncertain_semantics: true
+
+tool_efficiency:
+  prefer_ctx_for_repo_reads: true
+  prefer_ctx_shell_for_validation: true
+  discourage_raw_read_grep_bash_for_repo_context: true
+  require_non_ctx_reason: true
+
+artifact_visibility:
+  worker_report_must_summarize_final_artifacts: true
+  analyst_must_reject_unseen_final_artifacts: true
+  include_short_excerpt_for_review: true
+
+artifacts:
+  keep_raw_logs_transient_by_default: true
+  technical_artifacts_default_language: en-US
+  archive_large_logs_only_when_needed_for_review: true

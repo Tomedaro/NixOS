@@ -4,6 +4,10 @@ This note records forward-looking research for what modern LLMs, neural networks
 
 It is not an implementation plan by itself. It is a design horizon: what the architecture should be ready to absorb without losing clarity, safety, or user control.
 
+## Current implementation gap
+
+The implemented planner is currently Ollama-specific. ADR 0008 accepts a laptop-side first loop using one API provider behind a narrow adapter, but provider abstraction, secrets/privacy rules, allowlisted context, cost budgets, retries, queues, and expiry are not implemented. Future capability work should target task/model contracts rather than deepen coupling to one local or remote provider.
+
 ## Main conclusion
 
 The project should not be a fixed bundle of bridges.

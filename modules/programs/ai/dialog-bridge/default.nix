@@ -1,16 +1,18 @@
 # modules/programs/ai/dialog-bridge/default.nix
-{ config, lib, pkgs, ... }:
-
-let
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}: let
   cfg = config.my.ai.dialogBridge;
 
   dialogScript = pkgs.writeShellScriptBin "dialog-bridge" ''
     export PYTHONPATH="${../python}''${PYTHONPATH:+:$PYTHONPATH}"
     exec ${pkgs.python3}/bin/python3 ${./dialog_bridge.py} "$@"
   '';
-in
-{
-  imports = [ ../core ];
+in {
+  imports = [../core];
   options.my.ai.dialogBridge = {
     enable = lib.mkEnableOption "desktop dialog bridge for LLM questions";
 
@@ -88,7 +90,10 @@ in
         NOTIFICATION_TIMEOUT_SECONDS = toString cfg.notificationTimeoutSeconds;
         NOTIFICATION_COOLDOWN_SECONDS = toString cfg.notificationCooldownSeconds;
         MAX_QUESTION_AGE_SECONDS = toString cfg.maxQuestionAgeSeconds;
-        TRIGGER_PLANNER_ON_ANSWER = if cfg.triggerPlannerOnAnswer then "1" else "0";
+        TRIGGER_PLANNER_ON_ANSWER =
+          if cfg.triggerPlannerOnAnswer
+          then "1"
+          else "0";
         TRIGGER_PLANNER_SERVICE = cfg.plannerServiceOnAnswer;
         AI_TIMEZONE = config.my.ai.core.timezone;
 
@@ -105,7 +110,7 @@ in
     systemd.user.timers.dialog-bridge = lib.mkIf cfg.enableTimer {
       description = "Check for pending LLM questions";
 
-      wantedBy = [ "timers.target" ];
+      wantedBy = ["timers.target"];
 
       timerConfig = {
         OnCalendar = cfg.timerOnCalendar;

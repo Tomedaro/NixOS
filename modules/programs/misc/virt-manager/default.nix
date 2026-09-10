@@ -1,30 +1,22 @@
 {pkgs, ...}: {
-  imports = [./hooks.nix];
-
-  # virt-manager
   programs.virt-manager.enable = true;
 
-  services = {
-    qemuGuest.enable = true;
-    spice-vdagentd.enable = true;
-    spice-webdavd.enable = true;
-  };
-
-  # packages
   environment.systemPackages = with pkgs; [
     virt-viewer
     spice
     spice-gtk
     spice-protocol
-    spice-vdagent
     virtio-win
     win-spice
   ];
 
-  # virtualisation
   virtualisation = {
     libvirtd = {
       enable = true;
+      # Enabling networking.nftables would otherwise switch libvirt to its
+      # nftables backend. Keep the previously working iptables-nft path until
+      # VM networking is explicitly runtime-tested on this host.
+      firewallBackend = "iptables";
     };
     spiceUSBRedirection.enable = true;
   };

@@ -1,10 +1,37 @@
-{pkgs, ...}: {
+{devShellsPath}: {
+  config,
+  pkgs,
+  ...
+}: {
+  _class = "homeManager";
   programs.bash = {
-    promptInit = ''
-      if command -v starship; then
+    enable = true;
+    enableCompletion = true;
+    historyFileSize = 100000;
+    initExtra = ''
+      # Starship Prompt
+      if command -v starship &>/dev/null; then
         eval "$(starship init bash)"
       fi
     '';
+    # bashrcExtra = ''
+    #   export TERM="xterm-256color" # Get correct colour
+    # '';
+    shellOptions = [
+      "autocd" # change to named directory
+      "cdspell" # autocorrects cd misspellings
+      "cmdhist" # save multi-line commands in history as single line
+      "dotglob"
+      "histappend" # do not overwrite history
+      "expand_aliases" # expand aliases
+      "checkwinsize" # checks term size when bash regains control
+    ];
+    sessionVariables = {
+      FZF_DEFAULT_OPTS = ''
+        --color=bg+:#363a4f,bg:#24273a,spinner:#f4dbd6,hl:#ed8796 \
+        --color=fg:#cad3f5,header:#ed8796,info:#c6a0f6,pointer:#f4dbd6 \
+        --color=marker:#f4dbd6,fg+:#cad3f5,prompt:#c6a0f6,hl+:#ed8796'';
+    };
     shellAliases = {
       lf = ''
           {
@@ -22,103 +49,40 @@
             fi
         }
       '';
-      ex = ''
-        {
-          if [ -z "$1" ]; then
-              # display usage if no parameters given
-              echo "Usage: extract <path/file_name>.<zip|rar|bz2|gz|tar|tbz2|tgz|Z|7z|xz|ex|tar.bz2|tar.gz|tar.xz>"
-              echo "       extract <path/file_name_1.ext> [path/file_name_2.ext] [path/file_name_3.ext]"
-              else
-              for n in "$@"
-              do
-              if [ -f "$n" ] ; then
-              case "''${n%,}" in
-              *.cbt|*.tar.bz2|*.tar.gz|*.tar.xz|*.tbz2|*.tgz|*.txz|*.tar)
-              tar xvf "$n"       ;;
-              *.lzma)      unlzma ./"$n"      ;;
-              *.bz2)       bunzip2 ./"$n"     ;;
-              *.cbr|*.rar)       unrar x -ad ./"$n" ;;
-              *.gz)        gunzip ./"$n"      ;;
-              *.cbz|*.epub|*.zip)       unzip ./"$n"       ;;
-              *.z)         uncompress ./"$n"  ;;
-              *.7z|*.arj|*.cab|*.cb7|*.chm|*.deb|*.dmg|*.iso|*.lzh|*.msi|*.pkg|*.rpm|*.udf|*.wim|*.xar)
-              7z x ./"$n"        ;;
-              *.xz)        unxz ./"$n"        ;;
-              *.exe)       cabextract ./"$n"  ;;
-              *.cpio)      cpio -id < ./"$n"  ;;
-              *.cba|*.ace)      unace x ./"$n"      ;;
-              *)
-              echo "extract: '$n' - unknown archive method"
-              return 1
-              ;;
-              esac
-              else
-              echo "'$n' - file does not exist"
-              return 1
-              fi
-              done
-              fi
-            }
+      fnew = ''
+        if [ -d "$2" ]; then
+          echo "Directory \"$2\" already exists!"
+          return 1
+        fi
+        nix flake new $2 --template ${devShellsPath}#$1
+        cd $2
+        direnv allow
       '';
-      cgen = ''
-          {
-            if [ -d "$1" ]; then
-            echo "Directory \"$1\" already exists!"
-            return 1
-            fi
-            mkdir $1 && cd $1
-            cat ~/.config/zsh/templates/ListTemplate.txt >> CMakeLists.txt
-            mkdir src
-            mkdir include
-            cat ~/.config/zsh/templates/HelloWorldTemplate.txt >> src/main.cpp
-            cat ~/.config/zsh/templates/shell.txt >> shell.nix
-            cat ~/.config/zsh/templates/envrc-nix.txt >> .envrc
-            direnv allow
-          #echo "Created the following Directories and files."
-          ${pkgs.eza}/bin/eza --icons=auto --tree .
-        }
+
+      finit = ''
+        nix flake init --template ${devShellsPath}#$1
+        direnv allow
       '';
-      crun = ''
-        {
-          #VAR=$\{1:-.}
-          mkdir build 2> /dev/null
-          ${pkgs.cmake}/bin/cmake -B build
-          ${pkgs.cmake}/bin/cmake --build build
-          build/main
-        }
-      '';
-      crun-mingw = ''
-        {
-          #VAR=$\{1:-.}
-          mkdir build-mingw 2> /dev/null
-          x86_64-w64-mingw32-cmake -B build-mingw
-          make -C build-mingw
-          build-mingw/main.exe
-        }
-      '';
-      cbuild = ''
-        {
-          mkdir build 2> /dev/null
-          ${pkgs.cmake}/bin/cmake -B build
-          ${pkgs.cmake}/bin/cmake --build build
-        }
-      '';
-      cbuild-mingw = ''
-        {
-          mkdir build-mingw 2> /dev/null
-          x86_64-w64-mingw32-cmake -B build-mingw
-          ${pkgs.gnumake}/bin/make -C build-mingw
-        }
+      cdown = ''
+        N=$1
+        while [[ $((--N)) -gt  0 ]]
+          do
+            echo "$N" |  figlet -c | lolcat &&  sleep 1
+        done
       '';
       cls = "clear";
+      tml = "tmux list-sessions";
+      tma = "tmux attach";
+      tms = "tmux attach -t $(tmux ls -F '#{session_name}: #{session_path} (#{session_windows} windows)' | fzf | cut -d: -f1)";
       l = "${pkgs.eza}/bin/eza -lh  --icons=auto"; # long list
       ls = "${pkgs.eza}/bin/eza -1   --icons=auto"; # short list
       ll = "${pkgs.eza}/bin/eza -lha --icons=auto --sort=name --group-directories-first"; # long list all
       ld = "${pkgs.eza}/bin/eza -lhD --icons=auto"; # long list dirs
       tree = "${pkgs.eza}/bin/eza --icons=auto --tree"; # dir tree
-      vc = "code"; # gui code editor
+      vc = "code --disable-gpu"; # gui code editor
       nv = "nvim";
       nf = "${pkgs.microfetch}/bin/microfetch";
+      ff = "fastfetch";
       cp = "cp -iv";
       mv = "mv -iv";
       rm = "rm -vI";
@@ -130,12 +94,10 @@
       pokemon = "pokego --random 1-8 --no-title";
 
       # Nixos
-      list-gens = "sudo nix-env --list-generations --profile /nix/var/nix/profiles/system/";
-      find-store-path = ''function { nix-shell -p $1 --command "nix eval -f "<nixpkgs>" --raw $1" }'';
-      update-input = "nix flake lock --update-input $@";
-      rebuild = "${../../../desktop/hyprland/scripts/rebuild.sh}";
-      build-iso = "nix build .#nixosConfigurations.iso.config.system.build.isoImage";
-      sysup = "sudo nixos-rebuild switch --flake ~/NixOS#Default --upgrade-all --show-trace";
+      list-gens = "nixos-rebuild list-generations";
+      find-store-path = ''function { nix-shell -p $1 --command "nix eval -f \"<nixpkgs>\" --raw $1" }'';
+      update-input = "nix flake update $@";
+      sysup = "nix flake update --flake ~/NixOS && rebuild";
 
       # Directory Shortcuts.
       dots = "cd ~/NixOS/";

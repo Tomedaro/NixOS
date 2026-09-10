@@ -1,22 +1,19 @@
 {
-  self,
+  config,
   inputs,
-  host,
   pkgs,
-  overlays,
   ...
-}:
-let
-  inherit (import ../../hosts/${host}/variables.nix)
+}: let
+  inherit
+    (config.workstation.localization)
     consoleKeymap
-    kbdLayout
-    kbdVariant
     locale
-    timezone
     ;
-in
-{
-  imports = [ inputs.nix-index-database.nixosModules.nix-index ];
+  kbdLayout = config.workstation.localization.xkbLayout;
+  kbdVariant = config.workstation.localization.xkbVariant;
+  timezone = config.workstation.localization.timeZone;
+in {
+  imports = [inputs.nix-index-database.nixosModules.nix-index];
   programs = {
     nix-index-database.comma.enable = true;
     gnupg.agent = {
@@ -26,7 +23,7 @@ in
   };
   services.xserver = {
     enable = true;
-    excludePackages = with pkgs; [ xterm ];
+    excludePackages = with pkgs; [xterm];
     exportConfiguration = true; # Make sure /etc/X11/xkb is populated so localectl works correctly
     xkb = {
       layout = "${kbdLayout}";
@@ -36,11 +33,8 @@ in
   nix = {
     # Nix Package Manager Settings
     settings = {
-      trusted-users = [ "root" "@wheel" ]; # Required by Cachix to be used as non-root user
-      accept-flake-config = true;
+      accept-flake-config = false;
       builders-use-substitutes = true;
-      download-buffer-size = 200000000;
-      auto-optimise-store = true; # May make rebuilds longer but less size
       substituters = [
         "https://cache.nixos.org/"
         "https://nix-community.cachix.org/"
@@ -64,9 +58,6 @@ in
         "flakes"
       ];
       use-xdg-base-directories = false;
-      warn-dirty = false;
-      keep-outputs = true;
-      keep-derivations = true;
     };
     optimise.automatic = true;
     package = pkgs.nix;
@@ -99,11 +90,9 @@ in
 
   console.keyMap = "${consoleKeymap}";
   nixpkgs = {
-    overlays = builtins.attrValues overlays;
     config = {
       allowUnfree = true;
       # allowUnfreePredicate = _: true;
     };
   };
-  system.stateVersion = "26.05"; # Do not change!
 }

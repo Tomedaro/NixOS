@@ -1,9 +1,6 @@
-{ host, ... }:
-let
-  inherit (import ../../hosts/${host}/variables.nix) hostname;
-in
-{
-
+{config, ...}: let
+  hostname = config.networking.hostName;
+in {
   services.minidlna = {
     enable = true;
     openFirewall = true;
@@ -23,6 +20,6 @@ in
     };
   };
   users.users.minidlna = {
-    extraGroups = [ "users" ]; # so minidlna can access the files.
+    extraGroups = ["users"]; # so minidlna can access the files.
   };
 }

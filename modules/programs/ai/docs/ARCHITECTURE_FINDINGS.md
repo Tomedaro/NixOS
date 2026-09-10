@@ -1,193 +1,120 @@
-# Architecture findings - draft
+# Architecture findings
 
-> Superseded status: later patches disabled the previously identified direct TaskNotes mutation paths. `36f5813` removed/hard-disabled Anki direct TaskNotes mode, and `ac274a9` disabled action-bridge `promote_task_proposal`. Reviewable proposal/draft paths remain; deterministic TaskNotes apply/promote is still future work.
+Snapshot date: 2026-07-22.
 
-This file records the accepted audit draft for `modules/programs/ai/docs/ARCHITECTURE_FINDINGS.md`.
+This is the current architecture assessment. Earlier audit findings that have been resolved are retained here only as status context; code, tests, and canonical top-level docs remain authoritative.
 
 ## Executive summary
 
-Resolved by 36f5813 and ac274a9: the identified direct TaskNotes mutation paths are now removed or disabled; the remaining future work is deterministic apply/promote.
+No current red-level implementation defect was found in the reviewed archive. The repository has strong proposal/execution separation, bounded context, disabled direct TaskNotes mutation, deterministic validation, conservative action replay, and broad smoke coverage.
 
-No critical code failure was found in the read-only audit. The main blockers before implementation are high-severity safety/design issues, not failing tests.
+The main risks are now architectural consolidation and product validation rather than an obvious unsafe code path.
 
-## Findings
+## Resolved high-severity findings
 
-### HIGH-001 - Resolved: action TaskNotes promotion disabled
+### RESOLVED-HIGH-001 - Direct action-bridge TaskNotes promotion
 
-- Severity: high
-- Area: action authority / TaskNotes boundary
-- Evidence:
-  - `modules/programs/ai/default.nix` sets `my.ai.actionBridge.authorityLevel = 2` by default.
-  - `action_bridge.py` defaults `ACTION_AUTHORITY_LEVEL` to `2`.
-  - Resolved by ac274a9: `handle_promote_task_proposal` rejects promotion before any TaskNotes write.
-- Why it matters:
-  - The same live bridge that handles low-risk interaction/session actions can also create or overwrite durable human commitments.
-  - This conflicts with the desired split between AI vault protocol/state and TaskNotes as a human commitment surface.
-- Current mitigations:
-  - Target path must be inside `TASKNOTES_DIR`.
-  - Existing target is not overwritten unless action sets `overwrite=true`.
-  - Action journal/idempotency reduces replay risk.
-- Remaining risk:
-  - Resolved by ac274a9: action files can no longer promote proposals into real TaskNotes through `promote_task_proposal`.
-- Recommended treatment:
-  - Disable by default and mark as legacy/direct.
-  - Resolved by ac274a9: legacy TaskNotes promotion option/env wiring was removed, and `promote_task_proposal` is disabled.
-  - Remove promotion template from ordinary template generation.
-  - Add smoke test proving default config cannot mutate TaskNotes.
+`promote_task_proposal` / `promote_proposal` are disabled and fail without writing real TaskNotes. There is no live `tasknotes.promote` capability.
 
-### HIGH-002 - Resolved: Anki direct TaskNotes mode removed
+### RESOLVED-HIGH-002 - Anki direct TaskNotes mode
 
-- Severity: high
-- Area: TaskNotes boundary
-- Evidence:
-  - Resolved by 36f5813: `anki-bridge/default.nix` no longer exposes `taskNoteMode = "direct"`; raw `TASKNOTE_MODE=direct` falls back to `propose`.
-  - Resolved by 36f5813: `anki_bridge.py` no longer writes `DIRECT_RECOVERY_TASK`; raw `TASKNOTE_MODE=direct` falls back to `propose`.
-  - Current safe behavior is `propose`; direct TaskNotes writes are removed/hard-disabled.
-- Why it matters:
-  - Resolved by 36f5813: Anki direct mode is removed/hard-disabled; deterministic apply/promote remains future work.
-  - Historical risk: telemetry-driven code could make durable human commitment changes; resolved by 36f5813 for Anki direct mode.
-- Current mitigations:
-  - Direct mode is removed/hard-disabled; raw `TASKNOTE_MODE=direct` falls back to `propose`.
-  - Offline smoke coverage verifies default/propose behavior and raw direct fallback do not write real TaskNotes.
-- Remaining risk:
-  - Deterministic TaskNotes apply/promote remains future work; reviewable drafts must not be treated as real TaskNotes.
-- Recommended treatment:
-  - No further Anki direct-mode deprecation work is needed; preserve reviewable proposal/draft paths until deterministic apply/promote exists.
-  - Remove after the deterministic apply gate is available.
+Nix direct mode is removed/hard-disabled. Raw legacy `TASKNOTE_MODE=direct` falls back to proposal behavior.
 
-### MEDIUM-001 - Resolved by dd4450a: `dialog-bridge` answers route through canonical action queue
+### RESOLVED-MEDIUM-001 - Dialog answer bypass
 
-- Severity: medium
-- Area: protocol consistency / action journal
-- Historical evidence:
-  - Before dd4450a, `dialog_bridge.py` recorded question answers through desktop event/state paths outside the canonical action queue.
-  - `action-bridge` already implements `answer_question` and `dismiss_question` through the canonical action queue and action journal.
-- Why it mattered:
-  - Two modules owned overlapping question lifecycle semantics.
-  - Before dd4450a, answer handling skipped action journal/manual-review/idempotency logic.
-- Current status:
-  - Resolved by dd4450a: `dialog-bridge` queues canonical `answer_question` action files into `AI/inbox/actions`.
-  - `action-bridge` processes queued `answer_question` and `dismiss_question` actions and owns lifecycle/state side effects.
-  - The desktop UI emits `answer_question` only; do not emit `dismiss_question` until there is a real desktop dismiss signal.
-- Recommended treatment:
-  - Preserve the thin UI adapter boundary; do not restore dialog-owned lifecycle/state writes.
-  - Keep `dismiss_question` canonical in `action-bridge` for UI surfaces that can emit a real dismiss signal.
+`dialog-bridge` queues canonical `answer_question` actions; `action-bridge` owns lifecycle mutation. A desktop dismiss action should not be emitted until the UI has a genuine dismiss signal.
 
-### MEDIUM-002 - Event JSONL logs are evidence, not authoritative audit records yet
+## Current findings
 
-- Severity: medium
-- Area: durable state / auditability
-- Evidence:
-  - `io_utils.atomic_write_text/json` is crash-conscious: temp file, flush, fsync, replace, parent dir fsync.
-  - `io_utils.append_jsonl` opens the log in append mode and writes one JSON line without fsync or locking.
-- Why it matters:
-  - Many docs/diagnostics rely on JSONL logs to reconstruct outcomes.
-  - Append logs can lose the last event on crash and can interleave if multiple writers append concurrently.
-- Current mitigations:
-  - Most state files are atomic.
-  - Current tests validate behavior at functional level.
-- Recommended treatment:
-  - Document JSONL as analytic/evidence logs, not authoritative audit records.
-  - If needed later, harden append with file locking + flush/fsync or move high-value events to per-event atomic files.
+### HIGH-001 - Canonical runtime direction is accepted but not implemented
 
-### MEDIUM-003 - `AI/proposed-tasks` and Obsidian task drafts are two proposal surfaces
+The repository contains context, routing/gating, proposal, approval, action, projection, and outcome components, but no single component owns the full event-to-outcome lifecycle.
 
-- Severity: medium
-- Area: protocol clarity
-- Evidence:
-  - `llm-planner` writes `AI/proposed-tasks/YYYY-MM-DD.md`.
-  - `anki-bridge` propose mode writes `AI/proposed-tasks/anki-recovery.md`.
-  - Obsidian task drafts are written to `AI/outbox/to-obsidian/task-drafts/*` and current/latest task draft files.
-- Why it matters:
-  - Future contributors may confuse legacy proposal files with the new reviewable TaskNotes draft protocol.
-- Recommended treatment:
-  - Mark `AI/proposed-tasks` as current legacy/proposal-only surface.
-  - Mark `AI/outbox/to-obsidian/task-drafts` as the preferred reviewable TaskNotes draft surface.
-  - Do not implement real TaskNotes apply against both until semantics are consolidated.
+Why it matters:
 
-### MEDIUM-004 - Documentation structure is missing the required canonical truth docs
+- state ownership can diverge across services;
+- model calls and deterministic handlers may evolve separately;
+- end-to-end tracing and idempotency remain fragmented;
+- adding more triggers risks parallel brains.
 
-- Severity: medium
-- Area: docs correctness / future LLM safety
-- Evidence:
-  - Expected files such as `CURRENT_STATE.md`, `MODULES.md`, `SAFETY_MODEL.md`, `PROTOCOLS.md`, `OPERATIONS.md`, `ROADMAP.md`, and `GLOSSARY.md` do not exist in the archive.
-  - Current `README.md` is large and mixes orientation, current state, architecture, protocols, operations, and roadmap.
-- Why it matters:
-  - LLMs/future contributors may treat stale TODOs or old README sections as truth.
-- Recommended treatment:
-  - Generate canonical docs together with audit docs in the first implementation batch.
-  - Make `README.md` short and point to canonical documents.
+Decision: ADR 0008 selects a deterministic laptop-side kernel for the first task-initiation loop.
 
-### MEDIUM-005 - Target machine verification still required
+Treatment: implement that narrow lifecycle before adding broad autonomous behavior.
 
-- Severity: medium
-- Area: verification
-- Evidence:
-  - In-container direct smoke tests passed, but full `run-smoke.sh` was not completed through the native `nix shell` loop due tool timeouts.
-  - Uploaded `check-ai-live.txt` exited 0 and skipped mutating checks by default.
-- Why it matters:
-  - Nix/systemd/user-service behavior should be checked on the real NixOS machine before implementation.
-- Recommended treatment:
-  - Before implementing, run exactly the handoff verification commands on `/home/daniil/NixOS`.
+### HIGH-002 - Accepted API direction is not implemented
 
-### LOW-001 - Legacy `AI/inbox/from-obsidian` references remain as diagnostic/doc text
+The current planner is Ollama-specific and local-model configured. ADR 0008 accepts one API provider behind a narrow adapter for the first loop, but no provider abstraction, secret boundary, allowlisted context packet, cost budget, or API queue exists.
 
-- Severity: low
-- Area: stale path cleanup
-- Evidence:
-  - No active Python use was found.
-  - References remain in `DEVELOPMENT.md`, dev diagnostics, `AI_DEBUG_REFACTORING_TODO.md`, and the handoff grep.
-- Recommended treatment:
-  - Keep diagnostic greps, but mark doc references historical or remove once `PROTOCOLS.md` is authoritative.
+Treatment: implement the accepted boundary without deepening Ollama coupling or prematurely adding multi-provider routing.
 
-### LOW-002 - Queue move semantics are local-vault oriented
+### HIGH-003 - Proposal implementation remains duplicated
 
-- Severity: low
-- Area: filesystem semantics
-- Evidence:
-  - `queue.py` uses file age stability and `shutil.move` to archive queue entries.
-- Why it matters:
-  - This is acceptable for local-first vault paths but should not be assumed safe across filesystems/sync boundaries.
-- Recommended treatment:
-  - Document local filesystem expectations and Syncthing/Obsidian interaction cautions.
+The older planner writes reports, questions, nudges, and `AI/proposed-tasks`; the newer Obsidian chain produces intents, proposals, decisions, reviewed proposals, and task drafts.
 
-### DOCS-001 - README/TODO contain stale “future” or mixed-state statements
+Both preserve proposal-side authority. ADR 0008 selects the newer Obsidian chain for future durable proposals and treats the older surface as legacy/specialist compatibility.
 
-- Severity: docs-only
-- Area: documentation correctness
-- Evidence examples:
-  - README/TODO still mix implemented Obsidian pieces, planned TaskNotes gate, and older phase language.
-  - Handoff explicitly says not to let old TODOs override code/test reality.
-- Recommended treatment:
-  - Move factual current state to `CURRENT_STATE.md`.
-  - Move planned work to `ROADMAP.md`.
-  - Move protocols to `PROTOCOLS.md`.
-  - Keep TODOs subordinate or replace them with backlog docs.
+Treatment: adapt or retire the older path and do not create a third proposal protocol.
+
+### MEDIUM-001 - TaskNotes apply is partially implemented and easily misdescribed
+
+The repository implements reviewed drafts and deterministic apply validation. It does not implement the real atomic TaskNotes mutation, apply journal, or conflict/replay result path.
+
+Treatment: consistently say **validation**, not **apply**, until the mutation path exists.
+
+### MEDIUM-002 - Protocol and schema documentation lagged implementation
+
+Source contains 44 versioned schema identifiers and many queue/state/projection paths. Earlier `PROTOCOLS.md` described only a small subset.
+
+Treatment: maintain `PROTOCOLS.md` plus `docs/SCHEMA_REGISTRY.md`; eventually generate/check inventories from source.
+
+### MEDIUM-003 - JSONL remains evidence-only
+
+JSONL append helpers are useful but do not currently specify writer locking, fsync, recovery, tamper evidence, or canonical ordering sufficient for authoritative audit claims.
+
+Treatment: keep evidence-only wording or introduce a stronger run ledger.
+
+### MEDIUM-004 - Product usefulness is not yet validated
+
+Smoke tests demonstrate mechanical behavior, not whether interventions reduce resistance or improve meaningful execution.
+
+Treatment: validate one end-to-end product loop with burden, timing, correction, and recovery outcomes before expanding automation.
+
+### MEDIUM-005 - Policy is distributed across several authority surfaces
+
+Nix options, environment variables, numeric authority, named capability metadata, lifecycle helpers, and producer-specific rules all influence behavior.
+
+Treatment: preserve deterministic local gates while making ownership and precedence explicit.
+
+### LOW-001 - Historical audit documents can masquerade as current plans
+
+Earlier findings, inventory, restructuring, and handoff documents contained completed tasks and stale counts.
+
+Treatment: mark historical documents clearly and route current truth through the canonical top-level docs.
+
+### LOW-002 - Target-machine verification remains required
+
+Archive review cannot prove Nix evaluation, service state, vault permissions, Tasker behavior, provider connectivity, or live user experience.
+
+Treatment: preserve a separate target-machine verification log.
 
 ## Positive findings
 
-### POS-001 - Obsidian proposal boundary is well aligned with project philosophy
+### POS-001 - Proposal/execution boundary is coherent
 
-- Ingress writes bounded intent records only.
-- Planner writes reviewable proposal artifacts only.
-- Proposal actions record explicit approve/reject/revise decisions and set `executes_now=false`, `writes_live_action_queue=false`.
-- Approval bridge writes reviewed artifacts only.
-- Task draft bridge writes reviewable outbox draft artifacts only.
-- LLM proposal contract rejects direct execution fields.
+The strongest design property is the repeated separation of context/proposal/draft from deterministic action and durable commitment mutation.
 
-### POS-002 - Action replay/idempotency protection is substantially improved
+### POS-002 - Replay and idempotency protections are substantial
 
-- Action files are filtered by stable queue semantics.
-- Duplicate processed action ids are skipped.
-- Action journal records `processing`, `processed`, `failed`, or `manual_review`.
-- Stale `processing` and previous failed/manual-review journals are not replayed automatically.
+Stable-file checks, identity caches, processing journals, explicit result states, and manual-review handling provide a strong prototype foundation.
 
-### POS-003 - Atomic state writes are strong
+### POS-003 - Context privacy and boundedness are taken seriously
 
-- Shared atomic writer preserves permissions where possible, fsyncs file data, replaces atomically, and fsyncs parent directory best-effort.
-- Multiple services use the shared writer.
+TaskNotes context and LLM prompt packages omit raw/absolute provider details and carry limits/provenance.
 
-### POS-004 - Diagnostics are cautious by default
+### POS-004 - Mechanical regression surface is broad
 
-- `check-ai-live.sh` skips mutating checks unless explicit flags are passed.
-- Live action queue was not processed during read-only audit.
+Thirty smoke-test files cover many of the important protocol boundaries.
+
+### POS-005 - The design resists the “one giant autonomous agent” failure mode
+
+Modules are narrow, proposal-side, inspectable, and generally safe-off. The next task is consolidation, not replacement with an unconstrained harness.

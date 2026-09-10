@@ -59,7 +59,7 @@ Live actions belong in `AI/inbox/actions/*.json`. The action bridge owns validat
 
 ### TaskNotes
 
-TaskNotes is the durable human commitment surface. New code should produce reviewable drafts unless a deterministic reviewed apply gate exists. Historical direct writers have been removed or disabled and should not be reintroduced.
+TaskNotes is the durable human commitment surface. New code should produce reviewable drafts unless the real deterministic reviewed apply writer, journal, conflict handling, and tests are complete. Dry-run apply validation alone is not mutation authority. Historical direct writers have been removed or disabled and should not be reintroduced.
 
 ## Required verification before behavior patches
 
@@ -96,9 +96,11 @@ Use the smallest tier that matches the change, and escalate when a patch touches
 - `CURRENT_STATE.md` contains implementation truth.
 - `ROADMAP.md` contains planned work.
 - `docs/REFACTOR_BACKLOG.md` contains actionable refactors and risks.
-- `PROTOCOLS.md` contains path/schema contracts.
+- `PROTOCOLS.md` contains path and ownership orientation.
+- `docs/SCHEMA_REGISTRY.md` inventories versioned schema identifiers.
 - `SAFETY_MODEL.md` contains authority and side-effect boundaries.
 - ADRs record decisions that should survive future refactors.
+- `workflow/OPEN_QUESTIONS.md` contains unresolved architecture decisions.
 
 Do not duplicate stale claims across many files. Link to the canonical source instead.
 

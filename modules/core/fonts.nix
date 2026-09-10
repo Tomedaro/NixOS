@@ -1,5 +1,4 @@
-{ pkgs, ... }:
-{
+{pkgs, ...}: {
   fonts = {
     fontDir.enable = true;
     packages = with pkgs; [
@@ -12,35 +11,35 @@
       noto-fonts-color-emoji
 
       # CJK Fonts
-      noto-fonts-cjk-sans    # ← add
-      noto-fonts-cjk-serif   # ← add
+      noto-fonts-cjk-sans # ← add
+      noto-fonts-cjk-serif # ← add
     ];
     fontconfig = {
       enable = true;
       antialias = true;
       hinting = {
         enable = true;
-        style = "slight";       # ← add, best for CJK
+        style = "slight"; # ← add, best for CJK
       };
       defaultFonts = {
         monospace = [
           "JetBrainsMono Nerd Font"
           "Maple Mono NF"
-          "Noto Sans Mono CJK SC"  # ← add before Noto Mono
+          "Noto Sans Mono CJK SC" # ← add before Noto Mono
           "Noto Mono"
           "DejaVu Sans Mono"
         ];
         sansSerif = [
-          "Noto Sans CJK SC"       # ← add first
+          "Noto Sans CJK SC" # ← add first
           "Noto Sans"
           "DejaVu Sans"
         ];
         serif = [
-          "Noto Serif CJK SC"      # ← add first
+          "Noto Serif CJK SC" # ← add first
           "Noto Serif"
           "DejaVu Serif"
         ];
-        emoji = [ "Noto Color Emoji" ];
+        emoji = ["Noto Color Emoji"];
       };
     };
   };

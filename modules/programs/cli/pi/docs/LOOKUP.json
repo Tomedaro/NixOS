@@ -101,6 +101,21 @@
     "docs/CHANGE_ROUTING.md",
     "wrappers.nix"
   ],
+  "npm_check": [
+    "docs/SECURITY.md",
+    "scripts.nix"
+  ],
+  "npm_global_pins": [
+    "npm/global-pins/README.md",
+    "npm/global-pins/package-lock.json",
+    "settings/global.json"
+  ],
+  "npm_supply_chain": [
+    "docs/SECURITY.md",
+    "docs/COMPATIBILITY.md",
+    "docs/PACKAGE_UPDATES.md",
+    "settings/global.json"
+  ],
   "package_updates": [
     "docs/PACKAGE_UPDATES.md",
     "docs/COMPATIBILITY.md",
@@ -120,8 +135,12 @@
     "wrappers.nix",
     "policies/safe.jsonc"
   ],
+  "extensions": [
+    "docs/EXTENSIONS.md"
+  ],
   "global_instructions": [
     "resources/global/AGENTS.md",
+    "docs/EXTENSIONS.md",
     "docs/CHANGE_ROUTING.md"
   ],
   "english_learning": [
@@ -136,10 +155,74 @@
   ],
   "improvement_plan": [
     "resources/analysis/TRACKING.md",
-    "resources/analysis/improvement-plan.md"
+    "resources/analysis/improvement-plan.md",
+    "resources/analysis/agent-capability-roadmap.md",
+    "resources/analysis/p1-capability-discovery-plan.md"
+  ],
+  "agent_capability_roadmap": [
+    "resources/analysis/agent-capability-roadmap.md",
+    "docs/EXTENSIONS.md",
+    "docs/RESOURCES.md",
+    "docs/ANALYST_WORKER.md"
+  ],
+  "analyst_worker": [
+    "docs/ANALYST_WORKER.md",
+    "docs/PROFILES.md",
+    "docs/EXTENSIONS.md",
+    "resources/analyst-worker/README.md",
+    "resources/analyst-worker/policy.yaml",
+    "resources/analyst-worker/roles/analyst.md",
+    "resources/analyst-worker/roles/worker.md",
+    "resources/analyst-worker/shared/guardrails.md",
+    "resources/analyst-worker/shared/stop-matrix.md",
+    "resources/analyst-worker/templates/analyst-plan.md",
+    "resources/analyst-worker/templates/worker-report.md",
+    "resources/analyst-worker/templates/analyst-review.md",
+    "resources/analyst-worker/templates/tdd-evidence.md",
+    "resources/analyst-worker/templates/memory-candidate.md",
+    "resources/analysis/agent-capability-roadmap.md",
+    "wrappers.nix"
   ],
   "patch_journey": [
     "resources/analysis/TRACKING.md",
     "resources/analysis/improvement-plan.md"
+  ],
+  "memory": [
+    "docs/MEMORY.md",
+    "resources/global/AGENTS.md"
+  ],
+  "memory_policy": [
+    "docs/MEMORY.md",
+    "resources/global/AGENTS.md"
+  ],
+  "engram": [
+    "docs/MEMORY.md",
+    "resources/global/AGENTS.md"
+  ],
+  "hermes": [
+    "docs/MEMORY.md",
+    "resources/global/AGENTS.md",
+    "settings/hermes-memory-config.json"
+  ],
+  "mem_tools": [
+    "docs/MEMORY.md",
+    "resources/global/AGENTS.md"
+  ],
+  "sdd_memory": [
+    "docs/MEMORY.md",
+    "resources/global/AGENTS.md"
+  ],
+  "resource_inventory": [
+    "resources/analysis/p1-capability-discovery-plan.md",
+    "scripts.nix",
+    "settings/global.json",
+    "settings/study.overlay.json",
+    "settings/study-tutor.overlay.json",
+    "settings/work.overlay.json",
+    "resources/"
+  ],
+  "resource_inventory_impl": [
+    "scripts.nix",
+    "wrappers.nix"
   ]
 }

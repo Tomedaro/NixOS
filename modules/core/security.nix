@@ -1,5 +1,4 @@
-{ pkgs, ... }:
-{
+{pkgs, ...}: {
   services.gnome.gnome-keyring.enable = true;
   security.pam.services.sddm.enableGnomeKeyring = true;
   security = {
@@ -7,12 +6,10 @@
     polkit.enable = true;
     apparmor = {
       enable = true;
-      killUnconfinedConfinables = true;
-      packages = [ pkgs.apparmor-profiles ];
+      packages = [pkgs.apparmor-profiles];
     };
 
     # Prevent replacing the running kernel without a reboot
     protectKernelImage = true;
-    acme.acceptTerms = true;
   };
 }

@@ -1,0 +1,184 @@
+{
+  "schema_version": "m2_acceptance.v1",
+  "criteria": {
+    "M2-A01": {
+      "description": "Stuck event ingestion: card_published, awaiting_response, check_database ok, exact replay, reopen persistence",
+      "nodeids": ["tests/m2_public/test_lifecycle.py::test_M2_A01_initialization"]
+    },
+    "M2-A02": {
+      "description": "Start response: accepted, observing phase, observation deadline, check_database, exact replay, first-response-wins",
+      "nodeids": ["tests/m2_public/test_lifecycle.py::test_M2_A02_start_response"]
+    },
+    "M2-A03": {
+      "description": "Shrink response: next_card, phase awaiting_response, card_index grows, aggregate has multiple revisions",
+      "nodeids": ["tests/m2_public/test_lifecycle.py::test_M2_A03_shrink_response"]
+    },
+    "M2-A04": {
+      "description": "Blocked response: next_card, phase awaiting_response, card_index grows",
+      "nodeids": ["tests/m2_public/test_lifecycle.py::test_M2_A04_blocked_response"]
+    },
+    "M2-A05": {
+      "description": "Defer response: terminal_status completed, phase observing, check_database, reopen preserves terminal",
+      "nodeids": ["tests/m2_public/test_lifecycle.py::test_M2_A05_defer_response"]
+    },
+    "M2-A06": {
+      "description": "Dismiss response: terminal_status completed, check_database ok",
+      "nodeids": ["tests/m2_public/test_lifecycle.py::test_M2_A06_dismiss_response"]
+    },
+    "M2-A07": {
+      "description": "Card expiry: expired card rejects response, terminal_status appears, reopen preserves expiry",
+      "nodeids": ["tests/m2_public/test_lifecycle.py::test_M2_A07_card_expiry"]
+    },
+    "M2-A08": {
+      "description": "Observation completion via reconcile: overdue observation yields terminal, idempotent reconcile",
+      "nodeids": ["tests/m2_public/test_lifecycle.py::test_M2_A08_observation_completion"]
+    },
+    "M2-A09": {
+      "description": "Revision ceiling: max_card_revisions terminalizes after limit, check_database ok",
+      "nodeids": ["tests/m2_public/test_lifecycle.py::test_M2_A09_revision_ceiling"]
+    },
+    "M2-A10": {
+      "description": "Idempotent Stuck replay: same payload returns replay=True, single row in DB",
+      "nodeids": ["tests/m2_public/test_lifecycle.py::test_M2_A10_idempotent_stuck"]
+    },
+    "M2-A11": {
+      "description": "Idempotent Response replay: same payload returns replay=True, result matches",
+      "nodeids": ["tests/m2_public/test_lifecycle.py::test_M2_A11_idempotent_response"]
+    },
+    "M2-A12": {
+      "description": "Task change supersession: different revision yields superseded terminal, show confirms",
+      "nodeids": ["tests/m2_public/test_lifecycle.py::test_M2_A12_task_change_supersession"]
+    },
+    "M2-A13": {
+      "description": "check_database integrity: correct counts and version after start response",
+      "nodeids": ["tests/m2_public/test_lifecycle.py::test_M2_A13_check_database"]
+    },
+    "M2-A14": {
+      "description": "show: field presence, include_sensitive toggle, not-found raises",
+      "nodeids": ["tests/m2_public/test_lifecycle.py::test_M2_A14_show"]
+    },
+    "M2-A15": {
+      "description": "list_active: terminal excluded, non-terminal included with correct shape",
+      "nodeids": ["tests/m2_public/test_lifecycle.py::test_M2_A15_list_active"]
+    },
+    "M2-A16": {
+      "description": "reconcile: transitions overdue, idempotent, ok status",
+      "nodeids": ["tests/m2_public/test_lifecycle.py::test_M2_A16_reconcile"]
+    },
+    "M2-A17": {
+      "description": "Restart resilience: all tables intact after close/reopen, phase preserved",
+      "nodeids": ["tests/m2_public/test_lifecycle.py::test_M2_A17_restart_resilience"]
+    },
+    "M2-P01": {
+      "description": "Stuck TTL enforcement: expired Stuck refused, policy governs",
+      "nodeids": ["tests/m2_public/test_policy.py::test_M2_P01_stuck_ttl_enforcement"]
+    },
+    "M2-P02": {
+      "description": "Card TTL enforcement: expired card refuses response, terminal_status appears",
+      "nodeids": ["tests/m2_public/test_policy.py::test_M2_P02_card_ttl_enforcement"]
+    },
+    "M2-P03": {
+      "description": "Observation seconds enforcement: short observation triggers terminal on reconcile",
+      "nodeids": ["tests/m2_public/test_policy.py::test_M2_P03_observation_seconds"]
+    },
+    "M2-P04": {
+      "description": "max_card_revisions enforcement: non-default limit terminalizes shrink",
+      "nodeids": ["tests/m2_public/test_policy.py::test_M2_P04_max_card_revisions"]
+    },
+    "M2-P05": {
+      "description": "max_resolution_tasks enforcement: too many tasks refused",
+      "nodeids": ["tests/m2_public/test_policy.py::test_M2_P05_max_resolution_tasks"]
+    },
+    "M2-P06": {
+      "description": "Owner scoping: first-response-wins, second responder refused",
+      "nodeids": ["tests/m2_public/test_policy.py::test_M2_P06_owner_scoping"]
+    },
+    "M2-P07": {
+      "description": "Persisted policy survives restart with different policy",
+      "nodeids": ["tests/m2_public/test_policy.py::test_M2_P07_policy_survives_restart"]
+    },
+    "M2-P08": {
+      "description": "Custom task limits: resolution with fewer tasks than max is accepted",
+      "nodeids": ["tests/m2_public/test_policy.py::test_M2_P08_custom_task_limits"]
+    },
+    "M2-P09": {
+      "description": "Conflict detection survives policy restart: changed payload refused",
+      "nodeids": ["tests/m2_public/test_policy.py::test_M2_P09_conflict_detection_restart"]
+    },
+    "M2-E01": {
+      "description": "Observation with exact timestamps: specific timestamp persisted, durable through restart",
+      "nodeids": ["tests/m2_public/test_evidence.py::test_M2_E01_observation_with_exact_timestamps"]
+    },
+    "M2-E02": {
+      "description": "Pre-Card observation: response timestamp before card issuance refused",
+      "nodeids": ["tests/m2_public/test_evidence.py::test_M2_E02_pre_card_observation"]
+    },
+    "M2-E03": {
+      "description": "Clock-skew boundary: response within tolerance accepted",
+      "nodeids": ["tests/m2_public/test_evidence.py::test_M2_E03_clock_skew_boundary"]
+    },
+    "M2-E04": {
+      "description": "Evidence durability: response evidence survives close/reopen",
+      "nodeids": ["tests/m2_public/test_evidence.py::test_M2_E04_evidence_durability"]
+    },
+    "M2-E05": {
+      "description": "Exact replay with timestamps: replay returns byte-identical result",
+      "nodeids": ["tests/m2_public/test_evidence.py::test_M2_E05_exact_replay_with_timestamps"]
+    },
+    "M2-V01": {
+      "description": "Bundle boundary shared: check_database, show, list_active, replay all reject same corruption",
+      "nodeids": ["tests/m2_public/test_cross_surface.py::test_M2_V01_bundle_boundary_shared"]
+    },
+    "M2-V02": {
+      "description": "Corrupt aggregate rejected by show: corruption found by check_database also rejected by show",
+      "nodeids": ["tests/m2_public/test_cross_surface.py::test_M2_V02_corrupt_aggregate_rejected_by_show"]
+    },
+    "M2-V03": {
+      "description": "Corrupt message rejected by replay: corruption found by check_database also rejected by replay",
+      "nodeids": ["tests/m2_public/test_cross_surface.py::test_M2_V03_corrupt_message_rejected_by_replay"]
+    },
+    "M2-V04": {
+      "description": "Write validated before commit: failed writes leave no trace",
+      "nodeids": ["tests/m2_public/test_cross_surface.py::test_M2_V04_write_validated_before_commit"]
+    },
+    "M2-X01": {
+      "description": "Corruption exit code 5: corrupted DB returns exit 5 from CLI",
+      "nodeids": ["tests/m2_public/test_error_classification.py::test_M2_X01_corruption_exit_code"]
+    },
+    "M2-X02": {
+      "description": "Busy exit code 6: lock contention returns non-zero exit code",
+      "nodeids": ["tests/m2_public/test_error_classification.py::test_M2_X02_busy_exit_code"]
+    },
+    "M2-X03": {
+      "description": "Storage exit code 7: uninitialized DB returns error exit code",
+      "nodeids": ["tests/m2_public/test_error_classification.py::test_M2_X03_storage_exit_code"]
+    },
+    "M2-X04": {
+      "description": "Invalid input exit code 2: bad JSON returns exit 2",
+      "nodeids": ["tests/m2_public/test_error_classification.py::test_M2_X04_invalid_input_exit_code"]
+    },
+    "M2-X05": {
+      "description": "Not found exit code 3: unknown event_id returns exit 3",
+      "nodeids": ["tests/m2_public/test_error_classification.py::test_M2_X05_not_found_exit_code"]
+    },
+    "M2-X06": {
+      "description": "Refusal exit code 4: conflicting Stuck returns exit 4",
+      "nodeids": ["tests/m2_public/test_error_classification.py::test_M2_X06_refusal_exit_code"]
+    },
+    "M2-X07": {
+      "description": "Relative path exit code 2: relative state dir returns exit 2",
+      "nodeids": ["tests/m2_public/test_error_classification.py::test_M2_X07_relative_path_exit_code"]
+    },
+    "M2-X08": {
+      "description": "Missing resolution exit code 2: omitted resolution input returns exit 2",
+      "nodeids": ["tests/m2_public/test_error_classification.py::test_M2_X08_missing_resolution_exit_code"]
+    }
+  },
+  "non_goals": [
+    "malicious_coherent_rewrite",
+    "crypto_tamper",
+    "check_sql",
+    "delivery_reasons",
+    "model_integration"
+  ]
+}

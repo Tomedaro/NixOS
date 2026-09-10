@@ -38,7 +38,7 @@
     "git diff --check": "allow",
     "git branch --show-current": "allow",
 
-    "nix eval --raw .#nixosConfigurations.Default.config.system.name": "allow",
+    "nix eval --raw .#nixosConfigurations.Singularity.config.system.name": "allow",
 
     "cat ~/.ssh*": "deny",
     "cat ~/.gnupg*": "deny",

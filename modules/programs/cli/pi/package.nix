@@ -1,15 +1,11 @@
 {
   pkgs,
-  inputs ? { },
+  mkMcpNixos,
   paths,
-}:
-
-let
-  system = pkgs.stdenv.hostPlatform.system;
+}: let
   nodejs = pkgs.nodejs_24;
 
-  piPackage =
-    if inputs ? piNix then inputs.piNix.packages.${system}.coding-agent else pkgs.pi-coding-agent;
+  piPackage = pkgs.pi-coding-agent;
 
   piNpm = pkgs.writeShellScriptBin "pi-npm" ''
     set -euo pipefail
@@ -42,12 +38,53 @@ let
     ++ pkgs.lib.optional (pkgs ? bubblewrap) pkgs.bubblewrap
   );
 
-  engramPackage = pkgs.callPackage ./packages/engram.nix { };
+  engramPackage = pkgs.callPackage ./packages/engram.nix {};
+
+  # Build mcp-nixos against this system's nixpkgs instead of using the
+  # upstream flake package. The upstream package currently applies its
+  # fastmcp3 overlay, which forces fastmcp 3.2.4 onto nixpkgs' split
+  # fastmcp/fastmcp-slim packaging and leaves fastmcp-slim with an invalid
+  # sourceRoot.
+  mcpNixosPackage = mkMcpNixos {inherit pkgs;};
+
+  mcpNixosWrapper = pkgs.writeShellScriptBin "mcp-nixos" ''
+    exec ${mcpNixosPackage}/bin/mcp-nixos "$@"
+  '';
+
+  mcpEngramArgs = [
+    "-e"
+    "const { spawn } = require('node:child_process'); const bin = process.env.ENGRAM_BIN || 'engram'; const child = spawn(bin, ['mcp', '--tools=agent'], { stdio: 'inherit' }); child.on('error', () => process.exit(127)); child.on('exit', (code, signal) => { if (typeof code === 'number') process.exit(code); process.kill(process.pid, signal || 'SIGTERM'); });"
+  ];
+  mcpNixosSrv = {
+    command = "${mcpNixosWrapper}/bin/mcp-nixos";
+    args = [];
+    lifecycle = "lazy";
+    directTools = true;
+  };
+  mcpEngramSrv = {
+    command = "node";
+    args = mcpEngramArgs;
+    lifecycle = "lazy";
+    directTools = false;
+  };
+  mcpJsonFormat = pkgs.formats.json {};
+  generatedMcpGlobal = mcpJsonFormat.generate "mcp-global.json" {
+    mcpServers = {
+      nixos = mcpNixosSrv;
+      engram = mcpEngramSrv;
+    };
+  };
+  generatedMcpNixos = mcpJsonFormat.generate "mcp-nixos.json" {
+    mcpServers = {
+      nixos = mcpNixosSrv;
+      engram = mcpEngramSrv;
+    };
+  };
 
   piWrapped = pkgs.symlinkJoin {
     name = "pi-coding-agent";
-    paths = [ piPackage ];
-    buildInputs = [ pkgs.makeWrapper ];
+    paths = [piPackage];
+    buildInputs = [pkgs.makeWrapper];
 
     postBuild = ''
       wrapProgram $out/bin/pi \
@@ -58,13 +95,15 @@ let
         --set PI_CACHE_RETENTION long
     '';
   };
-in
-{
+in {
   inherit
     piWrapped
     piNpm
     piPackage
     piRuntimePath
     engramPackage
+    mcpNixosWrapper
+    generatedMcpGlobal
+    generatedMcpNixos
     ;
 }

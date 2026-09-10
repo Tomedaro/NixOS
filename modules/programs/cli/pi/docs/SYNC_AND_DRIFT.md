@@ -50,6 +50,16 @@ If a previously managed file disappears from source, sync moves the runtime copy
 
 This records the source root, source hash, sync time, and Pi version for quick status checks.
 
+## MCP configs
+
+MCP JSON configs are deployed per profile:
+
+* `global` and `nixos`: **generated** — contain absolute Nix store paths for the `mcp-nixos` binary, produced via `pkgs.formats.json.generate`. Source paths are the generated derivations, not static files.
+* `study`: **static** — `anki-read-strict` uses `npx -y @ankimcp/anki-mcp-server@0.19.2` with `directTools: false`, 30 excluded write tools, `--read-only`, and `READ_ONLY=true`. Accepted exception (study-only, no direct tool exposure, Nix-packaging impractical for 26 NestJS/MCP SDK deps).
+* `work` and `research`: **static** — intentionally empty managed configs.
+
+Drift comparison for `global` and `nixos` profile MCP uses the generated store paths. `pi-admin mcp-check` validates static MCP invariants; the remaining `study/anki-read-strict: uses npx` warning is intentional and documents the accepted exception.
+
 ## Package/runtime boundary
 
 Do not set `PI_PACKAGE_DIR` in wrappers. Use `NPM_CONFIG_PREFIX` for npm install prefix. See `docs/package-runtime-boundary.md`.

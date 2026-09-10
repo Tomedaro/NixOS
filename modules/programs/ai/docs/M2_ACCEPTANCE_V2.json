@@ -1,0 +1,152 @@
+{
+  "spec_version": "v2",
+  "generated_at": "2026-07-25",
+  "commit": "752697491bb3c82e029e525c996dd9f54f3813e5",
+  "criteria": [
+    {
+      "id": "M2-C01",
+      "description": "Stuck ingestion: kernel.ingest_stuck() produces card_published result, phase=awaiting_response, check_database passes, replay is idempotent, state survives close/reopen",
+      "kind": "lifecycle",
+      "nodeids": [
+        "modules/programs/ai/tests/m2_acceptance_v2/test_valid_lifecycle.py::test_M2_C01_ingest_stuck_card_published",
+        "modules/programs/ai/tests/m2_acceptance_v2/test_transition_corpus.py::test_trace_m2_c01_stuck_ingestion"
+      ],
+      "baseline_expectation": "pass",
+      "release_expectation": "pass",
+      "baseline_failure": null
+    },
+    {
+      "id": "M2-C02",
+      "description": "Start response: kernel.respond(start) produces accepted, phase transitions to observing, no terminal_status, state survives restart",
+      "kind": "lifecycle",
+      "nodeids": [
+        "modules/programs/ai/tests/m2_acceptance_v2/test_valid_lifecycle.py::test_M2_C02_start_response_observing",
+        "modules/programs/ai/tests/m2_acceptance_v2/test_transition_corpus.py::test_trace_m2_c02_start_response"
+      ],
+      "baseline_expectation": "pass",
+      "release_expectation": "pass",
+      "baseline_failure": null
+    },
+    {
+      "id": "M2-C03",
+      "description": "Shrink response: kernel.respond(shrink) produces accepted, phase=awaiting_response, next_card present in result, revisions increment in aggregate",
+      "kind": "lifecycle",
+      "nodeids": [
+        "modules/programs/ai/tests/m2_acceptance_v2/test_valid_lifecycle.py::test_M2_C03_shrink_response_next_card",
+        "modules/programs/ai/tests/m2_acceptance_v2/test_transition_corpus.py::test_trace_m2_c03_shrink_response"
+      ],
+      "baseline_expectation": "pass",
+      "release_expectation": "pass",
+      "baseline_failure": null
+    },
+    {
+      "id": "M2-C04",
+      "description": "Blocked response: kernel.respond(blocked) produces accepted, phase=awaiting_response, next_card present, state consistent",
+      "kind": "lifecycle",
+      "nodeids": [
+        "modules/programs/ai/tests/m2_acceptance_v2/test_valid_lifecycle.py::test_M2_C04_blocked_response_next_card",
+        "modules/programs/ai/tests/m2_acceptance_v2/test_transition_corpus.py::test_trace_m2_c04_blocked_response"
+      ],
+      "baseline_expectation": "pass",
+      "release_expectation": "pass",
+      "baseline_failure": null
+    },
+    {
+      "id": "M2-C05",
+      "description": "Defer response: kernel.respond(defer) produces accepted, terminal_status=completed, phase=observing, state survives restart",
+      "kind": "lifecycle",
+      "nodeids": [
+        "modules/programs/ai/tests/m2_acceptance_v2/test_valid_lifecycle.py::test_M2_C05_defer_response_completed",
+        "modules/programs/ai/tests/m2_acceptance_v2/test_transition_corpus.py::test_trace_m2_c05_defer_response"
+      ],
+      "baseline_expectation": "pass",
+      "release_expectation": "pass",
+      "baseline_failure": null
+    },
+    {
+      "id": "M2-C06",
+      "description": "Dismiss response: kernel.respond(dismiss) produces accepted, terminal_status=completed, check_database passes",
+      "kind": "lifecycle",
+      "nodeids": [
+        "modules/programs/ai/tests/m2_acceptance_v2/test_valid_lifecycle.py::test_M2_C06_dismiss_response_completed",
+        "modules/programs/ai/tests/m2_acceptance_v2/test_transition_corpus.py::test_trace_m2_c06_dismiss_response"
+      ],
+      "baseline_expectation": "pass",
+      "release_expectation": "pass",
+      "baseline_failure": null
+    },
+    {
+      "id": "M2-C07",
+      "description": "Revision limit enforcement: after max_card_revisions shrinks, further shrink produces terminal status, aggregate consistent",
+      "kind": "lifecycle",
+      "nodeids": [
+        "modules/programs/ai/tests/m2_acceptance_v2/test_valid_lifecycle.py::test_M2_C07_revision_limit_terminal",
+        "modules/programs/ai/tests/m2_acceptance_v2/test_transition_corpus.py::test_trace_m2_c07_revision_ceiling"
+      ],
+      "baseline_expectation": "pass",
+      "release_expectation": "pass",
+      "baseline_failure": null
+    },
+    {
+      "id": "M2-C08",
+      "description": "Card expiry: respond after card expires raises KernelRefusalError, terminal_status set, show reflects terminal state",
+      "kind": "lifecycle",
+      "nodeids": [
+        "modules/programs/ai/tests/m2_acceptance_v2/test_valid_lifecycle.py::test_M2_C08_card_expiry_refused",
+        "modules/programs/ai/tests/m2_acceptance_v2/test_transition_corpus.py::test_trace_m2_c08_card_expiry"
+      ],
+      "baseline_expectation": "pass",
+      "release_expectation": "pass",
+      "baseline_failure": null
+    },
+    {
+      "id": "M2-C09",
+      "description": "Observation completion: reconcile() transitions overdue observing interactions to terminal, idempotent on replay",
+      "kind": "lifecycle",
+      "nodeids": [
+        "modules/programs/ai/tests/m2_acceptance_v2/test_valid_lifecycle.py::test_M2_C09_observation_completion_reconcile",
+        "modules/programs/ai/tests/m2_acceptance_v2/test_transition_corpus.py::test_trace_m2_c09_observation_completion"
+      ],
+      "baseline_expectation": "pass",
+      "release_expectation": "pass",
+      "baseline_failure": null
+    },
+    {
+      "id": "M2-C10",
+      "description": "Supersession: respond with changed task revision produces superseded terminal_status, show reflects superseded, check_database passes",
+      "kind": "lifecycle",
+      "nodeids": [
+        "modules/programs/ai/tests/m2_acceptance_v2/test_valid_lifecycle.py::test_M2_C10_supersession_task_changed",
+        "modules/programs/ai/tests/m2_acceptance_v2/test_transition_corpus.py::test_trace_m2_c10_supersession"
+      ],
+      "baseline_expectation": "pass",
+      "release_expectation": "pass",
+      "baseline_failure": null
+    },
+    {
+      "id": "M2-C11",
+      "description": "Idempotent replay: re-ingesting identical Stuck returns replay=True with same result; re-ingesting identical Response returns replay=True",
+      "kind": "lifecycle",
+      "nodeids": [
+        "modules/programs/ai/tests/m2_acceptance_v2/test_valid_lifecycle.py::test_M2_C11_idempotent_stuck_replay",
+        "modules/programs/ai/tests/m2_acceptance_v2/test_valid_lifecycle.py::test_M2_C11_idempotent_response_replay",
+        "modules/programs/ai/tests/m2_acceptance_v2/test_transition_corpus.py::test_trace_m2_c11_idempotent_replay"
+      ],
+      "baseline_expectation": "pass",
+      "release_expectation": "pass",
+      "baseline_failure": null
+    },
+    {
+      "id": "M2-C12",
+      "description": "Restart resilience: close/reopen kernel preserves all state, check_database passes, same phase and terminal_status, aggregate intact",
+      "kind": "lifecycle",
+      "nodeids": [
+        "modules/programs/ai/tests/m2_acceptance_v2/test_valid_lifecycle.py::test_M2_C12_restart_resilience",
+        "modules/programs/ai/tests/m2_acceptance_v2/test_transition_corpus.py::test_trace_m2_c12_restart_resilience"
+      ],
+      "baseline_expectation": "pass",
+      "release_expectation": "pass",
+      "baseline_failure": null
+    }
+  ]
+}

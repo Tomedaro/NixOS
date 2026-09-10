@@ -1,17 +1,26 @@
 # modules/programs/ai/llm-planner/default.nix
-{ config, lib, pkgs, ... }:
-
-let
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}: let
   cfg = config.my.ai.llmPlanner;
 
   selectedHelpNowModel =
-    if cfg.helpNowModel == null then cfg.model else cfg.helpNowModel;
+    if cfg.helpNowModel == null
+    then cfg.model
+    else cfg.helpNowModel;
 
   selectedBlockPlanModel =
-    if cfg.blockPlanModel == null then cfg.model else cfg.blockPlanModel;
+    if cfg.blockPlanModel == null
+    then cfg.model
+    else cfg.blockPlanModel;
 
   selectedDailyReviewModel =
-    if cfg.dailyReviewModel == null then cfg.model else cfg.dailyReviewModel;
+    if cfg.dailyReviewModel == null
+    then cfg.model
+    else cfg.dailyReviewModel;
 
   plannerScript = pkgs.writeShellScriptBin "llm-planner" ''
     export PYTHONPATH="${./python}:${../python}:$PYTHONPATH"
@@ -46,9 +55,8 @@ let
     LLM_PLANNER_TIMEZONE = config.my.ai.core.timezone;
     PYTHONUNBUFFERED = "1";
   };
-in
-{
-  imports = [ ../core ];
+in {
+  imports = [../core];
   options.my.ai.llmPlanner = {
     enable = lib.mkEnableOption "local LLM planner and report generator";
 
@@ -211,10 +219,12 @@ in
         "ai-vault-init.service"
       ];
 
-      environment = commonEnvironment // {
-        PLANNER_MODE = "block-plan";
-        OLLAMA_MODEL = selectedBlockPlanModel;
-      };
+      environment =
+        commonEnvironment
+        // {
+          PLANNER_MODE = "block-plan";
+          OLLAMA_MODEL = selectedBlockPlanModel;
+        };
 
       serviceConfig = {
         Type = "oneshot";
@@ -237,19 +247,21 @@ in
         "ai-vault-init.service"
       ];
 
-      environment = commonEnvironment // {
-        PLANNER_MODE = "help-now";
-        OLLAMA_MODEL = selectedHelpNowModel;
-        OLLAMA_NUM_PREDICT = toString cfg.helpNowNumPredict;
-        OLLAMA_TIMEOUT_SECONDS = toString cfg.helpNowTimeoutSeconds;
-        MAX_CONTEXT_CHARS = "1200";
-        MAX_LOG_CHARS = "200";
-        MAX_JSONL_EVENTS = "5";
-        MAX_TASKNOTES = "1";
-        MAX_TASKNOTE_CHARS = "300";
-        MAX_POLICY_CHARS = "300";
-        MAX_CONTROL_CHARS = "700";
-      };
+      environment =
+        commonEnvironment
+        // {
+          PLANNER_MODE = "help-now";
+          OLLAMA_MODEL = selectedHelpNowModel;
+          OLLAMA_NUM_PREDICT = toString cfg.helpNowNumPredict;
+          OLLAMA_TIMEOUT_SECONDS = toString cfg.helpNowTimeoutSeconds;
+          MAX_CONTEXT_CHARS = "1200";
+          MAX_LOG_CHARS = "200";
+          MAX_JSONL_EVENTS = "5";
+          MAX_TASKNOTES = "1";
+          MAX_TASKNOTE_CHARS = "300";
+          MAX_POLICY_CHARS = "300";
+          MAX_CONTROL_CHARS = "700";
+        };
 
       serviceConfig = {
         Type = "oneshot";
@@ -272,10 +284,12 @@ in
         "ai-vault-init.service"
       ];
 
-      environment = commonEnvironment // {
-        PLANNER_MODE = "daily-review";
-        OLLAMA_MODEL = selectedDailyReviewModel;
-      };
+      environment =
+        commonEnvironment
+        // {
+          PLANNER_MODE = "daily-review";
+          OLLAMA_MODEL = selectedDailyReviewModel;
+        };
 
       serviceConfig = {
         Type = "oneshot";
@@ -287,7 +301,7 @@ in
     systemd.user.timers.llm-planner = lib.mkIf cfg.enableTimer {
       description = "Run local LLM block planner periodically";
 
-      wantedBy = [ "timers.target" ];
+      wantedBy = ["timers.target"];
 
       timerConfig = {
         OnCalendar = cfg.timerOnCalendar;

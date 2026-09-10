@@ -1,0 +1,74 @@
+name: NixOS validation
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+    inputs:
+      build_singularity:
+        description: Build the complete Singularity system closure (no activation)
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nixos-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Source, policy, hosts, and variants
+    runs-on: ubuntu-24.04
+    timeout-minutes: 210
+
+    steps:
+      - name: Check out the selected revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+        with:
+          enable_kvm: false
+
+      - name: Report validation tool version
+        run: nix --version
+
+      - name: Tiers 1 and 2 - flake, source, real hosts, and policy
+        timeout-minutes: 45
+        run: |
+          nix flake check \
+            --print-build-logs \
+            --no-eval-cache \
+            --option allow-import-from-derivation false \
+            --no-update-lock-file \
+            --no-write-lock-file
+
+      - name: Tier 2 - evaluate supported capability variants serially
+        timeout-minutes: 60
+        run: |
+          nix run \
+            --no-eval-cache \
+            --option allow-import-from-derivation false \
+            --no-update-lock-file \
+            --no-write-lock-file \
+            .#check-variants
+
+      - name: Tier 3 - build the complete Singularity closure on explicit request
+        if: github.event_name == 'workflow_dispatch' && inputs.build_singularity
+        timeout-minutes: 90
+        run: |
+          nix build \
+            --no-link \
+            --print-build-logs \
+            --no-eval-cache \
+            --option allow-import-from-derivation false \
+            --no-update-lock-file \
+            --no-write-lock-file \
+            .#nixosConfigurations.Singularity.config.system.build.toplevel

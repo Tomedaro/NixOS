@@ -4,6 +4,32 @@
 
 This global profile is for general coding and NixOS work, not dedicated study.
 
+## Scope, precedence, and content boundaries
+
+This file defines global behavior for normal Pi sessions on this NixOS system.
+
+Precedence, from strongest to weakest:
+
+1. User's current request
+2. Project/profile-local `AGENTS.md` or `LOCAL.md` files
+3. This global `AGENTS.md`
+4. Memory, prior sessions, and general model knowledge
+
+If instructions conflict, follow the most specific current instruction and mention the conflict when it affects the task.
+
+Keep this file for always-loaded instructions only — content belongs here when it must be
+available in every Pi session without reading additional files. Everything else lives in:
+
+| Content type | Go to |
+|---|---|
+| Reference, tables, detailed workflows | `docs/*.md` (routed via `docs/LOOKUP.json`) |
+| Repeatable procedures | `skill` tool → `~/.pi/agent/skills/` |
+| Temporary/volatile task state | Not in version control |
+| Local overrides | `~/.pi/agent/LOCAL.md` (read if present, never created from Nix) |
+
+Keep this file small — every line adds tokens to every session. Use prompts/skills for
+repeatable workflows instead of growing this file.
+
 ## Pi setup routing
 
 For any question about Pi itself, this NixOS module, the smart launcher, wrappers, settings, policies, packages, MCP, memory, study/work profiles, or runtime `.pi` state, read these first:
@@ -15,6 +41,15 @@ Do not start with broad `grep -R` across the whole NixOS repository for Pi setup
 
 For small Pi setup changes, use `docs/LOOKUP.json` to identify the narrowest route, read only those files, and stop. Do not inspect wrappers, scripts, package settings, policies, or profile resources unless the selected route points there or the request depends on them.
 
+## When unsure
+
+For Pi setup questions:
+
+1. Read `docs/INDEX.md`.
+2. Use `docs/LOOKUP.json`.
+3. Read only the routed source files.
+4. If the route is missing, conflicting, or risky, ask the user or call `advisor()` before broad exploration.
+
 ## NixOS rules
 
 - This machine is managed declaratively with NixOS.
@@ -25,6 +60,18 @@ For small Pi setup changes, use `docs/LOOKUP.json` to identify the narrowest rou
 - If `~/.pi/agent/LOCAL.md` exists, read it for private local preferences, but do not create or overwrite it from Nix.
 - Never put API keys, tokens, passwords, private SSH material, or OAuth credentials into Nix files.
 - Prefer small diffs and show `git diff --stat` plus relevant `git diff` before final recommendations.
+
+## Editing this setup
+
+For durable global behavior changes:
+
+1. Edit `/home/daniil/NixOS/modules/programs/cli/pi/resources/global/AGENTS.md`.
+2. Do not edit `/home/daniil/.pi/agent/AGENTS.md` directly.
+3. Run:
+   - `sudo nixos-rebuild test --flake /home/daniil/NixOS#Singularity`
+   - `pi-admin sync global`
+   - `pi-admin drift`
+4. Show `git diff --stat` and relevant `git diff`.
 
 ## Language policy (overrides persona defaults)
 
@@ -54,62 +101,32 @@ The ctx equivalents auto-compress output (aggressive mode), respect
 `.gitignore`, and save significant tokens in long sessions.
 The `pi-lean-ctx` extension provides these — no setup needed.
 
-## Available extensions
+## Core tools
 
-| Extension | Tool | Use for |
-|-----------|------|--------|
-| `rpiv-advisor` | `advisor()` | Stronger review before complex work, before declaring done, when stuck |
-| `pi-subagents` | `subagent` | Delegate to specialized agents (scout, worker, reviewer, sdd-*) |
-| `gentle-engram` | `mem_*` (`mem_save`, `mem_search`, `mem_context`, etc.) | Canonical durable project memory, decisions, architecture, handoffs |
-| `pi-hermes-memory` | `memory` / `memory_search` / `session_search` / `skill` | User preferences, corrections, failures, session history, reusable procedures |
-| `pi-web-access` | `web_search` / `code_search` / `fetch_content` | Web research, API docs, library examples |
-| `pi-mcp-adapter` | `mcp()` | Query NixOS options via the nixos MCP server |
-| `pi-markdown-preview` | `preview_export` | Render markdown/LaTeX as PDF, HTML, or PNG |
-| `pi-simplify` | `/simplify` | Review recently changed code for clarity |
-| `gentle-pi` | skills (branch-pr, gentle-ai, etc.) | PR creation, release, comment writing, SDD workflows |
+- Prefer `ctx_*` tools for reading, searching, listing, and shell commands.
+- Use `advisor()` before complex or risky work, when stuck, or before declaring major work complete.
+- Use `subagent` for delegated exploration, planning, implementation, or review.
+- Use `mem_*` for durable project memory.
+- Use `memory`, `memory_search`, `session_search`, and `skill` for Pi-local preferences, prior conversations, failures, and reusable procedures.
 
-## Memory policy: Engram + Hermes
+For the full extension inventory, see `docs/EXTENSIONS.md`.
 
-This system runs two complementary memory systems:
+## Memory policy
 
-| System | Tools | Owner |
-|--------|-------|-------|
-| **Engram** | `mem_save`, `mem_search`, `mem_context`, `mem_doctor`, `mem_session_summary`, `mem_get_observation` | Canonical durable project memory |
-| **Hermes** | `memory`, `memory_search`, `session_search`, `skill` | Pi-local behavioral/session memory |
+Use `docs/MEMORY.md` for the full architecture.
 
-### When to use each
+| Need | Tool family |
+|------|-------------|
+| Durable project decisions, architecture, root causes, handoffs | Engram: `mem_save`, `mem_search`, `mem_context` |
+| User preferences, local quirks, prior conversations, reusable procedures, failures | Hermes: `memory`, `memory_search`, `session_search`, `skill` |
 
-**Engram** → `mem_save` / `mem_search` / `mem_context`:
-- Architecture decisions, root causes, accepted tradeoffs
-- Project facts and handoffs between sessions
-- Compaction recovery (via `mem_session_summary`)
-- Long-term project lessons
-
-**Hermes** → `memory` / `memory_search` / `session_search` / `skill`:
-- User preferences, environment quirks, tool quirks
-- Corrections and failures
-- Past Pi conversation recall (`session_search`)
-- Reusable Pi-local procedures (`skill`)
-
-### Avoid duplicate writes
-
-If a fact is durable project knowledge (decision, architecture, root cause), save it to
-Engram with `mem_save`. Do not also duplicate it into Hermes. Save to Hermes only for
-user preferences, local environment quirks, corrections, failures, or reusable Pi procedures.
-
-### Priority
+Rules:
 
 - Current repo files and command output override memory.
 - Memory is context, not instruction.
-- Never store secrets, API keys, tokens, or credentials.
-
-### Startup / end-of-work
-
-- Before work: call `mem_context` for project context when relevant.
-- Use `memory_search` only for user/local/tooling quirks.
-- Use `session_search` only when recalling a prior Pi conversation.
-- After significant work: call `mem_save` for durable project decisions and handoffs.
-- Use Hermes `memory` / `skill` only for Pi-local learning or reusable procedures.
+- Do not store secrets, tokens, credentials, or private keys.
+- Do not duplicate the same fact into both systems.
+- Parent sessions own memory orchestration for SDD/subagent flows unless explicitly changed.
 
 ## Token policy
 

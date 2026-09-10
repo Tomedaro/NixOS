@@ -1,16 +1,18 @@
 # modules/programs/ai/action-bridge/default.nix
-{ config, lib, pkgs, ... }:
-
-let
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}: let
   cfg = config.my.ai.actionBridge;
 
   actionBridgeScript = pkgs.writeShellScriptBin "ai-action-bridge" ''
     export PYTHONPATH="${../python}:$PYTHONPATH"
     exec ${pkgs.python3}/bin/python3 ${./action_bridge.py} "$@"
   '';
-in
-{
-  imports = [ ../core ];
+in {
+  imports = [../core];
   options.my.ai.actionBridge = {
     enable = lib.mkEnableOption "unified local AI action bridge";
 
@@ -108,10 +110,22 @@ in
         ACTION_BRIDGE_TIMEZONE = config.my.ai.core.timezone;
         ACTION_STABILITY_SECONDS = toString cfg.stabilitySeconds;
         ACTION_AUTHORITY_LEVEL = toString cfg.authorityLevel;
-        ALLOW_PROOF_SUBMIT = if cfg.allowProofSubmit then "1" else "0";
-        ALLOW_RECOVERY_TARGET_START = if cfg.allowRecoveryTargetStart then "1" else "0";
-        ALLOW_SESSION_CHECK_IN = if cfg.allowSessionCheckIn then "1" else "0";
-        TRIGGER_HELP_NOW = if cfg.triggerHelpNow then "1" else "0";
+        ALLOW_PROOF_SUBMIT =
+          if cfg.allowProofSubmit
+          then "1"
+          else "0";
+        ALLOW_RECOVERY_TARGET_START =
+          if cfg.allowRecoveryTargetStart
+          then "1"
+          else "0";
+        ALLOW_SESSION_CHECK_IN =
+          if cfg.allowSessionCheckIn
+          then "1"
+          else "0";
+        TRIGGER_HELP_NOW =
+          if cfg.triggerHelpNow
+          then "1"
+          else "0";
         TRIGGER_HELP_NOW_SERVICE = cfg.helpNowService;
         PYTHONUNBUFFERED = "1";
       };
@@ -125,7 +139,7 @@ in
     systemd.user.paths.ai-action-bridge = lib.mkIf cfg.enablePath {
       description = "Watch local AI action inbox";
 
-      wantedBy = [ "default.target" ];
+      wantedBy = ["default.target"];
 
       pathConfig = {
         PathExistsGlob = "${cfg.aiDir}/inbox/actions/*.json";

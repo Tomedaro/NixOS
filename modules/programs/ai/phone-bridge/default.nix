@@ -1,16 +1,18 @@
 # modules/programs/ai/phone-bridge/default.nix
-{ config, lib, pkgs, ... }:
-
-let
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}: let
   cfg = config.my.ai.phoneBridge;
 
   phoneBridgeScript = pkgs.writeShellScriptBin "phone-bridge" ''
     export PYTHONPATH="${../python}:$PYTHONPATH"
     exec ${pkgs.python3}/bin/python3 ${./phone_bridge.py} "$@"
   '';
-in
-{
-  imports = [ ../core ];
+in {
+  imports = [../core];
   options.my.ai.phoneBridge = {
     enable = lib.mkEnableOption "phone event bridge for Tasker/Syncthing events";
 
@@ -53,14 +55,17 @@ in
     systemd.user.services.phone-bridge = {
       description = "Phone event bridge for local AI productivity system";
 
-      wantedBy = [ "default.target" ];
+      wantedBy = ["default.target"];
 
       environment = {
         AI_DIR = cfg.aiDir;
         INTERVAL_SECONDS = toString cfg.intervalSeconds;
         STABILITY_SECONDS = toString cfg.stabilitySeconds;
         PROCESSED_RETENTION_DAYS = toString cfg.processedRetentionDays;
-        CREATE_TEMPLATES = if cfg.createTemplates then "1" else "0";
+        CREATE_TEMPLATES =
+          if cfg.createTemplates
+          then "1"
+          else "0";
         AI_TIMEZONE = config.my.ai.core.timezone;
         PHONE_BRIDGE_TIMEZONE = config.my.ai.core.timezone;
         PYTHONUNBUFFERED = "1";

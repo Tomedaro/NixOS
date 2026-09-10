@@ -1,0 +1,19 @@
+{
+  "lock_version": "v2",
+  "generated_at": "2026-07-25",
+  "acceptance_commit_sha": "14d43f0f96fa283966899d7d96eac0337372a784",
+  "manifest_sha256": "11528e01bee4e05c2a865b4c2c599ba623d872992b6d3251702b9f8e0b10579f",
+  "test_tree_sha256": "a91cddeaec77656efd1749c56605a2e09f20979390d6bf27e225d3548dfc8647",
+  "corpus_sha256": "aac97fbc51f2e5331b8b3da6056e56d132ba9a76ac5f2f9bfb66d99e39fe921b",
+  "files": {
+    "docs/M2_ACCEPTANCE_V2.json": "11528e01bee4e05c2a865b4c2c599ba623d872992b6d3251702b9f8e0b10579f",
+    "tests/m2_verifier_support/__init__.py": "dba145ad2ef49f072da21df12d3f2df847428aaa6dda7607bd691f27a2580ef1",
+    "tests/m2_verifier_support/m2_transition_corpus.json": "aac97fbc51f2e5331b8b3da6056e56d132ba9a76ac5f2f9bfb66d99e39fe921b",
+    "tests/m2_acceptance_v2/__init__.py": "eaee3b76b8c223c63360e8acbeb280ed6b19644f4194c18de3f6a2aef7f3baaf",
+    "tests/m2_acceptance_v2/conftest.py": "0f22989384e7de534652b88e9004fdc0c8f7ced0762200a6ae75e53d45304350",
+    "tests/m2_acceptance_v2/test_cross_surface.py": "f74e6e718519aa8793635affa49bbdc91d2af7cda38ac5ad6a8538222ac57ba4",
+    "tests/m2_acceptance_v2/test_known_defects.py": "39216997b670d7ba85c19c06e34aa23e9645e95745832bb07918c36661c37259",
+    "tests/m2_acceptance_v2/test_transition_corpus.py": "960777d9ab37225eb97a259d34c35fc8735a2678253c919491b10bf8ccfe38d7",
+    "tests/m2_acceptance_v2/test_valid_lifecycle.py": "65f136717c54cc08a24b5be1c1a622ed0d2b7b8f46734aab24646f4bf45b471c"
+  }
+}

@@ -1,14 +1,8 @@
-{ pkgs, host, ... }:
-let
-  inherit (import ../../hosts/${host}/variables.nix) hostname bluetoothSupport;
-in
-{
+{config, ...}: let
+  hostname = config.networking.hostName;
+  bluetoothSupport = config.workstation.hardware.bluetooth;
+in {
   hardware = {
-    sane = {
-      enable = true;
-      extraBackends = [ pkgs.sane-airscan ];
-      disabledDefaultBackends = [ "escl" ];
-    };
     logitech.wireless.enable = false;
     logitech.wireless.enableGraphical = false;
     graphics.enable = true;
@@ -17,27 +11,9 @@ in
     bluetooth = {
       enable = bluetoothSupport;
       powerOnBoot = bluetoothSupport;
-      settings = {
-        General = {
-          Name = hostname;
-          ControllerMode = "dual";
-          FastConnectable = true;
-          Experimental = true;
-          KernelExperimental = true;
-          JustWorksRepairing = "always";
-          SecureConnections = "on";
-        };
-        GATT = {
-          Cache = "always";
-          Channels = 3;
-        };
-        Policy = {
-          AutoEnable = true;
-          ReconnectAttempts = 7;
-          ReconnectIntervals = "1,2,4,8,16,32,64";
-          ResumeDelay = 1;
-        };
-      };
+      # Keep only the user-visible adapter name. BlueZ's current defaults are
+      # sufficient for transport mode, security, reconnect policy and GATT.
+      settings.General.Name = hostname;
     };
   };
 }

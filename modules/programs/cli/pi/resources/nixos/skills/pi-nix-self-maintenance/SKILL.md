@@ -39,7 +39,7 @@ nix-instantiate --parse modules/programs/cli/pi/home-module.nix >/dev/null
 nix-instantiate --parse modules/programs/cli/pi/package.nix >/dev/null
 nix-instantiate --parse modules/programs/cli/pi/scripts.nix >/dev/null
 nix-instantiate --parse modules/programs/cli/pi/wrappers.nix >/dev/null
-sudo nixos-rebuild test --flake /home/daniil/NixOS#Default
+sudo nixos-rebuild test --flake /home/daniil/NixOS#Singularity
 ```
 
 For runtime sync, suggest only the relevant commands:

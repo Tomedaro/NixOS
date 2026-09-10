@@ -90,8 +90,9 @@ hl.bind(mainMod .. " + ALT + G", hl.dsp.exec_cmd(gamemode)) -- disable hypr effe
 hl.bind(mainMod .. " + V", hl.dsp.exec_cmd(clipmanager)) -- Clipboard Manager
 hl.bind(mainMod .. " + M", hl.dsp.exec_cmd(rofimusic)) -- online music
 
--- Screenshot/Screencapture
-hl.bind(mainMod .. " + SHIFT + R", hl.dsp.exec_cmd(screen_record .. " a")) -- Screen Record (area select)
+-- Screen rotation and screencapture
+hl.bind(mainMod .. " + SHIFT + R", hl.dsp.exec_cmd(rotate_monitor)) -- Toggle Dell external monitor rotation
+hl.bind(mainMod .. " + ALT + R", hl.dsp.exec_cmd(screen_record .. " a")) -- Screen Record (area select)
 hl.bind(mainMod .. " + CTRL + R", hl.dsp.exec_cmd(screen_record .. " m")) -- Screen Record (monitor select)
 hl.bind(mainMod .. " + P", hl.dsp.exec_cmd(screenshot .. " s")) -- drag to snip an area / click on a window to print it
 hl.bind(mainMod .. " + CTRL + P", hl.dsp.exec_cmd(screenshot .. " sf")) -- frozen screen, drag to snip an area / click on a window to print it

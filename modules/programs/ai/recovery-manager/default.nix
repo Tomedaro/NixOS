@@ -1,16 +1,18 @@
 # modules/programs/ai/recovery-manager/default.nix
-{ config, lib, pkgs, ... }:
-
-let
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}: let
   cfg = config.my.ai.recoveryManager;
 
   recoveryManagerScript = pkgs.writeShellScriptBin "ai-recovery-manager" ''
     export PYTHONPATH="${../python}:$PYTHONPATH"
     exec ${pkgs.python3}/bin/python3 ${./recovery_manager.py} "$@"
   '';
-in
-{
-  imports = [ ../core ];
+in {
+  imports = [../core];
   options.my.ai.recoveryManager = {
     enable = lib.mkEnableOption "local AI recovery lifecycle manager";
 
@@ -89,7 +91,7 @@ in
     systemd.user.timers.ai-recovery-manager = {
       description = "Run local AI recovery lifecycle manager";
 
-      wantedBy = [ "timers.target" ];
+      wantedBy = ["timers.target"];
 
       timerConfig = {
         OnCalendar = cfg.timerOnCalendar;

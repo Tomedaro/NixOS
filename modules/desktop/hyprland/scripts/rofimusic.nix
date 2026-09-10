@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{pkgs, ...}:
 pkgs.writeShellScriptBin "rofimusic" ''
   if ${pkgs.procps}/bin/pidof rofi > /dev/null; then
     ${pkgs.procps}/bin/pkill rofi

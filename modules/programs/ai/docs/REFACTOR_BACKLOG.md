@@ -1,188 +1,180 @@
-# Refactor backlog - draft
+# Refactor backlog
 
-> Superseded status: later patches disabled the previously identified direct TaskNotes mutation paths. `36f5813` removed/hard-disabled Anki direct TaskNotes mode, and `ac274a9` disabled action-bridge `promote_task_proposal`. Reviewable proposal/draft paths remain; deterministic TaskNotes apply/promote is still future work.
+Snapshot date: 2026-07-22.
 
-This file records the accepted audit draft for `modules/programs/ai/docs/REFACTOR_BACKLOG.md`.
+This backlog records concrete implementation candidates. `ROADMAP.md` owns dependency order; `CURRENT_STATE.md` owns implementation truth. Completed items are retained only when they clarify prerequisites.
 
-## Priority 0 - must precede richer agent behavior
+## Completed foundations
 
-### R-0001 Split/lower broad action authority
+### R-0002 - Remove/disable legacy direct TaskNotes mutation
 
-- Severity: high
-- Depends on: none
-- Files likely touched:
-  - `modules/programs/ai/default.nix`
-  - `modules/programs/ai/action-bridge/default.nix`
-  - `modules/programs/ai/action-bridge/action_bridge.py`
-  - `modules/programs/ai/tests/action_bridge_smoke.py`
-- Resolved by ac274a9: `promote_task_proposal` is disabled, so ordinary action authority no longer enables TaskNotes promotion.
-- Proposed change:
-  - Add explicit capability flags or split authority levels by action class.
-  - Done by ac274a9: action TaskNotes promotion is disabled and legacy promotion option/env wiring was removed.
-  - Keep ordinary answer/nudge/session/check-in behavior working.
-- Acceptance tests:
-  - Done by ac274a9: `promote_task_proposal` is disabled.
-  - Ordinary `answer_question`, `ack_nudge`, `snooze_nudge`, `start_recovery_target` still pass.
-  - Enabling legacy promotion requires explicit config and is reported in status.
+Status: completed.
 
-### R-0002 Completed - Legacy/direct TaskNotes mutation surfaces removed or disabled
+- `action-bridge` proposal promotion is disabled.
+- Anki direct TaskNotes mode is removed/hard-disabled.
+- Reviewable proposals and drafts remain available.
 
-- Severity: high
-- Depends on: R-0001 partly
-- Files likely touched:
-  - `action-bridge/action_bridge.py`
-  - `action-bridge/default.nix`
-  - `anki-bridge/anki_bridge.py`
-  - `anki-bridge/default.nix`
-  - docs: `SAFETY_MODEL.md`, `PROTOCOLS.md`, `ROADMAP.md`
-- Current problem:
-  - Resolved by ac274a9: `action-bridge promote_task_proposal` is disabled and no longer mutates real TaskNotes.
-  - Resolved by 36f5813: Anki direct TaskNotes mode is removed/hard-disabled.
-- Proposed change:
-  - Mark both as legacy/deprecated.
-  - Emit warnings when enabled/used.
-  - Move templates/examples away from direct promotion.
-- Acceptance tests:
-  - Updated current truth: direct TaskNotes mutation paths are removed or disabled; future writes require deterministic apply/promote.
-  - Direct mode status includes warning.
-  - Default mode produces proposal/draft only.
+### R-0003 - Route dialog answers through canonical actions
 
-### R-0003 Resolved by dd4450a: make `dialog-bridge` emit canonical action files for answers
+Status: completed for answers.
 
-- Severity: medium
-- Depends on: R-0001 not strictly, but should follow authority split design
-- Files likely touched:
-  - `dialog-bridge/dialog_bridge.py`
-  - `dialog-bridge/default.nix`
-  - `tests/dialog_bridge_smoke.py`
-  - `tests/action_bridge_smoke.py`
-- Historical problem: before dd4450a, dialog answer handling skipped action journal/idempotency.
-- Current status:
-  - Resolved by dd4450a: desktop answers queue `answer_question` action files under `AI/inbox/actions`.
-  - `action-bridge` remains lifecycle owner and processes queued `answer_question` and `dismiss_question` actions.
-- Remaining follow-up:
-  - Add a real dismiss UI signal before emitting `dismiss_question`.
-- Acceptance tests:
-  - Dialog answer creates action file only.
-  - Action bridge processes answer and updates `last-answer`, current question, interaction state, and event logs.
+- `dialog-bridge` queues `answer_question` action files.
+- `action-bridge` owns lifecycle mutation.
+- Remaining UI follow-up: emit dismiss only when a real dismiss signal exists.
 
-## Priority 1 - documentation truth surface
+### R-0201 - Add read-only TaskNotes context
 
-### R-0101 Generate canonical current-state docs
+Status: completed.
 
-- Severity: medium
-- Depends on: audit review approval
-- Files to create/update:
-  - `CURRENT_STATE.md`
-  - `MODULES.md`
-  - `SAFETY_MODEL.md`
-  - `PROTOCOLS.md`
-  - `OPERATIONS.md`
-  - `ROADMAP.md`
-  - `GLOSSARY.md`
-  - `docs/REVIEW_INVENTORY.md`
-  - `docs/MODULE_REVIEW_REGISTER.md`
-  - `docs/ARCHITECTURE_FINDINGS.md`
-  - `docs/REFACTOR_BACKLOG.md`
-  - `docs/DOC_RESTRUCTURE_PLAN.md`
-- Proposed change:
-  - Use the read-only audit package as the starting point.
-  - Keep `README.md` orientation-only.
-- Acceptance checks:
-  - Every source module appears in `MODULES.md`.
-  - Every current queue path appears in `PROTOCOLS.md`.
-  - Every side-effecting path appears in `SAFETY_MODEL.md`.
-  - Every planned item appears in `ROADMAP.md`.
-  - Every known legacy path is marked legacy/deprecated.
+- bounded/provenanced provider;
+- no TaskNotes mutation capability;
+- context-hub exposure;
+- safe prompt-boundary metadata;
+- smoke coverage.
 
-### R-0102 Add ADRs
+### R-0202A - Add deterministic TaskNotes apply validation
 
-- Severity: docs-only / medium future safety
-- Depends on: R-0101
-- Files to create:
-  - `docs/adr/0001-local-first-ai-vault.md`
-  - `docs/adr/0002-obsidian-review-surface.md`
-  - `docs/adr/0003-tasknotes-human-commitment-surface.md`
-  - `docs/adr/0004-llm-proposal-only-boundary.md`
-  - `docs/adr/0005-split-action-authority.md`
-  - `docs/adr/0006-tasknotes-apply-promote-gate.md`
-- Acceptance checks:
-  - Each ADR has status/context/decision/consequences/alternatives/follow-up tasks.
+Status: completed.
 
-## Priority 2 - TaskNotes apply/promote gate
+- verifies reviewed approval identity and schemas;
+- rejects direct-execution fields and unsafe targets;
+- detects target collision;
+- produces deterministic idempotency inputs and validation result;
+- does not write TaskNotes.
 
-### R-0201 Completed - read-only TaskNotes context contract and provider
+## Accepted architecture direction and implementation backlog
 
-- Severity: medium
-- Depends on: docs current-state clarity and the Markdown-only module contract pressure test
-- Completed status:
-  - `tasknotes.read_context` is documented and implemented as a read-only context provider.
-  - It reads bounded TaskNotes source paths and writes only bounded AI context output/artifacts.
-  - It declares `may_mutate_tasknotes: false` and `required_action_capabilities: none`.
-  - It emits provenance, freshness, source limits, truncation/omission markers, and safe-off/disabled behavior.
-  - `context_hub` exposes compact provider metadata for downstream consumers.
-  - `llm_prompt_package.v1` may include compact `context.tasknotes_read_context` metadata derived from `context_hub`.
-  - Prompt-facing metadata omits raw TaskNotes content, absolute TaskNotes source roots, and provider `source_paths`.
-  - Future deterministic TaskNotes apply/promote remains separate planned work.
-- Acceptance tests:
-  - Contract states no action-bridge runtime action capability is required.
-  - Provider tests prove no TaskNotes writes.
-  - Provider tests prove bounded/provenanced output, freshness fields, limit handling, and safe-off/disabled behavior.
-  - Context-hub and LLM prompt tests prove bounded metadata consumption without TaskNotes writes or live action capability requirements.
+### R-0401 - Implement the accepted first-loop kernel ownership
 
-### R-0202 Implement deterministic TaskNotes apply/promote gate
+Status: decision completed by ADR 0008; implementation pending.
 
-- Severity: high
-- Depends on: R-0001, R-0002, R-0201
-- Proposed change:
-  - A dedicated gate consumes reviewed task draft artifacts and explicit human approval.
-  - Gate writes real TaskNotes only after deterministic validation.
-  - It emits explicit events and idempotency records.
-- Acceptance tests:
-  - Unapproved draft is refused.
-  - Direct execution fields are refused.
-  - Duplicate apply is idempotent/manual-review safe.
-  - Writes only under configured `TaskNotes` root.
+Need:
 
-### R-0203 Add TaskNotes apply schemas/events/tests
+- event ingress owner;
+- state reduction/materialization owner;
+- route/skill selection;
+- deterministic-versus-model decision;
+- context packet assembly;
+- run identity and outcome linkage;
+- restart/idempotency semantics.
 
-- Severity: high
-- Depends on: R-0202
-- Proposed change:
-  - Add schema names and JSON examples to `PROTOCOLS.md`.
-  - Add events under `AI/events/tasknotes` with clear status.
-  - Add smoke tests for accepted/refused/manual-review cases.
+Do not widen this into a broad autonomous loop.
 
-## Priority 3 - agent quality and workflow expansion
+### R-0402 - Introduce the accepted one-provider API boundary
 
-### R-0301 Richer goal/preference/policy contracts
+Status: direction accepted by ADR 0008; implementation pending.
 
-- Severity: medium
-- Depends on: stable protocols and TaskNotes boundaries.
+Current problem: planner internals are Ollama-specific while the accepted first-loop deployment uses one API provider behind a narrow adapter.
 
-### R-0302 ActivityWatch context integration into agent context
+Need:
 
-- Severity: medium
-- Depends on: context provider design.
+- provider/model adapter contract;
+- local secret ownership;
+- privacy-minimized context packets;
+- structured output and validation behavior;
+- timeout/retry/cost/usage budgets;
+- fallback/offline policy;
+- explicit treatment of existing Ollama planner.
 
-### R-0303 Daily planning/review workflows
+### R-0403 - Adapt or retire the older proposal surface
 
-- Severity: medium
-- Depends on: TaskNotes apply gate and current-state docs.
+Status: direction accepted by ADR 0008; implementation pending.
 
-### R-0304 Durable agent run logs
+- New durable proposal work uses the Obsidian intent/proposal/approval/task-draft chain.
+- Older reports/questions/nudges and `AI/proposed-tasks` remain legacy/specialist compatibility until adapted or retired.
 
-- Severity: medium
-- Depends on: event logging decision.
-- Proposed change:
-  - Create per-run records with input context refs, prompt package refs, output refs, validation result, and human decision refs.
+Acceptance condition: no first-loop or future durable-proposal feature creates a third protocol, and the older surface has an explicit adapter or retirement path.
 
-### R-0305 Richer LLM planner behavior
+### R-0404 - Validate the selected first complete product loop
 
-- Severity: low/medium
-- Depends on: safe action/TaskNotes gates.
+Status: loop selected by ADR 0008; implementation and evaluation pending.
 
-### R-0306 Desktop popup UI
+The selected loop helps the user begin an already-known task through a Tasker `Stuck` trigger. Implement and evaluate:
 
-- Severity: low
-- Depends on: protocol/lifecycle becoming boring and stable.
+- known-task resolution;
+- allowlisted context;
+- deterministic/model decision points;
+- `Start` / `Shrink` / `Blocked` / `Defer` controls;
+- bounded queues, expiry, and supersession;
+- start, engagement, friction, burden, correction, and backoff outcomes.
+
+## Authority and protocol hardening
+
+### R-0001 - Continue named-capability migration
+
+Status: partial.
+
+- `ACTION_CAPABILITY_POLICY` exists.
+- `recovery.target.start` is default-off.
+- numeric authority and several default-enabled gates remain transitional.
+
+Any further default flip requires the checklist in `SAFETY_MODEL.md` and full regression coverage.
+
+### R-0103 - Add canonical run/trace record
+
+Severity: medium/high.
+
+Link:
+
+```text
+event -> state/context refs -> model/proposal -> validation -> decision -> action result -> outcome
+```
+
+This record must not require hidden chain-of-thought.
+
+### R-0104 - Decide authoritative event storage
+
+Severity: medium.
+
+Either:
+
+- keep JSONL explicitly evidence-only; or
+- harden/replace it for authoritative run history with locking, fsync, recovery, and ordering semantics.
+
+### R-0105 - Generate/check path and schema inventories
+
+Severity: medium/docs/protocol.
+
+- compare vault-created paths against `PROTOCOLS.md`;
+- compare source schema identifiers against `docs/SCHEMA_REGISTRY.md`;
+- fail documentation checks on drift where practical.
+
+## TaskNotes apply work - conditional on product decision
+
+### R-0202B - Implement real deterministic TaskNotes apply
+
+Severity: high if selected.
+
+Requires:
+
+- explicit apply request and reviewed identity;
+- atomic write under configured root;
+- no overwrite without explicit conflict policy;
+- idempotent replay;
+- apply journal/result and event provenance;
+- manual review for ambiguous conflicts;
+- accepted/refused/conflict/replay tests.
+
+This item may remain deferred if the first product loop does not require durable commitment creation.
+
+## Product intelligence and evaluation
+
+### R-0301 - First-class goal and commitment contracts
+
+Define values/life areas, goals, projects/habits, commitments/tasks, sessions, interventions, and outcomes without forcing all ideas into tasks.
+
+### R-0302 - Attention and receptivity policy
+
+Unify quiet hours, low-energy mode, repeated-ignore backoff, active-work suppression, channel selection, and silence as a valid action.
+
+### R-0303 - Inspectable personal-model records
+
+Add evidence, confidence, expiry, correction, rejection, and supersession semantics.
+
+### R-0304 - Product scenario and real-use evaluation
+
+Measure next-action quality, time to start, meaningful continuation, burden, wrong inference, stale context, repeated nudges, low energy, and recovery quality.
+
+### R-0305 - UI adapters after canonical events
+
+Tasker cards, desktop launcher/popups, and richer phone surfaces should remain thin adapters over canonical events and capabilities.
