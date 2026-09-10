@@ -1,9 +1,5 @@
 # This module uses nouveau with NVK which is the nvidia open-source user-space driver and is not recommended to use as of 30/05/24 since it's unstable
-{
-  pkgs,
-  lib,
-  ...
-}: let
+{pkgs, ...}: let
   env = {
     NVK_I_WANT_A_BROKEN_VULKAN_DRIVER = "1"; # Adds support for older gpus
     MESA_LOADER_DRIVER_OVERRIDE = "zink";
@@ -47,12 +43,4 @@ in {
       ];
     };
   };
-  # Fix black screen issues
-  home-manager.sharedModules = [
-    (
-      {config, ...}: {
-        wayland.windowManager.hyprland.settings.misc.vrr = lib.mkForce 0;
-      }
-    )
-  ];
 }

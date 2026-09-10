@@ -1,12 +1,13 @@
 {
+  bluetoothSupport,
+  caelestiaModule,
+  clock24h,
+}: {
   config,
+  lib,
   pkgs,
-  inputs,
   ...
 }: let
-  clock24h = config.workstation.localization.clock24h;
-  username = config.workstation.user.name;
-  bluetoothSupport = config.workstation.hardware.bluetooth;
   caelestiaSettings = {
     appearance.transparency.enabled = true;
     background = {
@@ -120,7 +121,7 @@
     paths = {
       mediaGif = "root:/assets/bongocat.gif";
       sessionGif = "root:/assets/kurukuru.gif";
-      wallpaperDir = "/home/${username}/NixOS/modules/themes/wallpapers";
+      wallpaperDir = "${config.home.homeDirectory}/NixOS/modules/themes/wallpapers";
     };
 
     services = {
@@ -175,38 +176,23 @@
 
   caelestiaShellJson = pkgs.writeText "caelestia-shell.json" (builtins.toJSON caelestiaSettings);
 in {
-  environment.systemPackages = with pkgs; [
-    wl-clipboard
-    brightnessctl
-  ];
+  _class = "homeManager";
 
-  home-manager.sharedModules = [
-    (
-      {
-        config,
-        lib,
-        ...
-      }: {
-        imports = [
-          inputs.caelestia-shell.homeManagerModules.default
-        ];
+  imports = [caelestiaModule];
 
-        programs.caelestia = {
-          enable = true;
-          systemd.enable = false;
-        };
+  programs.caelestia = {
+    enable = true;
+    systemd.enable = false;
+  };
 
-        home.activation.caelestiaWritableConfig = lib.hm.dag.entryAfter ["writeBoundary"] ''
-          mkdir -p "${config.xdg.configHome}/caelestia"
+  home.activation.caelestiaWritableConfig = lib.hm.dag.entryAfter ["writeBoundary"] ''
+    mkdir -p "${config.xdg.configHome}/caelestia"
 
-          if [ -L "${config.xdg.configHome}/caelestia/shell.json" ]; then
-            rm "${config.xdg.configHome}/caelestia/shell.json"
-          fi
+    if [ -L "${config.xdg.configHome}/caelestia/shell.json" ]; then
+      rm "${config.xdg.configHome}/caelestia/shell.json"
+    fi
 
-          install -m 0644 "${caelestiaShellJson}" \
-            "${config.xdg.configHome}/caelestia/shell.json"
-        '';
-      }
-    )
-  ];
+    install -m 0644 "${caelestiaShellJson}" \
+      "${config.xdg.configHome}/caelestia/shell.json"
+  '';
 }

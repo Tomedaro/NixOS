@@ -31,3 +31,9 @@ Concrete user selections are passed to the user's Home Manager composition root 
 than exposed as NixOS-wide special arguments. A host's target architecture is owned by
 `nixpkgs.hostPlatform` in its hardware configuration; repository tooling systems are a
 separate flake-output concern.
+
+`home-manager.sharedModules` is reserved for policy intentionally shared by every
+managed account and is not used by this repository. Personal settings and packages
+must be imported by the intended user. A feature with genuine NixOS and Home Manager
+sides exposes them as separate modules instead of transporting the user side through
+the system module.

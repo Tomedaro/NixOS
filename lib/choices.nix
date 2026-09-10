@@ -38,24 +38,45 @@ let
     }
     // extra;
 
-  pending = module: reason: extra:
+  pendingHomeWith = homeModule: reason: extra:
     {
-      inherit module reason;
+      inherit homeModule reason;
       status = "pending";
     }
     // extra;
 
-  legacy = module: reason: extra:
+  pendingHybridWith = module: homeModule: reason: extra:
     {
-      inherit module reason;
+      inherit module homeModule reason;
+      status = "pending";
+    }
+    // extra;
+
+  legacyHybridWith = module: homeModule: reason: extra:
+    {
+      inherit module homeModule reason;
       status = "legacy";
     }
     // extra;
 
-  experimental = module: reason: extra:
+  experimentalHybridWith = module: homeModule: reason: extra:
     {
-      inherit module reason;
+      inherit module homeModule reason;
       status = "experimental";
+    }
+    // extra;
+
+  supportedProfileWith = profileModule: extra:
+    {
+      inherit profileModule;
+      status = "supported";
+    }
+    // extra;
+
+  pendingProfileWith = profileModule: reason: extra:
+    {
+      inherit profileModule reason;
+      status = "pending";
     }
     // extra;
 in {
@@ -123,7 +144,29 @@ in {
       )
       {};
     plasma6 =
-      pending ../modules/desktop/plasma6
+      pendingHybridWith
+      ../modules/desktop/plasma6/system.nix
+      (
+        {
+          browser,
+          editor,
+          games,
+          plasmaManagerModule,
+          terminal,
+          wallpaper,
+          ...
+        }:
+          import ../modules/desktop/plasma6 {
+            inherit
+              browser
+              editor
+              games
+              plasmaManagerModule
+              terminal
+              wallpaper
+              ;
+          }
+      )
       "Plasma itself is maintained, but this repository's plasma-manager integration must be refreshed before the selector is re-enabled."
       {};
   };
@@ -147,19 +190,49 @@ in {
         providesNotifications = false;
       };
     hyprpanel =
-      legacy ../modules/desktop/hyprland/programs/hyprpanel
+      legacyHybridWith
+      ../modules/desktop/hyprland/programs/hyprpanel/system.nix
+      (
+        {
+          bluetoothSupport,
+          clock24h,
+          ...
+        }:
+          import ../modules/desktop/hyprland/programs/hyprpanel {
+            inherit bluetoothSupport clock24h;
+          }
+      )
       "HyprPanel was archived upstream on 2026-04-27 in favor of Wayle. Keep the old module as historical source, but do not advertise it as a maintained selectable shell."
       {
         providesNotifications = true;
       };
     noctalia =
-      legacy ../modules/desktop/hyprland/programs/noctalia-shell
+      legacyHybridWith
+      ../modules/desktop/hyprland/programs/noctalia-shell/system.nix
+      (
+        {noctaliaModule, ...}:
+          import ../modules/desktop/hyprland/programs/noctalia-shell {
+            inherit noctaliaModule;
+          }
+      )
       "The checked-in module targets Noctalia Shell v4, whose final release is v4.7.7. Noctalia v5 is a separate incompatible product/configuration migration."
       {
         providesNotifications = false;
       };
     caelestia =
-      experimental ../modules/desktop/hyprland/programs/caelestia-shell
+      experimentalHybridWith
+      ../modules/desktop/hyprland/programs/caelestia-shell/system.nix
+      (
+        {
+          bluetoothSupport,
+          caelestiaModule,
+          clock24h,
+          ...
+        }:
+          import ../modules/desktop/hyprland/programs/caelestia-shell {
+            inherit bluetoothSupport caelestiaModule clock24h;
+          }
+      )
       "The checked-in Caelestia configuration must be validated against a pinned stable Caelestia release before it is selectable again."
       {
         providesNotifications = true;
@@ -208,7 +281,18 @@ in {
       )
       {command = "nvim";};
     neovim =
-      pending ../modules/programs/editor/neovim
+      pendingHybridWith
+      ../modules/programs/editor/neovim/system.nix
+      (
+        {
+          neovimSource,
+          terminal,
+          ...
+        }:
+          import ../modules/programs/editor/neovim {
+            inherit neovimSource terminal;
+          }
+      )
       "The old external Sly-Harvey/nvim source is no longer the maintained integration. This choice will be made self-contained before being re-enabled."
       {command = "nvim";};
     nvchad =
@@ -228,19 +312,53 @@ in {
       {command = "hx";};
     emacs = supportedHome ../modules/programs/editor/emacs {command = "emacsclient -t -a emacs";};
     doom-emacs =
-      pending ../modules/programs/editor/doom-emacs
+      pendingHomeWith
+      (
+        {
+          doomConfig,
+          doomEmacsModule,
+          ...
+        }:
+          import ../modules/programs/editor/doom-emacs {
+            inherit doomConfig doomEmacsModule;
+          }
+      )
       "Doom Emacs currently depends on removed external configuration inputs. It needs a deliberate current Unstraightened/local-config integration."
       {command = "emacsclient -t -a emacs";};
   };
 
   browsers = {
-    zen-beta = supported ../modules/programs/browser/zen-beta {command = "zen-beta";};
+    zen-beta =
+      supportedProfileWith
+      (
+        {
+          betterfoxSource,
+          zenBrowserModule,
+          ...
+        }:
+          import ../modules/programs/browser/zen-beta {
+            inherit betterfoxSource zenBrowserModule;
+          }
+      )
+      {command = "zen-beta";};
     firefox =
-      pending ../modules/programs/browser/firefox
+      pendingProfileWith
+      (
+        {betterfoxSource, ...}:
+          import ../modules/programs/browser/firefox {
+            inherit betterfoxSource;
+          }
+      )
       "Browser package/profile ownership is still being migrated; selecting Firefox must not silently overwrite an existing mutable profile."
       {command = "firefox";};
     floorp =
-      pending ../modules/programs/browser/floorp
+      pendingProfileWith
+      (
+        {betterfoxSource, ...}:
+          import ../modules/programs/browser/floorp {
+            inherit betterfoxSource;
+          }
+      )
       "Browser package/profile ownership is still being migrated; selecting Floorp must not silently overwrite an existing mutable profile."
       {command = "floorp";};
   };
@@ -272,7 +390,9 @@ in {
     amdgpu = supported ../modules/hardware/video/amdgpu.nix {};
     nvidia = supported ../modules/hardware/video/nvidia.nix {};
     nvk =
-      pending ../modules/hardware/video/nvk.nix
+      pendingHybridWith
+      ../modules/hardware/video/nvk.nix
+      (_: ../modules/hardware/video/nvk-home.nix)
       "NVK itself is mature, but this repository's module still carries obsolete experimental-era Nouveau/Zink overrides and must be modernized before it is supported."
       {};
   };

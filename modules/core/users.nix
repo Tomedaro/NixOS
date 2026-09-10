@@ -17,7 +17,7 @@ in {
       message = ''
         Home Manager ownership: home-manager.sharedModules must stay empty.
         Import personal features into the intended user's composition instead.
-        Dormant shared-module integrations must be migrated before activation.
+        Shared modules would silently apply personal policy to every managed account.
       '';
     }
   ];

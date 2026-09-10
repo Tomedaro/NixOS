@@ -56,10 +56,9 @@ in {
       ../../modules/programs/misc/virt-manager
       ../../modules/programs/anki
 
-      # Browser ownership remains in host-packages.nix for this behavior-preserving
-      # tranche. The browser selector is still typed and consumed by desktop/app
-      # defaults; moving package/profile ownership is a separate migration.
-      # (selectChoice "browser" choices.browsers vars.browser).module
+      # Browser packages and native-messaging integration remain in
+      # host-packages.nix. Browser profile modules are catalogued separately but
+      # deliberately not composed while mutable profile adoption is deferred.
     ]
     ++ lib.optionals (selectedTerminal ? module) [selectedTerminal.module]
     ++ lib.optionals (selectedEditor ? module) [selectedEditor.module]

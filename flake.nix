@@ -230,16 +230,18 @@
       lib.all
       (choice: choice.status != "supported" || builtins.hasAttr field choice)
       (builtins.attrValues set);
-    supportedHomeModulesAreFunctions = set:
+    choiceUserModulesAreFunctions = set:
       lib.all
-      (choice: choice.status != "supported" || builtins.isFunction choice.homeModule)
+      (choice:
+        (!(choice ? homeModule) || builtins.isFunction choice.homeModule)
+        && (!(choice ? profileModule) || builtins.isFunction choice.profileModule))
       (builtins.attrValues set);
     choiceCatalogIsValid =
       lib.all
       (set:
         lib.all
         (choice:
-          (choice ? module || choice ? homeModule)
+          (choice ? module || choice ? homeModule || choice ? profileModule)
           && choice ? status
           && builtins.elem choice.status validChoiceStatuses
           && (choice.status == "supported" || choice ? reason))
@@ -250,7 +252,7 @@
       && lib.all (choice: choice ? command) (builtins.attrValues choices.browsers)
       && lib.all (choice: choice ? packageName) (builtins.attrValues choices.shells)
       && supportedChoicesHave "module" choices.desktops
-      && supportedChoicesHave "module" choices.browsers
+      && supportedChoicesHave "profileModule" choices.browsers
       && supportedChoicesHave "module" choices.videoDrivers
       && supportedChoicesHave "homeModule" choices.desktops
       && supportedChoicesHave "homeModule" choices.hyprlandBars
@@ -259,13 +261,7 @@
       && supportedChoicesHave "homeModule" choices.editors
       && supportedChoicesHave "homeModule" choices.fileManagers
       && supportedChoicesHave "homeModule" choices.shells
-      && supportedHomeModulesAreFunctions choices.desktops
-      && supportedHomeModulesAreFunctions choices.hyprlandBars
-      && supportedHomeModulesAreFunctions choices.waybarThemes
-      && supportedHomeModulesAreFunctions choices.terminals
-      && supportedHomeModulesAreFunctions choices.editors
-      && supportedHomeModulesAreFunctions choices.fileManagers
-      && supportedHomeModulesAreFunctions choices.shells;
+      && lib.all choiceUserModulesAreFunctions choiceSets;
   in {
     templates = templates;
     overlays = repoOverlays;
@@ -384,6 +380,12 @@
 
           if rg -n '\b[w]orkstationSelections\b' "$src" --glob '*.nix'; then
             echo "the legacy aggregate selector argument was retired; user-side selectors belong in explicit Home Manager composition" >&2
+            exit 1
+          fi
+
+          if rg -n 'home-manager\.sharedModules[[:space:]]*=[^=]' \
+            "$src/modules" --glob '*.nix'; then
+            echo "personal modules must be composed by an explicit user; sharedModules fan out to every managed account" >&2
             exit 1
           fi
           touch "$out"

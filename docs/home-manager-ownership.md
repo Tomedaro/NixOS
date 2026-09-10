@@ -22,10 +22,17 @@ and home directory from the corresponding NixOS user.
 
 ## Explicit user composition
 
-14 dormant modules still contain `home-manager.sharedModules` assignments;
-none are active in the supported configurations. The integration assertion
-rejects any attempt to reintroduce shared payloads, including through a dormant
-module, until its ownership is migrated explicitly.
+No repository module assigns `home-manager.sharedModules`. The NixOS integration
+assertion and the flake's structural boundary check both reject its
+reintroduction. Personal modules must be selected by a concrete user's
+composition root rather than silently applied to every managed account.
+
+Previously dormant alternatives now expose their ownership without becoming
+supported: pure personal implementations are `homeManager`-class modules, while
+mixed Plasma, Neovim, HyprPanel, Noctalia, Caelestia, and NVK implementations have
+separate system and user sides. Their pending, legacy, or experimental catalogue
+status still prevents selection. Missing upstream inputs were not restored and
+no dormant feature was activated.
 The extracted CLI user layer now includes Starship, tmux, lazygit, Cava,
 direnv, and btop as `homeManager`-class modules imported directly by
 `users/daniil/default.nix`. There is no longer an assertion limiting Home Manager
@@ -74,8 +81,8 @@ option.
 The former `workstationSelections` import-time escape hatch is removed. Desktop,
 bar, and Waybar-theme selection now occurs in explicit user composition; system
 selection still uses the typed desktop catalog. Legacy, experimental, and pending
-desktop/theme modules remain dormant and are not silently legitimized by this
-migration.
+alternatives remain dormant and are not silently legitimized by their explicit
+ownership split.
 
 MangoHud is a direct `homeManager`-class module at
 `modules/programs/games/mangohud.nix`. Daniil's root imports it only when its

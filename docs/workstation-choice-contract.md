@@ -43,6 +43,11 @@ his user root. The structural boundary check rejects `workstationSettings` anywh
 under `modules/`, preventing the raw host interface from leaking back into reusable
 modules.
 
+Pending, legacy, and experimental mixed alternatives also record separate `module`
+and `homeModule` fields, but their status prevents either side from being selected.
+Browser profile constructors use the distinct `profileModule` field because browser
+command/package selection is supported independently of declarative profile adoption.
+
 ## Current exceptions
 
 - Plasma 6 is pending until its Plasma Manager integration is refreshed against the
@@ -105,11 +110,11 @@ features are composed explicitly by `users/daniil/default.nix`; they do not use
 `home-manager.sharedModules` to apply personal policy to every managed account.
 
 MangoHud follows the explicit gaming choice in Daniil's root. All supported
-configurations have zero active shared payloads. `modules/core/users.nix` asserts
-that `home-manager.sharedModules` stays empty, replacing the former single-user
-restriction. The 14 remaining assignment sites are dormant; they must be migrated
-before activation. A second user's Home Manager configuration must select its own
-personal features. This boundary does not make host-global policy user-specific.
+configurations have zero active shared payloads, and no repository module assigns
+`home-manager.sharedModules`. `modules/core/users.nix` asserts that it stays empty;
+the flake boundary check rejects assignment sites before they can become dormant
+technical debt again. A second user's Home Manager configuration must select its
+own personal features. This boundary does not make host-global policy user-specific.
 `home-manager.useGlobalPkgs = true` remains so NixOS and Home Manager share the same
 `pkgs` instance and overlays.
 
