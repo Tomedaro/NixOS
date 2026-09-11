@@ -18,6 +18,7 @@
   selectedDesktop = selectChoice "desktop" choices.desktops vars.desktop;
   selectedTerminal = selectChoice "terminal" choices.terminals vars.terminal;
   selectedEditor = selectChoice "editor" choices.editors vars.editor;
+  selectedBrowser = selectChoice "browser" choices.browsers vars.browser;
 in {
   imports =
     [
@@ -27,6 +28,7 @@ in {
       ./boot.nix
       ./network.nix
       ./host-packages.nix
+      selectedBrowser.module
 
       # Baseline modules
       ../../modules/scripts
@@ -56,9 +58,9 @@ in {
       ../../modules/programs/misc/virt-manager
       ../../modules/programs/anki
 
-      # Browser packages and native-messaging integration remain in
-      # host-packages.nix. Browser profile modules are catalogued separately but
-      # deliberately not composed while mutable profile adoption is deferred.
+      # The selected browser's package and native-messaging integration are
+      # system-owned. Its profile module is catalogued separately but deliberately
+      # not composed while mutable profile adoption is deferred.
     ]
     ++ lib.optionals (selectedTerminal ? module) [selectedTerminal.module]
     ++ lib.optionals (selectedEditor ? module) [selectedEditor.module]

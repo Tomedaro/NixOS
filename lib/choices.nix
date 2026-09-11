@@ -66,16 +66,21 @@ let
     }
     // extra;
 
-  supportedProfileWith = profileModule: extra:
+  supportedBrowserWith = module: profileModule: profileReason: extra:
     {
-      inherit profileModule;
+      inherit module profileModule profileReason;
+      packageOwner = "system";
+      profileStatus = "deferred";
       status = "supported";
     }
     // extra;
 
-  pendingProfileWith = profileModule: reason: extra:
+  pendingBrowserWith = profileModule: reason: extra:
     {
       inherit profileModule reason;
+      packageOwner = "unresolved";
+      profileReason = reason;
+      profileStatus = "deferred";
       status = "pending";
     }
     // extra;
@@ -329,7 +334,8 @@ in {
 
   browsers = {
     zen-beta =
-      supportedProfileWith
+      supportedBrowserWith
+      ../modules/programs/browser/zen-beta/system.nix
       (
         {
           betterfoxSource,
@@ -340,26 +346,27 @@ in {
             inherit betterfoxSource zenBrowserModule;
           }
       )
+      "The existing mutable Zen profile and XDG MIME/default state must be inventoried, backed up, and validated before Home Manager may write profiles.ini or profile files."
       {command = "zen-beta";};
     firefox =
-      pendingProfileWith
+      pendingBrowserWith
       (
         {betterfoxSource, ...}:
           import ../modules/programs/browser/firefox {
             inherit betterfoxSource;
           }
       )
-      "Browser package/profile ownership is still being migrated; selecting Firefox must not silently overwrite an existing mutable profile."
+      "Firefox has no selected system-package integration, and declarative profile adoption must not silently overwrite existing mutable browser state."
       {command = "firefox";};
     floorp =
-      pendingProfileWith
+      pendingBrowserWith
       (
         {betterfoxSource, ...}:
           import ../modules/programs/browser/floorp {
             inherit betterfoxSource;
           }
       )
-      "Browser package/profile ownership is still being migrated; selecting Floorp must not silently overwrite an existing mutable profile."
+      "Floorp has no selected system-package integration, and declarative profile adoption must not silently overwrite existing mutable browser state."
       {command = "floorp";};
   };
 

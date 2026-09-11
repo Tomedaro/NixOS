@@ -215,6 +215,11 @@
       "legacy"
       "experimental"
     ];
+    validBrowserPackageOwners = [
+      "system"
+      "unresolved"
+    ];
+    validBrowserProfileStatuses = ["deferred"];
     choiceSets = [
       choices.desktops
       choices.hyprlandBars
@@ -236,6 +241,18 @@
         (!(choice ? homeModule) || builtins.isFunction choice.homeModule)
         && (!(choice ? profileModule) || builtins.isFunction choice.profileModule))
       (builtins.attrValues set);
+    browserCatalogIsValid =
+      lib.all
+      (choice:
+        choice ? packageOwner
+        && builtins.elem choice.packageOwner validBrowserPackageOwners
+        && choice ? profileStatus
+        && builtins.elem choice.profileStatus validBrowserProfileStatuses
+        && choice ? profileReason
+        && builtins.isString choice.profileReason
+        && choice.profileReason != ""
+        && (choice.status != "supported" || choice.packageOwner == "system"))
+      (builtins.attrValues choices.browsers);
     choiceCatalogIsValid =
       lib.all
       (set:
@@ -251,8 +268,10 @@
       && lib.all (choice: choice ? command) (builtins.attrValues choices.editors)
       && lib.all (choice: choice ? command) (builtins.attrValues choices.browsers)
       && lib.all (choice: choice ? packageName) (builtins.attrValues choices.shells)
+      && browserCatalogIsValid
       && supportedChoicesHave "module" choices.desktops
       && supportedChoicesHave "profileModule" choices.browsers
+      && supportedChoicesHave "module" choices.browsers
       && supportedChoicesHave "module" choices.videoDrivers
       && supportedChoicesHave "homeModule" choices.desktops
       && supportedChoicesHave "homeModule" choices.hyprlandBars
@@ -432,6 +451,41 @@
           if rg -n 'home-manager\.sharedModules[[:space:]]*=[^=]' \
             "$src/modules" --glob '*.nix'; then
             echo "personal modules must be composed by an explicit user; sharedModules fan out to every managed account" >&2
+            exit 1
+          fi
+
+          if rg -n '\.profileModule\b' \
+            "$src/hosts" "$src/users" --glob '*.nix'; then
+            echo "deferred browser profile modules must not be composed by a host or user root" >&2
+            exit 1
+          fi
+
+          if rg -n \
+            -e '\bfirefoxpwa\b' \
+            -e 'zen-browser\.packages' \
+            "$src/hosts/Singularity/host-packages.nix"; then
+            echo "selected browser packages belong to the browser system module, not the residual host package list" >&2
+            exit 1
+          fi
+
+          if ! rg -q \
+            'config\.workstationInternal\.browser\.systemPackages' \
+            "$src/hosts/Singularity/host-packages.nix"; then
+            echo "the host package aggregator must retain the typed browser package boundary" >&2
+            exit 1
+          fi
+
+          if ! rg -q \
+            'workstationInternal\.browser\.systemPackages' \
+            "$src/modules/programs/browser/zen-beta/system.nix"; then
+            echo "the selected browser module must supply the typed browser package boundary" >&2
+            exit 1
+          fi
+
+          if rg -n \
+            'environment\.systemPackages' \
+            "$src/modules/programs/browser/zen-beta/system.nix"; then
+            echo "browser packages must not bypass the stable host aggregation point" >&2
             exit 1
           fi
           touch "$out"

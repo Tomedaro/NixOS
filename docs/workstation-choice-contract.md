@@ -45,8 +45,15 @@ modules.
 
 Pending, legacy, and experimental mixed alternatives also record separate `module`
 and `homeModule` fields, but their status prevents either side from being selected.
-Browser profile constructors use the distinct `profileModule` field because browser
-command/package selection is supported independently of declarative profile adoption.
+Browsers model two independent boundaries. A supported browser provides a NixOS
+`module` and `packageOwner = "system"` for package/native-messaging integration.
+Its dormant profile constructor remains in `profileModule`, accompanied by an
+explicit `profileStatus` and `profileReason`. A browser can therefore be supported
+for command and package selection while declarative profile adoption remains
+deferred. The selected system module supplies packages through the internal
+`workstationInternal.browser.systemPackages` channel, which the host package
+aggregator appends at a stable boundary. Host and user roots do not compose
+deferred profile constructors.
 
 ## Current exceptions
 
@@ -65,8 +72,12 @@ command/package selection is supported independently of declarative profile adop
   be self-contained or use a current maintained integration.
 - Doom Emacs is pending until its external configuration/dependency ownership is
   redesigned deliberately.
-- Firefox and Floorp are pending until browser package/profile ownership is migrated
-  without overwriting existing mutable browser state.
+- Zen Beta's package and FirefoxPWA integration are supported and system-owned.
+  Its declarative profile remains deferred so existing mutable state and XDG
+  defaults are not overwritten. See `docs/browser-ownership.md`.
+- Firefox and Floorp are pending because neither has a selected system-package
+  integration, and their profile modules must not overwrite existing mutable
+  browser state.
 - NVK is pending even though Mesa NVK itself is mature: the repository module still
   contains old experimental-era Nouveau/Zink overrides and must be modernized first.
 
