@@ -42,6 +42,15 @@ Configuration, provisioning, deployment, and external secret/mutable state are
 separate concerns. A successful Nix evaluation does not imply that credentials,
 NetworkManager profiles, SSH host identity, or service data have been restored.
 
+## Browser portability
+
+The supported Zen choice provisions the system package and FirefoxPWA native
+messaging integration. It does not provision mutable Zen/Mozilla profiles,
+installed PWAs, credentials, or user MIME/default-application state. A new host
+must restore or deliberately adopt that state as a separate, backed-up operation;
+copying `hosts/Singularity` is not a browser-data migration. See
+`docs/browser-ownership.md`.
+
 ## Future provisioning
 
 A later phase will evaluate a safe fresh-machine workflow built around normal

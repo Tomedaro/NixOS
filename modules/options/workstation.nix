@@ -146,4 +146,14 @@ in {
       };
     };
   };
+
+  options.workstationInternal.browser.systemPackages = mkOption {
+    type = types.listOf types.package;
+    default = [];
+    internal = true;
+    description = ''
+      System packages supplied by the selected browser integration. The host
+      package aggregator appends this list at its stable browser boundary.
+    '';
+  };
 }

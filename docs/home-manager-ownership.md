@@ -52,9 +52,11 @@ and VS Code retains its selected NixOS unfree predicate, as optional system
 sides of the same catalog entries. Other choices have no empty NixOS wrapper.
 
 The user root now owns `EDITOR`, `VISUAL`, `BROWSER`, and `TERMINAL`. Values are
-still derived from the typed choice catalog. Browser package/profile ownership
-is not activated by this change: the current Zen package remains host-owned,
-and the pending Firefox/Floorp profile migrations remain pending.
+still derived from the typed choice catalog. The selected Zen Beta package and
+its FirefoxPWA native-messaging integration remain system-owned through the
+browser choice's explicit NixOS module and typed internal package channel.
+Browser profile modules are not composed; mutable profile adoption is a distinct
+deferred boundary. See `docs/browser-ownership.md`.
 
 Nixvim receives only its platform package collection and selected terminal;
 NvChad receives only its upstream Home Manager module; Helix receives only the
@@ -113,8 +115,11 @@ and enabled state are preserved. No NixOS arguments are passed into these module
 Daniil's 43 personal Home Manager package/output entries are declared in
 `users/daniil/packages.nix`, imported by the user root. This is a personal package
 selection, not a generic feature module. `hosts/Singularity/host-packages.nix`
-currently retains the separate system package list, including browser integration
-and coupled administrator/runtime tools.
+retains the residual system package list and coupled administrator/runtime tools.
+The selected browser's system module owns Zen Beta and FirefoxPWA through a typed
+internal list that the host package aggregator appends at the existing browser
+boundary. Package installation therefore follows the browser selection without
+changing package order or the system-level XDG precedence boundary.
 
 Bzmenu and yt-x remain the exact derivations selected from their locked flake
 inputs, but Singularity now passes them as explicit package constructor arguments
@@ -145,8 +150,9 @@ policy, ports, and mutable server state remain system-owned and unchanged.
 
 EasyEffects session behavior, captive-browser, and the Pi-related lean-ctx tool
 remain pending integration-specific review. Browser packages remain with their
-selection and flake-input boundaries; device/administrator utilities are not
-presumed to be personal applications.
+selection and flake-input boundaries, while browser profiles remain mutable and
+undeclared; device/administrator utilities are not presumed to be personal
+applications.
 
 Pi is a reusable `homeManager`-class module selected directly by the user root.
 Its package, wrappers, scripts, session path, and home-derived runtime paths are
